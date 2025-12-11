@@ -8,7 +8,7 @@ const firebaseConfig = {
   projectId: "kamyab-plan",
   storageBucket: "kamyab-plan.appspot.com",
   messagingSenderId: "761871754238",
-  appId: "1:761871754238:web:c2a8fa1c9358cc5eb896af",
+  appId: "1:761871754238:web:c5dccbd5b871f0b4b896af",
 };
 
 // Validate Firebase config
