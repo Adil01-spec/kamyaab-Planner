@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, serverTimestamp } from 'firebase/firestore';
 
@@ -11,7 +11,18 @@ const firebaseConfig = {
   appId: "1:761871754238:web:c2a8fa1c9358cc5eb896af",
 };
 
-const app = initializeApp(firebaseConfig);
+// Validate Firebase config
+const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'] as const;
+requiredFields.forEach((field) => {
+  if (!firebaseConfig[field]) {
+    console.warn(`Firebase config missing required field: ${field}`);
+  }
+});
+
+// Initialize Firebase only once
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
+console.log("Firebase initialized:", { projectId: firebaseConfig.projectId });
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export { serverTimestamp };

@@ -17,37 +17,48 @@ const Auth = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
+  const getFirebaseErrorMessage = (errorCode: string): string => {
+    const errorMessages: Record<string, string> = {
+      'auth/email-already-in-use': 'Email already registered. Try logging in.',
+      'auth/invalid-email': 'Invalid email format.',
+      'auth/weak-password': 'Password must be at least 6 characters.',
+      'auth/operation-not-allowed': 'Email/password sign-in is disabled in Firebase console.',
+      'auth/invalid-credential': 'Invalid email or password.',
+      'auth/user-not-found': 'No account found with this email.',
+      'auth/wrong-password': 'Incorrect password.',
+      'auth/too-many-requests': 'Too many attempts. Please try again later.',
+      'auth/network-request-failed': 'Network error. Please check your connection.',
+    };
+    return errorMessages[errorCode] || `Authentication failed: ${errorCode}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
+    // Preliminary validation
+    if (!email.trim() || !password.trim()) {
+      toast.error('Please enter both email and password.');
       return;
     }
 
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
     try {
       if (isLogin) {
-        await signIn(email, password);
+        await signIn(email.trim(), password);
         toast.success('Welcome back!');
       } else {
-        await signUp(email, password);
+        await signUp(email.trim(), password);
         toast.success('Account created successfully!');
       }
       navigate('/onboarding');
     } catch (error: any) {
-      const errorMessage = error.code === 'auth/email-already-in-use' 
-        ? 'This email is already registered' 
-        : error.code === 'auth/invalid-credential'
-        ? 'Invalid email or password'
-        : error.code === 'auth/weak-password'
-        ? 'Password is too weak'
-        : 'Something went wrong. Please try again.';
+      console.error("AUTH ERROR:", error);
+      const errorMessage = getFirebaseErrorMessage(error.code);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
