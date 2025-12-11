@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, serverTimestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDSq2m4VPn9DsGDeMrdOxrk8rW1JllSswU",
+  authDomain: "kamyab-plan.firebaseapp.com",
+  projectId: "kamyab-plan",
+  storageBucket: "kamyab-plan.appspot.com",
+  messagingSenderId: "761871754238",
+  appId: "1:761871754238:web:c2a8fa1c9358cc5eb896af",
 };
 
 const app = initializeApp(firebaseConfig);
