@@ -17,19 +17,30 @@ const Auth = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
-  const getFirebaseErrorMessage = (errorCode: string): string => {
-    const errorMessages: Record<string, string> = {
-      'auth/email-already-in-use': 'Email already registered. Try logging in.',
-      'auth/invalid-email': 'Invalid email format.',
-      'auth/weak-password': 'Password must be at least 6 characters.',
-      'auth/operation-not-allowed': 'Email/password sign-in is disabled in Firebase console.',
-      'auth/invalid-credential': 'Invalid email or password.',
-      'auth/user-not-found': 'No account found with this email.',
-      'auth/wrong-password': 'Incorrect password.',
-      'auth/too-many-requests': 'Too many attempts. Please try again later.',
-      'auth/network-request-failed': 'Network error. Please check your connection.',
-    };
-    return errorMessages[errorCode] || `Authentication failed: ${errorCode}`;
+  const getErrorMessage = (error: any): string => {
+    const message = error?.message || '';
+    
+    // Map common Supabase auth errors to user-friendly messages
+    if (message.includes('Invalid login credentials')) {
+      return 'Invalid email or password.';
+    }
+    if (message.includes('Email not confirmed')) {
+      return 'Please confirm your email before logging in.';
+    }
+    if (message.includes('User already registered')) {
+      return 'Email already registered. Try logging in.';
+    }
+    if (message.includes('Password should be at least')) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (message.includes('Invalid email')) {
+      return 'Invalid email format.';
+    }
+    if (message.includes('rate limit')) {
+      return 'Too many attempts. Please try again later.';
+    }
+    
+    return message || 'Authentication failed. Please try again.';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,17 +60,26 @@ const Auth = () => {
     setLoading(true);
     try {
       if (isLogin) {
-        await signIn(email.trim(), password);
+        const { error } = await signIn(email.trim(), password);
+        if (error) {
+          console.error("AUTH ERROR:", error);
+          toast.error(getErrorMessage(error));
+          return;
+        }
         toast.success('Welcome back!');
       } else {
-        await signUp(email.trim(), password);
+        const { error } = await signUp(email.trim(), password);
+        if (error) {
+          console.error("AUTH ERROR:", error);
+          toast.error(getErrorMessage(error));
+          return;
+        }
         toast.success('Account created successfully!');
       }
       navigate('/onboarding');
     } catch (error: any) {
       console.error("AUTH ERROR:", error);
-      const errorMessage = getFirebaseErrorMessage(error.code);
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

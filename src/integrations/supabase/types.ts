@@ -14,7 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      plans: {
+        Row: {
+          created_at: string
+          id: string
+          plan_json: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_json?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_json?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          profession: string | null
+          profession_details: Json | null
+          project_deadline: string | null
+          project_description: string | null
+          project_title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          profession?: string | null
+          profession_details?: Json | null
+          project_deadline?: string | null
+          project_description?: string | null
+          project_title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          profession?: string | null
+          profession_details?: Json | null
+          project_deadline?: string | null
+          project_description?: string | null
+          project_title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

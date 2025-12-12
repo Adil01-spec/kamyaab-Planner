@@ -1,26 +1,37 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserProfile {
+  id: string;
+  full_name: string | null;
+  profession: string | null;
+  profession_details: Record<string, any>;
+  project_title: string | null;
+  project_description: string | null;
+  project_deadline: string | null;
+  created_at: string;
+}
+
+// Mapped profile interface for component compatibility
+interface MappedProfile {
   fullName: string;
   profession: string;
   professionDetails: Record<string, any>;
   projectTitle: string;
   projectDescription: string;
   projectDeadline: string;
-  createdAt: any;
 }
 
 interface AuthContextType {
   user: User | null;
-  profile: UserProfile | null;
+  session: Session | null;
+  profile: MappedProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string) => Promise<{ error: any }>;
   logout: () => Promise<void>;
-  saveProfile: (data: Omit<UserProfile, 'createdAt'>) => Promise<void>;
+  saveProfile: (data: Omit<MappedProfile, 'createdAt'>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -36,15 +47,35 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<MappedProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (uid: string) => {
+  const mapProfile = (dbProfile: UserProfile): MappedProfile => ({
+    fullName: dbProfile.full_name || '',
+    profession: dbProfile.profession || '',
+    professionDetails: dbProfile.profession_details || {},
+    projectTitle: dbProfile.project_title || '',
+    projectDescription: dbProfile.project_description || '',
+    projectDeadline: dbProfile.project_deadline || '',
+  });
+
+  const fetchProfile = async (userId: string) => {
     try {
-      const docRef = doc(db, 'users', uid, 'profile', 'data');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setProfile(docSnap.data() as UserProfile);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        setProfile(null);
+        return;
+      }
+
+      if (data) {
+        setProfile(mapProfile(data as UserProfile));
       } else {
         setProfile(null);
       }
@@ -56,51 +87,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.uid);
+      await fetchProfile(user.id);
     }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        await fetchProfile(user.uid);
-      } else {
-        setProfile(null);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Defer profile fetch with setTimeout to avoid deadlock
+        if (session?.user) {
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
   };
 
   const signUp = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const redirectUrl = `${window.location.origin}/`;
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
+    });
+    return { error };
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     setProfile(null);
   };
 
-  const saveProfile = async (data: Omit<UserProfile, 'createdAt'>) => {
+  const saveProfile = async (data: Omit<MappedProfile, 'createdAt'>) => {
     if (!user) throw new Error('No user logged in');
     
-    const docRef = doc(db, 'users', user.uid, 'profile', 'data');
-    await setDoc(docRef, {
-      ...data,
-      createdAt: serverTimestamp(),
-    });
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        full_name: data.fullName,
+        profession: data.profession,
+        profession_details: data.professionDetails,
+        project_title: data.projectTitle,
+        project_description: data.projectDescription,
+        project_deadline: data.projectDeadline,
+      });
+
+    if (error) {
+      console.error('Error saving profile:', error);
+      throw error;
+    }
     
-    await fetchProfile(user.uid);
+    await fetchProfile(user.id);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, logout, saveProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signIn, signUp, logout, saveProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
