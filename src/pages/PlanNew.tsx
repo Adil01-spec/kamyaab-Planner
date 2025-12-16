@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Rocket, User, Briefcase, FileText, Calendar, Sparkles, ArrowRight } from 'lucide-react';
+import { Rocket, User, Briefcase, FileText, Calendar, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const professionLabels: Record<string, string> = {
   software_engineer: 'Software Engineer',
@@ -16,14 +18,30 @@ const professionLabels: Record<string, string> = {
 const PlanNew = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGeneratePlan = () => {
-    toast.info('AI plan generation coming soon! 🚀', {
-      description: 'We\'re working on bringing AI-powered planning to Kaamyab.',
-    });
-    setTimeout(() => {
+  const handleGeneratePlan = async () => {
+    if (!profile || isGenerating) return;
+
+    setIsGenerating(true);
+    toast.loading('Generating your personalized AI plan...', { id: 'generating' });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-plan', {
+        body: { profile },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast.success('Plan generated successfully!', { id: 'generating' });
       navigate('/plan');
-    }, 1500);
+    } catch (error: any) {
+      console.error('Plan generation error:', error);
+      toast.error(error.message || 'Failed to generate plan. Please try again.', { id: 'generating' });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   if (!profile) {
@@ -138,11 +156,21 @@ const PlanNew = () => {
         <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
           <Button
             onClick={handleGeneratePlan}
-            className="w-full h-14 text-lg font-semibold gradient-kaamyab hover:opacity-90 transition-all shadow-elevated"
+            disabled={isGenerating}
+            className="w-full h-14 text-lg font-semibold gradient-kaamyab hover:opacity-90 transition-all shadow-elevated disabled:opacity-70"
           >
-            <Sparkles className="w-5 h-5 mr-2" />
-            Generate AI Plan
-            <ArrowRight className="w-5 h-5 ml-2" />
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Generating Plan...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5 mr-2" />
+                Generate AI Plan
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </>
+            )}
           </Button>
           <p className="text-center text-muted-foreground text-sm mt-3">
             Our AI will create a personalized productivity plan based on your profile
