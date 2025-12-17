@@ -119,6 +119,35 @@ const Onboarding = () => {
     updateProfessionDetail(key, updated);
   };
 
+  const updateCustomTech = (key: string, value: string) => {
+    updateProfessionDetail(`${key}_custom`, value);
+  };
+
+  // Combine predefined and custom technologies into one array
+  const getCombinedChips = (key: string): string[] => {
+    const predefined = data.professionDetails[key] || [];
+    const customRaw = data.professionDetails[`${key}_custom`] || '';
+    
+    if (!customRaw.trim()) return predefined;
+    
+    const customItems = customRaw
+      .split(',')
+      .map((item: string) => item.trim())
+      .filter((item: string) => item.length > 0);
+    
+    // Combine and deduplicate (case-insensitive)
+    const combined = [...predefined];
+    const lowerCasePredefined = predefined.map((p: string) => p.toLowerCase());
+    
+    customItems.forEach((item: string) => {
+      if (!lowerCasePredefined.includes(item.toLowerCase())) {
+        combined.push(item);
+      }
+    });
+    
+    return combined;
+  };
+
   const canProceed = () => {
     if (step === 1) return data.fullName.trim().length > 0;
     if (step === 2) return data.profession !== '';
@@ -128,7 +157,11 @@ const Onboarding = () => {
       const question = professionQuestions[professionStep];
       if (question.type === 'text' && question.label.includes('Optional')) return true;
       if (question.type === 'chips') {
-        return (data.professionDetails[question.key] || []).length > 0;
+        // Allow proceeding if either predefined or custom technologies are provided
+        const predefined = data.professionDetails[question.key] || [];
+        const customRaw = data.professionDetails[`${question.key}_custom`] || '';
+        const customItems = customRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+        return predefined.length > 0 || customItems.length > 0;
       }
       return data.professionDetails[question.key];
     }
@@ -154,10 +187,25 @@ const Onboarding = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      // Process profession details to combine predefined and custom technologies
+      const processedDetails = { ...data.professionDetails };
+      
+      // Combine technologies if present
+      if (processedDetails.technologies !== undefined || processedDetails.technologies_custom) {
+        processedDetails.technologies = getCombinedChips('technologies');
+        delete processedDetails.technologies_custom;
+      }
+      
+      // Combine tools if present (for freelancers)
+      if (processedDetails.tools !== undefined || processedDetails.tools_custom) {
+        processedDetails.tools = getCombinedChips('tools');
+        delete processedDetails.tools_custom;
+      }
+      
       await saveProfile({
         fullName: data.fullName,
         profession: data.profession,
-        professionDetails: data.professionDetails,
+        professionDetails: processedDetails,
         projectTitle: data.projectTitle,
         projectDescription: data.projectDescription,
         projectDeadline: data.projectDeadline,
@@ -287,23 +335,42 @@ const Onboarding = () => {
           )}
 
           {question.type === 'chips' && (
-            <div className="flex flex-wrap gap-2">
-              {question.options?.map((option) => {
-                const selected = (data.professionDetails[question.key] || []).includes(option);
-                return (
-                  <button
-                    key={option}
-                    onClick={() => toggleChip(question.key, option)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      selected
-                        ? 'bg-primary text-primary-foreground shadow-soft'
-                        : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {question.options?.map((option) => {
+                  const selected = (data.professionDetails[question.key] || []).includes(option);
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => toggleChip(question.key, option)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        selected
+                          ? 'bg-primary text-primary-foreground shadow-soft'
+                          : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {question.key === 'technologies' && (
+                <div className="pt-2">
+                  <Label htmlFor="customTech" className="text-sm text-muted-foreground">
+                    Other technologies (optional)
+                  </Label>
+                  <Input
+                    id="customTech"
+                    placeholder="e.g. Rust, Go, WebAssembly, Three.js"
+                    value={data.professionDetails[`${question.key}_custom`] || ''}
+                    onChange={(e) => updateCustomTech(question.key, e.target.value)}
+                    className="mt-2 h-12"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    If your technology isn't listed, add it here (comma-separated)
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
