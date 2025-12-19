@@ -6,49 +6,55 @@
 
 @layer base {
   :root {
-    /* Kaamyab Green Theme */
-    --background: 150 30% 98%;
-    --foreground: 150 10% 10%;
+    /* Kaamyab Premium Green Theme - #0E9F6E */
+    --background: 147 23% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 150 10% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 150 10% 10%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Kaamyab Green #0E984C = 152 83% 33% */
-    --primary: 152 83% 33%;
+    /* Primary Green: #0E9F6E = 160 83% 34% */
+    --primary: 160 83% 34%;
     --primary-foreground: 0 0% 100%;
 
+    /* Primary Dark: #065F46 */
+    --primary-dark: 162 87% 20%;
+
     --secondary: 150 20% 95%;
-    --secondary-foreground: 152 60% 25%;
+    --secondary-foreground: 160 70% 22%;
 
-    --muted: 150 15% 92%;
-    --muted-foreground: 150 10% 45%;
+    --muted: 147 15% 92%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 152 70% 92%;
-    --accent-foreground: 152 83% 25%;
+    /* Accent Glow: #A7F3D0 */
+    --accent: 152 76% 80%;
+    --accent-foreground: 160 83% 20%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 150 20% 88%;
-    --input: 150 20% 88%;
-    --ring: 152 83% 33%;
+    --border: 147 18% 88%;
+    --input: 147 18% 88%;
+    --ring: 160 83% 34%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     /* Custom tokens */
-    --kaamyab-green: 152 83% 33%;
-    --kaamyab-green-light: 152 60% 45%;
-    --kaamyab-green-dark: 152 83% 25%;
-    --kaamyab-gradient: linear-gradient(135deg, hsl(152 83% 33%), hsl(152 60% 45%));
-    --kaamyab-gradient-subtle: linear-gradient(180deg, hsl(150 30% 98%), hsl(152 40% 96%));
+    --kaamyab-green: 160 83% 34%;
+    --kaamyab-green-light: 160 70% 45%;
+    --kaamyab-green-dark: 162 87% 20%;
+    --kaamyab-gradient: linear-gradient(135deg, hsl(160 83% 34%), hsl(160 70% 45%));
+    --kaamyab-gradient-subtle: linear-gradient(180deg, hsl(147 23% 97%), hsl(150 30% 95%));
+    --kaamyab-glow: hsl(152 76% 80% / 0.4);
     
     /* Shadows */
-    --shadow-soft: 0 4px 20px -4px hsl(152 83% 33% / 0.15);
-    --shadow-card: 0 2px 12px -2px hsl(152 20% 20% / 0.08);
-    --shadow-elevated: 0 12px 40px -12px hsl(152 83% 33% / 0.25);
+    --shadow-soft: 0 4px 20px -4px hsl(160 83% 34% / 0.12);
+    --shadow-card: 0 2px 16px -2px hsl(160 20% 20% / 0.06);
+    --shadow-elevated: 0 12px 40px -12px hsl(160 83% 34% / 0.2);
+    --shadow-glow: 0 0 40px hsl(152 76% 80% / 0.3);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -132,6 +138,10 @@
     box-shadow: var(--shadow-elevated);
   }
 
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
   .animate-slide-up {
     animation: slideUp 0.5s ease-out forwards;
   }
@@ -142,6 +152,68 @@
 
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  /* Interactive hover effects */
+  .interactive-card {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .interactive-card:hover {
+    @apply -translate-y-1;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Cursor ripple effect container */
+  .ripple-container {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple-container::before {
+    content: '';
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, hsl(152 76% 80% / 0.4) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    transition: transform 0.5s ease-out, opacity 0.3s ease-out;
+  }
+
+  .ripple-container:hover::before {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 1;
+  }
+
+  /* Button press feedback */
+  .btn-press {
+    @apply transition-all duration-150 ease-out;
+  }
+
+  .btn-press:active {
+    @apply scale-[0.97];
+  }
+
+  /* Progress bar animation */
+  .progress-animate {
+    animation: progressFill 1s ease-out forwards;
+  }
+
+  /* Hero glow effect */
+  .hero-glow {
+    position: relative;
+  }
+
+  .hero-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, hsl(152 76% 80% / 0.12) 0%, transparent 70%);
+    pointer-events: none;
+    border-radius: inherit;
   }
 }
 
@@ -173,6 +245,30 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
   }
 }
 

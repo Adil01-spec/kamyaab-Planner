@@ -1,11 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Rocket, Calendar, Target, ArrowRight, Plus, LogOut, Sparkles, Zap, CheckCircle2 } from 'lucide-react';
+import { 
+  Loader2, 
+  ArrowRight, 
+  Plus, 
+  Sparkles, 
+  Leaf,
+  Quote,
+  Clock,
+  Cpu,
+  User
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface PlanSummary {
   overview: string;
@@ -20,6 +38,8 @@ const Home = () => {
   const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
+  const [progressValue, setProgressValue] = useState(0);
+  const rippleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchLatestPlan = async () => {
@@ -47,7 +67,7 @@ const Home = () => {
           setPlanSummary({
             overview: planData.overview as string || '',
             total_weeks: planData.total_weeks as number || 0,
-            current_week: 1, // Default to week 1 for now
+            current_week: 1,
             project_title: profile?.projectTitle || ''
           });
         }
@@ -61,11 +81,31 @@ const Home = () => {
     fetchLatestPlan();
   }, [user, profile?.projectTitle]);
 
+  // Animate progress bar on load
+  useEffect(() => {
+    if (planSummary) {
+      const targetPercent = Math.round(((planSummary.current_week || 1) / planSummary.total_weeks) * 100);
+      const timer = setTimeout(() => setProgressValue(targetPercent), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [planSummary]);
+
   useEffect(() => {
     if (!loading && hasNoPlan) {
       navigate('/plan/new', { replace: true });
     }
   }, [loading, hasNoPlan, navigate]);
+
+  // Cursor ripple effect handler
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (rippleRef.current) {
+      const rect = rippleRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      rippleRef.current.style.setProperty('--ripple-x', `${x}px`);
+      rippleRef.current.style.setProperty('--ripple-y', `${y}px`);
+    }
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -76,11 +116,13 @@ const Home = () => {
     ? Math.round(((planSummary.current_week || 1) / planSummary.total_weeks) * 100) 
     : 0;
 
+  const userInitials = profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
-        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 animate-pulse-soft">
-          <Rocket className="w-8 h-8 text-primary-foreground" />
+        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 animate-float shadow-glow">
+          <Leaf className="w-8 h-8 text-primary-foreground" />
         </div>
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <p className="text-muted-foreground mt-3">Loading your dashboard...</p>
@@ -89,123 +131,169 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-subtle">
-      <div className="container max-w-4xl mx-auto px-4 py-8">
-        {/* Header with Logout */}
-        <div className="flex items-center justify-end mb-6">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleLogout}
-            className="hover:bg-destructive/10 hover:text-destructive transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Hero Section */}
-        <div className="relative mb-8 p-6 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 overflow-hidden">
-          {/* Decorative elements */}
-          <div className="absolute top-4 right-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
-          
-          <div className="relative flex items-start gap-4">
-            <div className="w-14 h-14 rounded-xl gradient-kaamyab flex items-center justify-center shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-              <Rocket className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  Welcome back, {profile?.fullName?.split(' ')[0] || 'Champion'}!
-                </h1>
-                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-              </div>
-              <p className="text-muted-foreground text-base sm:text-lg">
-                Let's move your project forward today.
-              </p>
+    <div 
+      ref={rippleRef}
+      className="min-h-screen gradient-subtle overflow-hidden"
+      onMouseMove={handleMouseMove}
+      style={{
+        '--ripple-x': '50%',
+        '--ripple-y': '50%',
+      } as React.CSSProperties}
+    >
+      <div className="container max-w-4xl mx-auto px-4 py-6">
+        {/* A. Minimal Top Bar */}
+        <header className="flex items-center justify-between mb-10 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg gradient-kaamyab flex items-center justify-center shadow-soft">
+              <Leaf className="w-5 h-5 text-primary-foreground" />
             </div>
           </div>
-        </div>
-
-        {/* Plan Progress Card */}
-        {planSummary && (
-          <Card className="mb-4 border-primary/20 bg-card/80 backdrop-blur hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 group">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Target className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">
-                      {planSummary.project_title || 'Your Project Plan'}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Week {planSummary.current_week || 1} of {planSummary.total_weeks}</span>
-                    </div>
-                  </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full btn-press">
+                <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <div className="flex items-center gap-2 p-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col space-y-0.5">
+                  <p className="text-sm font-medium">{profile?.fullName || 'User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-primary">{progressPercent}%</span>
-                  <p className="text-xs text-muted-foreground">Complete</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/onboarding')} className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Edit Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+
+        {/* B. Hero Greeting Section */}
+        <section className="relative mb-10 hero-glow rounded-3xl p-1 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="relative z-10">
+            <p className="text-sm font-medium text-primary mb-1 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" />
+              Today's focus
+            </p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+              Welcome back, {profile?.fullName?.split(' ')[0] || 'Champion'}
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              One clear plan. One meaningful step forward.
+            </p>
+          </div>
+        </section>
+
+        {/* C. Active Plan Hero Card */}
+        {planSummary && (
+          <Card 
+            className="mb-6 border-0 shadow-card bg-card rounded-2xl interactive-card ripple-container overflow-hidden animate-slide-up"
+            style={{ animationDelay: '0.2s' }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
+                      Active Plan
+                    </span>
+                  </div>
+                  <CardTitle className="text-xl mb-1">
+                    {planSummary.project_title || 'Your Project Plan'}
+                  </CardTitle>
+                  <CardDescription className="line-clamp-2 text-base">
+                    {planSummary.overview}
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <CardDescription className="mb-4 line-clamp-2">{planSummary.overview}</CardDescription>
-              <Progress value={progressPercent} className="h-2" />
+              {/* Meta row */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  {planSummary.total_weeks} weeks
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Cpu className="w-4 h-4" />
+                  AI Generated
+                </span>
+              </div>
+
+              {/* Progress section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Week {planSummary.current_week || 1} of {planSummary.total_weeks} completed
+                  </span>
+                  <span className="font-semibold text-primary">{progressPercent}%</span>
+                </div>
+                <Progress value={progressValue} className="h-2.5 transition-all duration-1000" />
+              </div>
+
+              {/* Primary CTA */}
+              <Button
+                size="lg"
+                className="w-full mt-6 h-12 gradient-kaamyab text-base font-semibold shadow-soft btn-press hover:shadow-elevated transition-all duration-300"
+                onClick={() => navigate('/plan')}
+              >
+                Continue My Plan
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Today's Focus Card */}
-        <Card className="mb-6 border-accent/30 bg-gradient-to-br from-accent/5 to-transparent hover:shadow-lg hover:shadow-accent/5 transition-all duration-300">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-accent-foreground" />
-              </div>
-              <CardTitle className="text-base">Today's Focus</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
-              <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Keep building momentum!
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Review your plan and tackle the next milestone. Every step counts.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Button
-            size="lg"
-            className="h-auto py-5 flex flex-col items-center gap-2 gradient-kaamyab hover:opacity-90 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20 transition-all duration-300"
-            onClick={() => navigate('/plan')}
-          >
-            <ArrowRight className="w-6 h-6" />
-            <span className="text-lg font-semibold">Continue Plan</span>
-            <span className="text-sm opacity-80">Pick up where you left off</span>
-          </Button>
-
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-auto py-5 flex flex-col items-center gap-2 border-primary/30 hover:bg-primary/5 hover:border-primary/50 hover:scale-[1.02] transition-all duration-300"
+        {/* D. Secondary Action Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          {/* Generate New Plan Card */}
+          <Card 
+            className="border border-border/60 bg-card/60 backdrop-blur-sm rounded-2xl cursor-pointer interactive-card ripple-container group"
             onClick={() => navigate('/plan/new')}
           >
-            <Plus className="w-6 h-6" />
-            <span className="text-lg font-semibold">Generate New Plan</span>
-            <span className="text-sm text-muted-foreground">Create a fresh AI-powered plan</span>
-          </Button>
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                <Plus className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-1">Generate New Plan</h3>
+              <p className="text-sm text-muted-foreground">
+                Create a fresh AI-powered plan
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Motivational Insight Card */}
+          <Card className="border border-accent/40 bg-gradient-to-br from-accent/10 to-transparent rounded-2xl">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center flex-shrink-0">
+                  <Quote className="w-5 h-5 text-accent-foreground" />
+                </div>
+                <div>
+                  <p className="text-foreground font-medium leading-relaxed">
+                    "Consistency beats intensity. Small steps compound."
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">Daily Wisdom</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
