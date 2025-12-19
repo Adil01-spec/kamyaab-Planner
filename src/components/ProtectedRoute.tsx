@@ -5,9 +5,14 @@ import { Loader2, Rocket } from 'lucide-react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireProfile?: boolean;
+  redirectIfProfile?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireProfile = false }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
+  children, 
+  requireProfile = false,
+  redirectIfProfile 
+}) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
@@ -26,6 +31,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireProfil
   // No user → redirect to auth
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // If this route should redirect when profile exists (e.g., onboarding)
+  if (redirectIfProfile && profile) {
+    return <Navigate to={redirectIfProfile} replace />;
   }
 
   // User exists but no profile and we require profile → redirect to onboarding
