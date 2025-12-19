@@ -9,6 +9,7 @@ import AuthRoute from "@/components/AuthRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
+import Home from "./pages/Home";
 import PlanNew from "./pages/PlanNew";
 import Plan from "./pages/Plan";
 import NotFound from "./pages/NotFound";
@@ -32,11 +33,21 @@ const App = () => (
                 </AuthRoute>
               } 
             />
+            {/* Onboarding - only accessible if no profile exists */}
             <Route 
               path="/onboarding" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute redirectIfProfile="/home">
                   <Onboarding />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Home - stable entry point for users with profile */}
+            <Route 
+              path="/home" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <Home />
                 </ProtectedRoute>
               } 
             />

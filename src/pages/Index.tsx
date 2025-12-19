@@ -14,7 +14,8 @@ const Index = () => {
       } else if (!profile) {
         navigate('/onboarding', { replace: true });
       } else {
-        navigate('/plan', { replace: true });
+        // User has profile - go to home (which will redirect to /plan/new if no plans)
+        navigate('/home', { replace: true });
       }
     }
   }, [user, profile, loading, navigate]);
