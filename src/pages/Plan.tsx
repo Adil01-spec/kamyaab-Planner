@@ -1,19 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { TaskItem } from '@/components/TaskItem';
 import { 
-  Rocket, LogOut, Target, Calendar, CheckCircle2, Clock, 
-  Sparkles, ChevronRight, Plus, Loader2, Quote
+  Rocket, LogOut, Target, Calendar, 
+  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 interface Task {
   title: string;
   priority: 'High' | 'Medium' | 'Low';
   estimated_hours: number;
+  completed?: boolean;
 }
 
 interface Week {
@@ -40,6 +45,7 @@ const Plan = () => {
   const navigate = useNavigate();
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -71,18 +77,56 @@ const Plan = () => {
     navigate('/auth');
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'Medium':
-        return 'bg-warning/10 text-warning border-warning/20';
-      case 'Low':
-        return 'bg-primary/10 text-primary border-primary/20';
-      default:
-        return 'bg-muted text-muted-foreground';
+  // Toggle task completion and persist to database
+  const toggleTask = useCallback(async (weekIndex: number, taskIndex: number) => {
+    if (!plan || !user) return;
+
+    const updatedPlan = { ...plan };
+    const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
+    task.completed = !task.completed;
+    
+    setPlan({ ...updatedPlan });
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('plans')
+        .update({ plan_json: updatedPlan as unknown as Json })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving task completion:', error);
+      // Revert on error
+      task.completed = !task.completed;
+      setPlan({ ...updatedPlan });
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [plan, user]);
+
+  // Calculate overall progress
+  const calculateProgress = useCallback(() => {
+    if (!plan) return { completed: 0, total: 0, percent: 0 };
+    
+    let completed = 0;
+    let total = 0;
+    
+    plan.weeks.forEach(week => {
+      week.tasks.forEach(task => {
+        total++;
+        if (task.completed) completed++;
+      });
+    });
+    
+    return {
+      completed,
+      total,
+      percent: total > 0 ? Math.round((completed / total) * 100) : 0
+    };
+  }, [plan]);
+
+  const progress = calculateProgress();
 
   if (loading) {
     return (
@@ -95,7 +139,7 @@ const Plan = () => {
   return (
     <div className="min-h-screen gradient-subtle">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="glass sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
@@ -103,13 +147,20 @@ const Plan = () => {
             </div>
             <span className="font-semibold text-foreground">Kaamyab</span>
           </div>
-          <div className="flex items-center gap-3">
-            {profile && (
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                Welcome, {profile.fullName.split(' ')[0]}
+          <div className="flex items-center gap-2">
+            {saving && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Saving...
               </span>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <ThemeToggle />
+            {profile && (
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                {profile.fullName.split(' ')[0]}
+              </span>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="btn-press">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
@@ -121,9 +172,9 @@ const Plan = () => {
       <main className="max-w-5xl mx-auto px-4 py-8">
         {!plan ? (
           /* No Plan State */
-          <Card className="shadow-card border-border/50 animate-fade-in">
+          <Card className="glass-card animate-fade-in">
             <CardContent className="py-16 text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-accent mb-6">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-accent/30 mb-6">
                 <Sparkles className="w-10 h-10 text-primary animate-pulse" />
               </div>
               <h2 className="text-2xl font-semibold text-foreground mb-3">
@@ -134,7 +185,7 @@ const Plan = () => {
               </p>
               <Button 
                 onClick={() => navigate('/plan/new')} 
-                className="gradient-kaamyab hover:opacity-90"
+                className="gradient-kaamyab hover:opacity-90 btn-press"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Plan
@@ -150,22 +201,43 @@ const Plan = () => {
               <p className="text-muted-foreground">{plan.overview}</p>
             </div>
 
+            {/* Progress Overview Card */}
+            <Card className="glass-card glass-card-hover animate-slide-up">
+              <CardContent className="py-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Overall Progress</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {progress.completed} of {progress.total} tasks completed
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">{progress.percent}%</span>
+                </div>
+                <Progress value={progress.percent} className="h-3" />
+              </CardContent>
+            </Card>
+
             {/* Quick Stats */}
             {profile && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-slide-up">
-                <Card className="shadow-card border-border/50">
+                <Card className="glass-card glass-card-hover">
                   <CardContent className="py-4 text-center">
                     <p className="text-muted-foreground text-sm">Project</p>
                     <p className="font-semibold text-foreground truncate">{profile.projectTitle}</p>
                   </CardContent>
                 </Card>
-                <Card className="shadow-card border-border/50">
+                <Card className="glass-card glass-card-hover">
                   <CardContent className="py-4 text-center">
                     <p className="text-muted-foreground text-sm">Total Weeks</p>
                     <p className="font-semibold text-primary text-2xl">{plan.total_weeks}</p>
                   </CardContent>
                 </Card>
-                <Card className="shadow-card border-border/50">
+                <Card className="glass-card glass-card-hover">
                   <CardContent className="py-4 text-center">
                     <p className="text-muted-foreground text-sm">Deadline</p>
                     <p className="font-semibold text-foreground">
@@ -182,7 +254,7 @@ const Plan = () => {
 
             {/* Milestones */}
             {plan.milestones && plan.milestones.length > 0 && (
-              <Card className="shadow-card border-border/50 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <Card className="glass-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-primary" />
@@ -196,7 +268,7 @@ const Plan = () => {
                       {plan.milestones.map((milestone, index) => (
                         <div key={index} className="relative flex items-center gap-4 pl-8">
                           <div className="absolute left-2.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-                          <div className="flex-1 flex items-center justify-between p-3 bg-accent/50 rounded-lg">
+                          <div className="flex-1 flex items-center justify-between p-3 glass-subtle rounded-lg">
                             <span className="font-medium">{milestone.title}</span>
                             <Badge variant="outline" className="text-xs">
                               Week {milestone.week}
@@ -216,60 +288,64 @@ const Plan = () => {
                 <Calendar className="w-5 h-5 text-primary" />
                 Weekly Breakdown
               </h2>
-              {plan.weeks.map((week, index) => (
-                <Card 
-                  key={week.week} 
-                  className="shadow-card border-border/50 animate-slide-up"
-                  style={{ animationDelay: `${0.1 * (index + 2)}s` }}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full gradient-kaamyab flex items-center justify-center text-primary-foreground font-bold">
-                          {week.week}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Week {week.week}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{week.focus}</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {week.tasks.map((task, taskIndex) => (
-                        <div 
-                          key={taskIndex}
-                          className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg"
-                        >
-                          <CheckCircle2 className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground">{task.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge 
-                                variant="outline" 
-                                className={`text-xs ${getPriorityColor(task.priority)}`}
-                              >
-                                {task.priority}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {task.estimated_hours}h
-                              </span>
-                            </div>
+              {plan.weeks.map((week, weekIndex) => {
+                const weekCompleted = week.tasks.filter(t => t.completed).length;
+                const weekTotal = week.tasks.length;
+                const weekPercent = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
+                
+                return (
+                  <Card 
+                    key={week.week} 
+                    className="glass-card glass-card-hover animate-slide-up"
+                    style={{ animationDelay: `${0.1 * (weekIndex + 2)}s` }}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full gradient-kaamyab flex items-center justify-center text-primary-foreground font-bold">
+                            {week.week}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">Week {week.week}</CardTitle>
+                            <p className="text-sm text-muted-foreground">{week.focus}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {weekCompleted}/{weekTotal}
+                          </span>
+                          <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary transition-all duration-500"
+                              style={{ width: `${weekPercent}%` }}
+                            />
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {week.tasks.map((task, taskIndex) => (
+                          <TaskItem
+                            key={taskIndex}
+                            title={task.title}
+                            priority={task.priority}
+                            estimatedHours={task.estimated_hours}
+                            completed={task.completed || false}
+                            onToggle={() => toggleTask(weekIndex, taskIndex)}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Motivation */}
             {plan.motivation && plan.motivation.length > 0 && (
-              <Card className="shadow-card border-border/50 gradient-kaamyab text-primary-foreground animate-slide-up">
+              <Card className="glass-card gradient-kaamyab text-primary-foreground animate-slide-up">
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Quote className="w-5 h-5" />
@@ -294,7 +370,7 @@ const Plan = () => {
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/plan/new')}
-                className="border-primary/30 hover:bg-primary/5"
+                className="btn-press glass border-primary/30 hover:bg-primary/5"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Generate New Plan

@@ -50,11 +50,16 @@
     --kaamyab-gradient-subtle: linear-gradient(180deg, hsl(147 23% 97%), hsl(150 30% 95%));
     --kaamyab-glow: hsl(152 76% 80% / 0.4);
     
+    /* Glassmorphism tokens */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    
     /* Shadows */
     --shadow-soft: 0 4px 20px -4px hsl(160 83% 34% / 0.12);
     --shadow-card: 0 2px 16px -2px hsl(160 20% 20% / 0.06);
     --shadow-elevated: 0 12px 40px -12px hsl(160 83% 34% / 0.2);
     --shadow-glow: 0 0 40px hsl(152 76% 80% / 0.3);
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -66,43 +71,61 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
+  /* True Eye-Safe Dark Mode - NOT pure black */
   .dark {
-    --background: 150 20% 8%;
-    --foreground: 150 10% 95%;
+    /* Background: #0B0F14 */
+    --background: 213 25% 6%;
+    /* Primary Text: #E5E7EB */
+    --foreground: 220 13% 91%;
 
-    --card: 150 15% 12%;
-    --card-foreground: 150 10% 95%;
+    /* Surface Glass: rgba(255,255,255,0.06) equivalent */
+    --card: 213 20% 10%;
+    --card-foreground: 220 13% 91%;
 
-    --popover: 150 15% 12%;
-    --popover-foreground: 150 10% 95%;
+    --popover: 213 20% 10%;
+    --popover-foreground: 220 13% 91%;
 
-    --primary: 152 70% 45%;
-    --primary-foreground: 150 20% 8%;
+    /* Accent Green: #22C55E */
+    --primary: 142 71% 45%;
+    --primary-foreground: 213 25% 6%;
 
-    --secondary: 150 15% 18%;
-    --secondary-foreground: 150 10% 90%;
+    --secondary: 213 18% 14%;
+    --secondary-foreground: 220 13% 85%;
 
-    --muted: 150 15% 20%;
-    --muted-foreground: 150 10% 60%;
+    --muted: 213 18% 16%;
+    /* Secondary Text: #9CA3AF */
+    --muted-foreground: 218 11% 65%;
 
-    --accent: 152 50% 20%;
-    --accent-foreground: 152 70% 80%;
+    --accent: 142 50% 20%;
+    --accent-foreground: 142 70% 80%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 150 15% 20%;
-    --input: 150 15% 20%;
-    --ring: 152 70% 45%;
+    /* Muted Borders: rgba(255,255,255,0.08) */
+    --border: 213 15% 18%;
+    --input: 213 15% 18%;
+    --ring: 142 71% 45%;
+    
+    /* Dark mode glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    
+    /* Dark shadows */
+    --shadow-soft: 0 4px 20px -4px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 2px 16px -2px rgba(0, 0, 0, 0.3);
+    --shadow-elevated: 0 12px 40px -12px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 40px hsl(142 71% 45% / 0.15);
+    --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 213 25% 8%;
+    --sidebar-foreground: 220 13% 91%;
+    --sidebar-primary: 142 71% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 213 18% 14%;
+    --sidebar-accent-foreground: 220 13% 91%;
+    --sidebar-border: 213 15% 18%;
+    --sidebar-ring: 142 71% 45%;
   }
 }
 
@@ -125,6 +148,10 @@
   .gradient-subtle {
     background: var(--kaamyab-gradient-subtle);
   }
+  
+  .dark .gradient-subtle {
+    background: linear-gradient(180deg, hsl(213 25% 6%), hsl(213 20% 8%));
+  }
 
   .shadow-soft {
     box-shadow: var(--shadow-soft);
@@ -140,6 +167,32 @@
 
   .shadow-glow {
     box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-glass {
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* Glassmorphism utilities */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glass);
+  }
+  
+  .glass-subtle {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .animate-slide-up {
@@ -164,6 +217,16 @@
     box-shadow: var(--shadow-elevated);
   }
 
+  /* Glass card hover */
+  .glass-card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .glass-card-hover:hover {
+    @apply -translate-y-0.5;
+    box-shadow: var(--shadow-elevated), 0 0 20px hsl(var(--primary) / 0.1);
+  }
+
   /* Cursor ripple effect container */
   .ripple-container {
     position: relative;
@@ -175,12 +238,14 @@
     position: absolute;
     width: 100px;
     height: 100px;
-    background: radial-gradient(circle, hsl(152 76% 80% / 0.4) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     transform: translate(-50%, -50%) scale(0);
     opacity: 0;
     transition: transform 0.5s ease-out, opacity 0.3s ease-out;
+    left: var(--ripple-x, 50%);
+    top: var(--ripple-y, 50%);
   }
 
   .ripple-container:hover::before {
@@ -211,9 +276,36 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at center, hsl(152 76% 80% / 0.12) 0%, transparent 70%);
+    background: radial-gradient(ellipse at center, hsl(var(--primary) / 0.1) 0%, transparent 70%);
     pointer-events: none;
     border-radius: inherit;
+  }
+  
+  /* Checkbox animation */
+  .checkbox-fill {
+    @apply transition-all duration-200 ease-out;
+  }
+  
+  .checkbox-fill[data-state="checked"] {
+    animation: checkboxPop 0.2s ease-out;
+  }
+  
+  /* Task completed state */
+  .task-completed {
+    @apply opacity-60;
+  }
+  
+  .task-completed .task-title {
+    @apply line-through text-muted-foreground;
+  }
+  
+  /* Soft click feedback */
+  .click-feedback {
+    @apply transition-transform duration-100;
+  }
+  
+  .click-feedback:active {
+    @apply scale-[0.98];
   }
 }
 
@@ -269,6 +361,18 @@
   }
   50% {
     transform: translateY(-5px);
+  }
+}
+
+@keyframes checkboxPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
