@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
 
@@ -20,6 +21,7 @@ interface OnboardingData {
   projectTitle: string;
   projectDescription: string;
   projectDeadline: string;
+  noDeadline: boolean;
 }
 
 interface Question {
@@ -39,6 +41,8 @@ const professionConfig: Record<string, { label: string; icon: typeof Code; quest
       { key: 'level', label: 'Level', type: 'select', options: ['Junior', 'Mid', 'Senior'], showIf: { employmentType: 'Company' } },
       { key: 'stack', label: 'Stack', type: 'select', options: ['Full-stack', 'Front-end', 'Back-end'], showIf: { employmentType: 'Freelancing' } },
       { key: 'technologies', label: 'Technologies', type: 'chips', options: ['React', 'Next.js', 'Node.js', 'Python', 'PHP', 'Flutter', 'TypeScript', 'Vue.js'] },
+      { key: 'aiToolsUsed', label: 'Do you use any AI tools or agentic assistance?', type: 'boolean' },
+      { key: 'aiToolsList', label: 'AI Tools You Use', type: 'text', showIf: { aiToolsUsed: 'yes' } },
     ],
   },
   freelancer: {
@@ -88,6 +92,7 @@ const Onboarding = () => {
     projectTitle: '',
     projectDescription: '',
     projectDeadline: '',
+    noDeadline: false,
   });
   const [loading, setLoading] = useState(false);
   const { saveProfile } = useAuth();
@@ -155,7 +160,8 @@ const Onboarding = () => {
     const professionStep = step - 3;
     if (professionStep >= 0 && professionStep < professionQuestions.length) {
       const question = professionQuestions[professionStep];
-      if (question.type === 'text' && question.label.includes('Optional')) return true;
+      if (question.type === 'text' && (question.label.includes('Optional') || question.key === 'aiToolsList')) return true;
+      if (question.type === 'boolean') return data.professionDetails[question.key] !== undefined;
       if (question.type === 'chips') {
         // Allow proceeding if either predefined or custom technologies are provided
         const predefined = data.professionDetails[question.key] || [];
@@ -169,7 +175,7 @@ const Onboarding = () => {
     const projectStep = step - 2 - professionQuestions.length;
     if (projectStep === 1) return data.projectTitle.trim().length > 0;
     if (projectStep === 2) return data.projectDescription.trim().length > 0;
-    if (projectStep === 3) return data.projectDeadline !== '';
+    if (projectStep === 3) return data.noDeadline || data.projectDeadline !== '';
     
     return true;
   };
@@ -208,7 +214,7 @@ const Onboarding = () => {
         professionDetails: processedDetails,
         projectTitle: data.projectTitle,
         projectDescription: data.projectDescription,
-        projectDeadline: data.projectDeadline,
+        projectDeadline: data.noDeadline ? '' : data.projectDeadline,
       });
       toast.success('Profile saved successfully!');
       navigate('/plan/new');
@@ -315,13 +321,22 @@ const Onboarding = () => {
           )}
 
           {question.type === 'text' && (
-            <Input
-              placeholder={`Enter ${question.label.toLowerCase()}`}
-              value={data.professionDetails[question.key] || ''}
-              onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
-              className="h-12"
-              autoFocus
-            />
+            <div className="space-y-2">
+              <Input
+                placeholder={question.key === 'aiToolsList' 
+                  ? "e.g., ChatGPT, Cursor, Copilot, custom agents"
+                  : `Enter ${question.label.toLowerCase()}`}
+                value={data.professionDetails[question.key] || ''}
+                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
+                className="h-12"
+                autoFocus
+              />
+              {question.key === 'aiToolsList' && (
+                <p className="text-xs text-muted-foreground">
+                  You can list multiple tools separated by commas
+                </p>
+              )}
+            </div>
           )}
 
           {question.type === 'textarea' && (
@@ -332,6 +347,34 @@ const Onboarding = () => {
               className="min-h-[120px]"
               autoFocus
             />
+          )}
+
+          {question.type === 'boolean' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => updateProfessionDetail(question.key, 'yes')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                    data.professionDetails[question.key] === 'yes'
+                      ? 'border-primary bg-accent shadow-soft'
+                      : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                  }`}
+                >
+                  <Bot className="w-5 h-5" />
+                  <span className="font-medium">Yes</span>
+                </button>
+                <button
+                  onClick={() => updateProfessionDetail(question.key, 'no')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                    data.professionDetails[question.key] === 'no'
+                      ? 'border-primary bg-accent shadow-soft'
+                      : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                  }`}
+                >
+                  <span className="font-medium">No</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {question.type === 'chips' && (
@@ -435,10 +478,35 @@ const Onboarding = () => {
           <Input
             type="date"
             value={data.projectDeadline}
-            onChange={(e) => setData(prev => ({ ...prev, projectDeadline: e.target.value }))}
+            onChange={(e) => setData(prev => ({ ...prev, projectDeadline: e.target.value, noDeadline: false }))}
             className="h-12"
             min={new Date().toISOString().split('T')[0]}
+            disabled={data.noDeadline}
           />
+          <div className="flex items-center space-x-3 pt-2">
+            <Checkbox
+              id="noDeadline"
+              checked={data.noDeadline}
+              onCheckedChange={(checked) => 
+                setData(prev => ({ 
+                  ...prev, 
+                  noDeadline: checked === true,
+                  projectDeadline: checked === true ? '' : prev.projectDeadline 
+                }))
+              }
+            />
+            <label
+              htmlFor="noDeadline"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
+            >
+              There is no deadline
+            </label>
+          </div>
+          {data.noDeadline && (
+            <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
+              No worries! We'll create a flexible plan focused on consistency and steady progress.
+            </p>
+          )}
         </div>
       );
     }
