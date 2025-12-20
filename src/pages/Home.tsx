@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { 
   Loader2, 
   ArrowRight, 
@@ -39,7 +40,6 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
-  const rippleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchLatestPlan = async () => {
@@ -96,16 +96,6 @@ const Home = () => {
     }
   }, [loading, hasNoPlan, navigate]);
 
-  // Cursor ripple effect handler
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (rippleRef.current) {
-      const rect = rippleRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      rippleRef.current.style.setProperty('--ripple-x', `${x}px`);
-      rippleRef.current.style.setProperty('--ripple-y', `${y}px`);
-    }
-  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -131,15 +121,7 @@ const Home = () => {
   }
 
   return (
-    <div 
-      ref={rippleRef}
-      className="min-h-screen gradient-subtle overflow-hidden"
-      onMouseMove={handleMouseMove}
-      style={{
-        '--ripple-x': '50%',
-        '--ripple-y': '50%',
-      } as React.CSSProperties}
-    >
+    <div className="min-h-screen gradient-subtle overflow-hidden">
       <div className="container max-w-4xl mx-auto px-4 py-6">
         {/* A. Minimal Top Bar */}
         <header className="flex items-center justify-between mb-10 animate-fade-in">
@@ -149,39 +131,42 @@ const Home = () => {
             </div>
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full btn-press">
-                <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <div className="flex items-center gap-2 p-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col space-y-0.5">
-                  <p className="text-sm font-medium">{profile?.fullName || 'User'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full btn-press">
+                  <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <div className="flex items-center gap-2 p-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col space-y-0.5">
+                    <p className="text-sm font-medium">{profile?.fullName || 'User'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
                 </div>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/onboarding')} className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Edit Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/onboarding')} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Edit Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
         {/* B. Hero Greeting Section */}
@@ -203,7 +188,7 @@ const Home = () => {
         {/* C. Active Plan Hero Card */}
         {planSummary && (
           <Card 
-            className="mb-6 border-0 shadow-card bg-card rounded-2xl interactive-card ripple-container overflow-hidden animate-slide-up"
+            className="mb-6 glass-card glass-card-hover rounded-2xl overflow-hidden animate-slide-up"
             style={{ animationDelay: '0.2s' }}
           >
             <CardHeader className="pb-3">
@@ -264,7 +249,7 @@ const Home = () => {
         <div className="grid gap-4 sm:grid-cols-2 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           {/* Generate New Plan Card */}
           <Card 
-            className="border border-border/60 bg-card/60 backdrop-blur-sm rounded-2xl cursor-pointer interactive-card ripple-container group"
+            className="glass-card glass-card-hover rounded-2xl cursor-pointer group"
             onClick={() => navigate('/plan/new')}
           >
             <CardContent className="p-6 flex flex-col items-center text-center">
@@ -279,7 +264,7 @@ const Home = () => {
           </Card>
 
           {/* Motivational Insight Card */}
-          <Card className="border border-accent/40 bg-gradient-to-br from-accent/10 to-transparent rounded-2xl">
+          <Card className="glass-card rounded-2xl">
             <CardContent className="p-6">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-accent/30 flex items-center justify-center flex-shrink-0">
