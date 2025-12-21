@@ -42,12 +42,51 @@ serve(async (req) => {
     }
 
     const today = new Date();
-    const deadline = new Date(profile.projectDeadline);
-    const daysRemaining = Math.max(1, Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
-    const weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
+    const noDeadline = profile.noDeadline === true || !profile.projectDeadline;
+    
+    let daysRemaining: number;
+    let weeksRemaining: number;
+    
+    if (noDeadline) {
+      // For open-ended projects, default to 8 weeks of planning
+      weeksRemaining = 8;
+      daysRemaining = weeksRemaining * 7;
+    } else {
+      const deadline = new Date(profile.projectDeadline);
+      daysRemaining = Math.max(1, Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+      weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
+    }
 
     const systemPrompt = `You are an expert productivity coach and project planner. Generate actionable weekly plans.
 Your response MUST be valid JSON only. No markdown, no explanations, no code blocks.`;
+
+    const deadlineContext = noDeadline 
+      ? `- Deadline: None (open-ended project)
+- Planning Approach: Focus on consistency, sustainable progress, and meaningful milestones
+- Duration: Generate an 8-week rolling plan that can be extended`
+      : `- Deadline: ${profile.projectDeadline}
+- Days Remaining: ${daysRemaining}
+- Weeks Remaining: ${weeksRemaining}`;
+
+    const planningRequirements = noDeadline
+      ? `Requirements for OPEN-ENDED project:
+- Create ${weeksRemaining} weeks of planning (rolling, extendable)
+- Focus on building consistent habits and sustainable momentum
+- Each week should have 3-5 manageable tasks
+- Tasks should be specific and actionable
+- Priority must be "High", "Medium", or "Low"
+- Include 3-5 meaningful milestones based on progress, not dates
+- Add 3-5 motivational messages focused on consistency and growth
+- Emphasize sustainable pace over urgency
+- Make it realistic and achievable without burnout`
+      : `Requirements:
+- Create ${weeksRemaining} weeks of planning
+- Each week should have 3-5 tasks
+- Tasks should be specific and actionable
+- Priority must be "High", "Medium", or "Low"
+- Include 3-5 key milestones
+- Add 3-5 motivational messages
+- Make it realistic and achievable`;
 
     const userPrompt = `Create a detailed project plan for:
 
@@ -59,14 +98,13 @@ PROFILE:
 PROJECT:
 - Title: ${profile.projectTitle}
 - Description: ${profile.projectDescription}
-- Deadline: ${profile.projectDeadline}
-- Days Remaining: ${daysRemaining}
-- Weeks Remaining: ${weeksRemaining}
+${deadlineContext}
 
 Generate a JSON response with this EXACT structure:
 {
   "overview": "2-3 sentence summary of the plan",
   "total_weeks": ${weeksRemaining},
+  "is_open_ended": ${noDeadline},
   "milestones": [
     { "title": "milestone name", "week": 1 }
   ],
@@ -89,14 +127,7 @@ Generate a JSON response with this EXACT structure:
   ]
 }
 
-Requirements:
-- Create ${weeksRemaining} weeks of planning
-- Each week should have 3-5 tasks
-- Tasks should be specific and actionable
-- Priority must be "High", "Medium", or "Low"
-- Include 3-5 key milestones
-- Add 3-5 motivational messages
-- Make it realistic and achievable
+${planningRequirements}
 
 RESPOND WITH ONLY THE JSON OBJECT.`;
 
