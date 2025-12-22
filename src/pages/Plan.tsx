@@ -6,13 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
+import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { 
   Rocket, LogOut, Target, Calendar, 
-  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2
+  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { toast } from '@/hooks/use-toast';
 
 interface Task {
   title: string;
@@ -46,6 +48,8 @@ const Plan = () => {
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -75,6 +79,38 @@ const Plan = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/auth');
+  };
+
+  // Delete plan and redirect to reset flow
+  const handleDeletePlan = async () => {
+    if (!user) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('plans')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Plan deleted",
+        description: "You can now create a fresh plan.",
+      });
+
+      setShowDeleteDialog(false);
+      navigate('/plan/reset');
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete your plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Toggle task completion and persist to database
@@ -241,11 +277,13 @@ const Plan = () => {
                   <CardContent className="py-4 text-center">
                     <p className="text-muted-foreground text-sm">Deadline</p>
                     <p className="font-semibold text-foreground">
-                      {new Date(profile.projectDeadline).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
+                      {profile.projectDeadline 
+                        ? new Date(profile.projectDeadline).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        : 'Open-ended'}
                     </p>
                   </CardContent>
                 </Card>
@@ -365,8 +403,16 @@ const Plan = () => {
               </Card>
             )}
 
-            {/* Regenerate Button */}
-            <div className="text-center pt-4">
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDeleteDialog(true)}
+                className="btn-press glass border-border/50 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete this plan
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/plan/new')}
@@ -379,6 +425,14 @@ const Plan = () => {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <DeletePlanDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleDeletePlan}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };
