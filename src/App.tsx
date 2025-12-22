@@ -12,6 +12,7 @@ import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import PlanNew from "./pages/PlanNew";
 import Plan from "./pages/Plan";
+import PlanReset from "./pages/PlanReset";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,15 @@ const App = () => (
               element={
                 <ProtectedRoute requireProfile>
                   <Plan />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Plan Reset - for users with profile but no active plan */}
+            <Route 
+              path="/plan/reset" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <PlanReset />
                 </ProtectedRoute>
               } 
             />
