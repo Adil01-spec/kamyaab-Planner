@@ -217,7 +217,7 @@ const Onboarding = () => {
         projectDeadline: data.noDeadline ? '' : data.projectDeadline,
       });
       toast.success('Profile saved successfully!');
-      navigate('/plan/new');
+      navigate('/plan/reset');
     } catch (error) {
       toast.error('Failed to save profile. Please try again.');
     } finally {

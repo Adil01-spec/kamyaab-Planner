@@ -295,7 +295,7 @@ const Plan = () => {
                 Generate your personalized AI productivity plan to start achieving your goals.
               </p>
               <Button 
-                onClick={() => navigate('/plan/new')} 
+                onClick={() => navigate('/plan/reset')} 
                 className="gradient-kaamyab hover:opacity-90 btn-press"
               >
                 <Plus className="w-4 h-4 mr-2" />
