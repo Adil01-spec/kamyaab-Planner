@@ -17,6 +17,19 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { motion, AnimatePresence, Transition } from 'framer-motion';
+
+const stepVariants = {
+  initial: { opacity: 0, x: 30 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -30 }
+};
+
+const stepTransition: Transition = {
+  type: "spring" as const,
+  stiffness: 300,
+  damping: 30
+};
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
 type IntentType = 'same_field' | 'new_field' | null;
@@ -303,11 +316,23 @@ const PlanReset = () => {
   }
 
   const renderIntentSelection = () => (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div 
+      className="space-y-6"
+      variants={stepVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+    >
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-kaamyab mb-4">
+        <motion.div 
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-kaamyab mb-4"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+        >
           <Sparkles className="w-8 h-8 text-primary-foreground" />
-        </div>
+        </motion.div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
           What would you like to do?
         </h1>
@@ -317,9 +342,14 @@ const PlanReset = () => {
       </div>
 
       <div className="grid gap-4 max-w-lg mx-auto">
-        <button
+        <motion.button
           onClick={() => handleIntentSelect('same_field')}
           className="flex items-center gap-4 p-6 rounded-2xl glass-card glass-card-hover border-2 border-transparent hover:border-primary/50 transition-all text-left group"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
           <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
             <RefreshCw className="w-7 h-7 text-primary" />
@@ -333,11 +363,16 @@ const PlanReset = () => {
             </p>
           </div>
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           onClick={() => handleIntentSelect('new_field')}
           className="flex items-center gap-4 p-6 rounded-2xl glass-card glass-card-hover border-2 border-transparent hover:border-primary/50 transition-all text-left group"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, type: "spring", stiffness: 300 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
           <div className="w-14 h-14 rounded-xl bg-accent/50 flex items-center justify-center group-hover:bg-accent transition-colors">
             <Shuffle className="w-7 h-7 text-primary" />
@@ -351,22 +386,35 @@ const PlanReset = () => {
             </p>
           </div>
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 
   const renderSameFieldFlow = () => {
     if (step === 1) {
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key="same-field-step-1"
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
             <h2 className="text-xl font-semibold text-foreground">Update Project Details</h2>
             <p className="text-sm text-muted-foreground">Your profile stays the same</p>
           </div>
 
           {/* Current Profile Summary */}
-          <div className="glass-subtle p-4 rounded-xl space-y-2">
+          <motion.div 
+            className="glass-subtle p-4 rounded-xl space-y-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Briefcase className="w-4 h-4" />
               <span>Current: {professionConfig[profession]?.label || profession}</span>
@@ -385,7 +433,7 @@ const PlanReset = () => {
                 )}
               </div>
             )}
-          </div>
+          </motion.div>
 
           <div className="space-y-4">
             <div className="space-y-2">
@@ -409,15 +457,29 @@ const PlanReset = () => {
               />
             </div>
           </div>
-        </div>
+        </motion.div>
       );
     }
 
     if (step === 2) {
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key="same-field-step-2"
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
-            <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+            >
+              <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
             <p className="text-sm text-muted-foreground">When do you want to complete this?</p>
           </div>
@@ -450,7 +512,7 @@ const PlanReset = () => {
               </label>
             </div>
           </div>
-        </div>
+        </motion.div>
       );
     }
 
@@ -461,19 +523,33 @@ const PlanReset = () => {
     // Step 1: Profession selection
     if (step === 1) {
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key="new-field-step-1"
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
-            <Briefcase className="w-10 h-10 text-primary mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+            >
+              <Briefcase className="w-10 h-10 text-primary mx-auto mb-3" />
+            </motion.div>
             <h2 className="text-xl font-semibold text-foreground">What's your new field?</h2>
             <p className="text-sm text-muted-foreground">Select your profession</p>
           </div>
 
           <div className="grid gap-3">
-            {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config]) => {
+            {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config], index) => {
               const Icon = config.icon;
               const isSelected = profession === key;
               return (
-                <button
+                <motion.button
                   key={key}
                   onClick={() => {
                     setProfession(key);
@@ -484,16 +560,21 @@ const PlanReset = () => {
                       ? 'border-primary bg-primary/5 shadow-soft' 
                       : 'border-border/50 glass-subtle hover:border-primary/50'
                   }`}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.05 * index, type: "spring", stiffness: 300 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className="font-medium">{config.label}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       );
     }
 
@@ -504,9 +585,23 @@ const PlanReset = () => {
       const Icon = professionConfig[profession]?.icon || Briefcase;
 
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key={`new-field-question-${questionStep}`}
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
-            <Icon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+            >
+              <Icon className="w-10 h-10 text-primary mx-auto mb-3" />
+            </motion.div>
             <h2 className="text-xl font-semibold text-foreground">{question.label}</h2>
           </div>
 
@@ -537,37 +632,47 @@ const PlanReset = () => {
 
           {question.type === 'boolean' && (
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <motion.button
                 onClick={() => updateProfessionDetail(question.key, 'yes')}
                 className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
                   professionDetails[question.key] === 'yes'
                     ? 'border-primary bg-primary/5'
                     : 'border-border/50 glass-subtle hover:border-primary/50'
                 }`}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
               >
                 <Bot className="w-5 h-5" />
                 <span className="font-medium">Yes</span>
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => updateProfessionDetail(question.key, 'no')}
                 className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
                   professionDetails[question.key] === 'no'
                     ? 'border-primary bg-primary/5'
                     : 'border-border/50 glass-subtle hover:border-primary/50'
                 }`}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
               >
                 <span className="font-medium">No</span>
-              </button>
+              </motion.button>
             </div>
           )}
 
           {question.type === 'chips' && (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {question.options?.map((option) => {
+                {question.options?.map((option, index) => {
                   const selected = (professionDetails[question.key] || []).includes(option);
                   return (
-                    <button
+                    <motion.button
                       key={option}
                       onClick={() => toggleChip(question.key, option)}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -575,9 +680,14 @@ const PlanReset = () => {
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary hover:bg-accent'
                       }`}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.03 * index, type: "spring", stiffness: 400 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       {option}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -592,7 +702,7 @@ const PlanReset = () => {
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       );
     }
 
@@ -600,9 +710,23 @@ const PlanReset = () => {
     const projectStep = step - 1 - professionQuestions.length;
     if (projectStep === 1) {
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key="new-field-project"
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
-            <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+            >
+              <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
+            </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Details</h2>
             <p className="text-sm text-muted-foreground">What are you working on?</p>
           </div>
@@ -629,15 +753,29 @@ const PlanReset = () => {
               />
             </div>
           </div>
-        </div>
+        </motion.div>
       );
     }
 
     if (projectStep === 2) {
       return (
-        <div className="space-y-6 animate-fade-in">
+        <motion.div 
+          key="new-field-deadline"
+          className="space-y-6"
+          variants={stepVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={stepTransition}
+        >
           <div className="text-center mb-2">
-            <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
+            >
+              <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
           </div>
 
@@ -669,7 +807,7 @@ const PlanReset = () => {
               </label>
             </div>
           </div>
-        </div>
+        </motion.div>
       );
     }
 
@@ -720,48 +858,57 @@ const PlanReset = () => {
 
       {/* Main Content */}
       <main className="max-w-xl mx-auto px-4 py-8">
-        <Card className="glass-card border-0 shadow-elevated">
+        <Card className="glass-card border-0 shadow-elevated overflow-hidden">
           <CardContent className="pt-6 pb-6">
-            {step === 0 && renderIntentSelection()}
-            {step > 0 && intent === 'same_field' && renderSameFieldFlow()}
-            {step > 0 && intent === 'new_field' && renderNewFieldFlow()}
+            <AnimatePresence mode="wait">
+              {step === 0 && renderIntentSelection()}
+              {step > 0 && intent === 'same_field' && renderSameFieldFlow()}
+              {step > 0 && intent === 'new_field' && renderNewFieldFlow()}
+            </AnimatePresence>
 
             {/* Navigation */}
-            {step > 0 && (
-              <div className="flex gap-3 mt-8">
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  className="flex-1 h-12 glass border-border/50"
-                  disabled={isGenerating}
+            <AnimatePresence>
+              {step > 0 && (
+                <motion.div 
+                  className="flex gap-3 mt-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-                <Button
-                  onClick={isLastStep ? handleGenerate : handleNext}
-                  disabled={!canProceed() || isGenerating}
-                  className="flex-1 h-12 gradient-kaamyab hover:opacity-90"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : isLastStep ? (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Plan
-                    </>
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+                  <Button
+                    variant="outline"
+                    onClick={handleBack}
+                    className="flex-1 h-12 glass border-border/50"
+                    disabled={isGenerating}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <Button
+                    onClick={isLastStep ? handleGenerate : handleNext}
+                    disabled={!canProceed() || isGenerating}
+                    className="flex-1 h-12 gradient-kaamyab hover:opacity-90"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Generating...
+                      </>
+                    ) : isLastStep ? (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Plan
+                      </>
+                    ) : (
+                      <>
+                        Next
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
       </main>
