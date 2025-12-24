@@ -9,7 +9,7 @@ import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { 
   Rocket, LogOut, Target, Calendar, 
-  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2
+  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,6 +40,7 @@ interface PlanData {
   milestones: Milestone[];
   weeks: Week[];
   motivation: string[];
+  is_open_ended?: boolean;
 }
 
 const Plan = () => {
@@ -50,6 +51,7 @@ const Plan = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExtending, setIsExtending] = useState(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -163,6 +165,68 @@ const Plan = () => {
   }, [plan]);
 
   const progress = calculateProgress();
+
+  // Check if user is nearing the end of their plan (last 2 weeks or 75%+ completed)
+  const isNearingPlanEnd = useCallback(() => {
+    if (!plan || !plan.is_open_ended) return false;
+    
+    const totalWeeks = plan.weeks.length;
+    const completedWeeks = plan.weeks.filter(week => 
+      week.tasks.every(task => task.completed)
+    ).length;
+    
+    // Show extend button if 75%+ weeks completed or in last 2 weeks
+    return completedWeeks >= totalWeeks - 2 || progress.percent >= 75;
+  }, [plan, progress.percent]);
+
+  // Extend plan with additional weeks
+  const handleExtendPlan = async () => {
+    if (!plan || !profile || !user) return;
+    
+    setIsExtending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const response = await supabase.functions.invoke('extend-plan', {
+        body: {
+          profile: {
+            fullName: profile.fullName,
+            profession: profile.profession,
+            professionDetails: profile.professionDetails,
+            projectTitle: profile.projectTitle,
+            projectDescription: profile.projectDescription,
+          },
+          existingPlan: plan,
+          weeksToAdd: 4,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.error) throw response.error;
+
+      const { plan: extendedPlan } = response.data;
+      setPlan(extendedPlan);
+      
+      toast({
+        title: "Plan extended!",
+        description: `Added 4 more weeks to your plan.`,
+      });
+    } catch (error) {
+      console.error('Error extending plan:', error);
+      toast({
+        title: "Extension failed",
+        description: "Could not extend your plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtending(false);
+    }
+  };
+
+  const showExtendButton = isNearingPlanEnd();
 
   if (loading) {
     return (
@@ -399,6 +463,44 @@ const Plan = () => {
                       </li>
                     ))}
                   </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Extend Plan Banner for Open-ended Projects */}
+            {showExtendButton && (
+              <Card className="glass-card border-primary/30 animate-slide-up">
+                <CardContent className="py-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-center sm:text-left">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <ArrowRight className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Keep the momentum going!</h3>
+                        <p className="text-sm text-muted-foreground">
+                          You're nearing the end of your current plan. Add more weeks to stay on track.
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={handleExtendPlan}
+                      disabled={isExtending}
+                      className="gradient-kaamyab hover:opacity-90 btn-press whitespace-nowrap"
+                    >
+                      {isExtending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Extending...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Extend Plan (+4 weeks)
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
