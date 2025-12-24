@@ -5,34 +5,101 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { 
   Rocket, Sparkles, CalendarIcon, Briefcase, Code, Bot, 
-  Loader2, ArrowRight, Home
+  Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle,
+  User, GraduationCap, Store, Video, Palette
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+
+type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
+type IntentType = 'same_field' | 'new_field' | null;
+
+interface Question {
+  key: string;
+  label: string;
+  type: string;
+  options?: string[];
+  showIf?: Record<string, string>;
+}
+
+const professionConfig: Record<string, { label: string; icon: typeof Code; questions: Question[] }> = {
+  software_engineer: {
+    label: 'Software Engineer',
+    icon: Code,
+    questions: [
+      { key: 'employmentType', label: 'Employment Type', type: 'select', options: ['Company', 'Freelancing'] },
+      { key: 'level', label: 'Level', type: 'select', options: ['Junior', 'Mid', 'Senior'], showIf: { employmentType: 'Company' } },
+      { key: 'stack', label: 'Stack', type: 'select', options: ['Full-stack', 'Front-end', 'Back-end'], showIf: { employmentType: 'Freelancing' } },
+      { key: 'technologies', label: 'Technologies', type: 'chips', options: ['React', 'Next.js', 'Node.js', 'Python', 'PHP', 'Flutter', 'TypeScript', 'Vue.js'] },
+      { key: 'aiToolsUsed', label: 'Do you use AI tools?', type: 'boolean' },
+      { key: 'aiToolsList', label: 'AI Tools', type: 'text', showIf: { aiToolsUsed: 'yes' } },
+    ],
+  },
+  freelancer: {
+    label: 'Freelancer',
+    icon: Palette,
+    questions: [
+      { key: 'freelancerType', label: 'Freelancer Type', type: 'select', options: ['Web Development', 'Mobile Development', 'Graphics Design', 'UI/UX Design'] },
+      { key: 'tools', label: 'Tools & Technologies', type: 'chips', options: ['Figma', 'Adobe XD', 'Photoshop', 'Illustrator', 'React', 'WordPress', 'Shopify'] },
+    ],
+  },
+  student: {
+    label: 'Student',
+    icon: GraduationCap,
+    questions: [
+      { key: 'fieldOfStudy', label: 'Field of Study', type: 'select', options: ['Computer Science', 'Information Technology', 'Business', 'Engineering', 'Other'] },
+      { key: 'semester', label: 'Semester/Year', type: 'text' },
+    ],
+  },
+  business_owner: {
+    label: 'Business Owner',
+    icon: Store,
+    questions: [
+      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['Shopify', 'Social Media', 'Own Website', 'Marketplace'] },
+      { key: 'productCategory', label: 'Product Category', type: 'select', options: ['Clothing', 'Jewelry', 'Digital Products', 'Food & Beverages', 'Other'] },
+    ],
+  },
+  content_creator: {
+    label: 'Content Creator',
+    icon: Video,
+    questions: [
+      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['YouTube', 'TikTok', 'Instagram', 'LinkedIn', 'Multiple'] },
+      { key: 'niche', label: 'Content Niche', type: 'select', options: ['Tech', 'Vlog', 'Education', 'Entertainment', 'Business', 'Other'] },
+    ],
+  },
+};
 
 const PlanReset = () => {
   const { profile, user, refreshProfile } = useAuth();
   const navigate = useNavigate();
   
-  // Form state - initialized from profile
+  // Flow state
+  const [intent, setIntent] = useState<IntentType>(null);
+  const [step, setStep] = useState(0); // 0 = intent selection
+  
+  // Form data
+  const [profession, setProfession] = useState<Profession | ''>('');
+  const [professionDetails, setProfessionDetails] = useState<Record<string, any>>({});
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-  const [projectDeadline, setProjectDeadline] = useState<Date | undefined>();
+  const [projectDeadline, setProjectDeadline] = useState('');
   const [noDeadline, setNoDeadline] = useState(false);
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
 
   // Initialize form with profile data
   useEffect(() => {
     if (profile) {
+      setProfession((profile.profession as Profession) || '');
+      setProfessionDetails(profile.professionDetails as Record<string, any> || {});
       setProjectTitle(profile.projectTitle || '');
       setProjectDescription(profile.projectDescription || '');
       
@@ -40,7 +107,7 @@ const PlanReset = () => {
       if (profDetails?.noDeadline) {
         setNoDeadline(true);
       } else if (profile.projectDeadline) {
-        setProjectDeadline(new Date(profile.projectDeadline));
+        setProjectDeadline(profile.projectDeadline);
       }
     }
   }, [profile]);
@@ -58,8 +125,6 @@ const PlanReset = () => {
           .maybeSingle();
 
         if (error) throw error;
-        
-        // If plan exists, redirect to /plan
         if (data) {
           navigate('/plan', { replace: true });
         }
@@ -73,80 +138,150 @@ const PlanReset = () => {
     checkExistingPlan();
   }, [user, navigate]);
 
+  // Get filtered profession questions
+  const professionQuestions = profession ? professionConfig[profession]?.questions.filter(q => {
+    if (!q.showIf) return true;
+    return Object.entries(q.showIf).every(([key, value]) => professionDetails[key] === value);
+  }) || [] : [];
+
+  // Calculate total steps based on intent
+  const getTotalSteps = () => {
+    if (intent === 'same_field') {
+      return 2; // Project details only (step 1 = project, step 2 = deadline)
+    } else if (intent === 'new_field') {
+      return 1 + professionQuestions.length + 2; // Profession + questions + project + deadline
+    }
+    return 0;
+  };
+
+  const totalSteps = getTotalSteps();
+  const progress = totalSteps > 0 ? (step / totalSteps) * 100 : 0;
+
+  const updateProfessionDetail = (key: string, value: any) => {
+    setProfessionDetails(prev => ({ ...prev, [key]: value }));
+  };
+
+  const toggleChip = (key: string, chip: string) => {
+    const current = professionDetails[key] || [];
+    const updated = current.includes(chip) 
+      ? current.filter((c: string) => c !== chip)
+      : [...current, chip];
+    updateProfessionDetail(key, updated);
+  };
+
+  const handleIntentSelect = (selectedIntent: IntentType) => {
+    setIntent(selectedIntent);
+    if (selectedIntent === 'new_field') {
+      // Reset profession-related fields for new field
+      setProfession('');
+      setProfessionDetails({});
+    }
+    setStep(1);
+  };
+
+  const canProceed = () => {
+    if (intent === 'same_field') {
+      if (step === 1) return projectTitle.trim().length > 0 && projectDescription.trim().length > 0;
+      if (step === 2) return noDeadline || projectDeadline !== '';
+    } else if (intent === 'new_field') {
+      if (step === 1) return profession !== '';
+      
+      const questionStep = step - 2;
+      if (questionStep >= 0 && questionStep < professionQuestions.length) {
+        const question = professionQuestions[questionStep];
+        if (question.type === 'text' && question.key === 'aiToolsList') return true;
+        if (question.type === 'boolean') return professionDetails[question.key] !== undefined;
+        if (question.type === 'chips') {
+          const chips = professionDetails[question.key] || [];
+          const customRaw = professionDetails[`${question.key}_custom`] || '';
+          return chips.length > 0 || customRaw.trim().length > 0;
+        }
+        return professionDetails[question.key];
+      }
+      
+      const projectStep = step - 1 - professionQuestions.length;
+      if (projectStep === 1) return projectTitle.trim().length > 0 && projectDescription.trim().length > 0;
+      if (projectStep === 2) return noDeadline || projectDeadline !== '';
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (canProceed()) {
+      setStep(prev => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (step === 1) {
+      setIntent(null);
+      setStep(0);
+    } else {
+      setStep(prev => prev - 1);
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!user || !profile) return;
-
-    // Validation
-    if (!projectTitle.trim()) {
-      toast({
-        title: "Project title required",
-        description: "Please enter a project title.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!noDeadline && !projectDeadline) {
-      toast({
-        title: "Deadline required",
-        description: "Please select a deadline or check 'There is no deadline'.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!user) return;
 
     setIsGenerating(true);
 
     try {
-      // Update profile with new project details if changed
-      const professionDetails = {
-        ...(profile.professionDetails as object || {}),
-        noDeadline,
-      };
+      // Process profession details
+      const processedDetails: Record<string, any> = { ...professionDetails, noDeadline };
+      
+      // Combine custom technologies
+      if (processedDetails.technologies_custom) {
+        const custom = (processedDetails.technologies_custom as string).split(',').map((s: string) => s.trim()).filter((s: string) => s);
+        processedDetails.technologies = [...(processedDetails.technologies || []), ...custom];
+        delete processedDetails.technologies_custom;
+      }
+      if (processedDetails.tools_custom) {
+        const custom = (processedDetails.tools_custom as string).split(',').map((s: string) => s.trim()).filter((s: string) => s);
+        processedDetails.tools = [...(processedDetails.tools || []), ...custom];
+        delete processedDetails.tools_custom;
+      }
 
+      // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
+          profession: profession,
+          profession_details: processedDetails,
           project_title: projectTitle,
           project_description: projectDescription,
-          project_deadline: noDeadline ? null : projectDeadline?.toISOString().split('T')[0],
-          profession_details: professionDetails,
+          project_deadline: noDeadline ? null : projectDeadline,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
       if (profileError) throw profileError;
 
-      // Refresh profile in context
       await refreshProfile();
 
       // Generate new plan
       const { data, error } = await supabase.functions.invoke('generate-plan', {
-        body: { userId: user.id },
+        body: { 
+          profile: {
+            fullName: profile?.fullName,
+            profession,
+            professionDetails: processedDetails,
+            projectTitle,
+            projectDescription,
+            projectDeadline: noDeadline ? null : projectDeadline,
+            noDeadline,
+          }
+        },
       });
 
       if (error) throw error;
 
-      if (data?.plan) {
-        // Insert new plan
-        const { error: insertError } = await supabase
-          .from('plans')
-          .insert({
-            user_id: user.id,
-            plan_json: data.plan,
-          });
+      toast({
+        title: "Plan generated!",
+        description: "Your new productivity plan is ready.",
+      });
 
-        if (insertError) throw insertError;
-
-        toast({
-          title: "Plan generated!",
-          description: "Your new productivity plan is ready.",
-        });
-
-        navigate('/plan');
-      } else {
-        throw new Error('Failed to generate plan');
-      }
+      navigate('/plan');
     } catch (error) {
       console.error('Error generating plan:', error);
       toast({
@@ -159,7 +294,6 @@ const PlanReset = () => {
     }
   };
 
-  // Loading state while checking for existing plan
   if (checkingPlan) {
     return (
       <div className="min-h-screen gradient-subtle flex items-center justify-center">
@@ -168,20 +302,387 @@ const PlanReset = () => {
     );
   }
 
-  // Get profession details for display
-  const profDetails = profile?.professionDetails as {
-    employmentType?: string;
-    techStack?: string[];
-    technologies?: string[];
-    aiToolsUsed?: boolean;
-    aiToolsList?: string;
-  } | null;
+  const renderIntentSelection = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-kaamyab mb-4">
+          <Sparkles className="w-8 h-8 text-primary-foreground" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          What would you like to do?
+        </h1>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Choose how you want to create your next plan
+        </p>
+      </div>
+
+      <div className="grid gap-4 max-w-lg mx-auto">
+        <button
+          onClick={() => handleIntentSelect('same_field')}
+          className="flex items-center gap-4 p-6 rounded-2xl glass-card glass-card-hover border-2 border-transparent hover:border-primary/50 transition-all text-left group"
+        >
+          <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <RefreshCw className="w-7 h-7 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg text-foreground mb-1">
+              Continue in the same field
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Keep your profession & stack, update project details
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        </button>
+
+        <button
+          onClick={() => handleIntentSelect('new_field')}
+          className="flex items-center gap-4 p-6 rounded-2xl glass-card glass-card-hover border-2 border-transparent hover:border-primary/50 transition-all text-left group"
+        >
+          <div className="w-14 h-14 rounded-xl bg-accent/50 flex items-center justify-center group-hover:bg-accent transition-colors">
+            <Shuffle className="w-7 h-7 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg text-foreground mb-1">
+              Start in a new field
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Switch careers, change domain, fresh start
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderSameFieldFlow = () => {
+    if (step === 1) {
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <h2 className="text-xl font-semibold text-foreground">Update Project Details</h2>
+            <p className="text-sm text-muted-foreground">Your profile stays the same</p>
+          </div>
+
+          {/* Current Profile Summary */}
+          <div className="glass-subtle p-4 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Briefcase className="w-4 h-4" />
+              <span>Current: {professionConfig[profession]?.label || profession}</span>
+            </div>
+            {professionDetails.technologies?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {professionDetails.technologies.slice(0, 5).map((tech: string, i: number) => (
+                  <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                    {tech}
+                  </span>
+                ))}
+                {professionDetails.technologies.length > 5 && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+                    +{professionDetails.technologies.length - 5} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Project Title</Label>
+              <Input
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                placeholder="What are you working on?"
+                className="h-12 glass-subtle border-border/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Project Description</Label>
+              <Textarea
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Describe your goals and what success looks like..."
+                rows={4}
+                className="glass-subtle border-border/50 resize-none"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (step === 2) {
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
+            <p className="text-sm text-muted-foreground">When do you want to complete this?</p>
+          </div>
+
+          <div className="space-y-4">
+            <Input
+              type="date"
+              value={projectDeadline}
+              onChange={(e) => {
+                setProjectDeadline(e.target.value);
+                setNoDeadline(false);
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              disabled={noDeadline}
+              className="h-12 glass-subtle border-border/50"
+            />
+
+            <div className="flex items-center gap-3 p-4 glass-subtle rounded-xl">
+              <Checkbox
+                id="no-deadline"
+                checked={noDeadline}
+                onCheckedChange={(checked) => {
+                  setNoDeadline(checked === true);
+                  if (checked) setProjectDeadline('');
+                }}
+                className="border-primary/50 data-[state=checked]:bg-primary"
+              />
+              <label htmlFor="no-deadline" className="text-sm text-muted-foreground cursor-pointer flex-1">
+                There is no deadline — focus on consistency
+              </label>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const renderNewFieldFlow = () => {
+    // Step 1: Profession selection
+    if (step === 1) {
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <Briefcase className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h2 className="text-xl font-semibold text-foreground">What's your new field?</h2>
+            <p className="text-sm text-muted-foreground">Select your profession</p>
+          </div>
+
+          <div className="grid gap-3">
+            {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config]) => {
+              const Icon = config.icon;
+              const isSelected = profession === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setProfession(key);
+                    setProfessionDetails({});
+                  }}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
+                    isSelected 
+                      ? 'border-primary bg-primary/5 shadow-soft' 
+                      : 'border-border/50 glass-subtle hover:border-primary/50'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium">{config.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Profession-specific questions
+    const questionStep = step - 2;
+    if (questionStep >= 0 && questionStep < professionQuestions.length) {
+      const question = professionQuestions[questionStep];
+      const Icon = professionConfig[profession]?.icon || Briefcase;
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <Icon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h2 className="text-xl font-semibold text-foreground">{question.label}</h2>
+          </div>
+
+          {question.type === 'select' && (
+            <Select
+              value={professionDetails[question.key] || ''}
+              onValueChange={(value) => updateProfessionDetail(question.key, value)}
+            >
+              <SelectTrigger className="h-12 glass-subtle border-border/50">
+                <SelectValue placeholder={`Select ${question.label.toLowerCase()}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {question.options?.map((option) => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {question.type === 'text' && (
+            <Input
+              placeholder={`Enter ${question.label.toLowerCase()}`}
+              value={professionDetails[question.key] || ''}
+              onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
+              className="h-12 glass-subtle border-border/50"
+            />
+          )}
+
+          {question.type === 'boolean' && (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => updateProfessionDetail(question.key, 'yes')}
+                className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                  professionDetails[question.key] === 'yes'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border/50 glass-subtle hover:border-primary/50'
+                }`}
+              >
+                <Bot className="w-5 h-5" />
+                <span className="font-medium">Yes</span>
+              </button>
+              <button
+                onClick={() => updateProfessionDetail(question.key, 'no')}
+                className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                  professionDetails[question.key] === 'no'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border/50 glass-subtle hover:border-primary/50'
+                }`}
+              >
+                <span className="font-medium">No</span>
+              </button>
+            </div>
+          )}
+
+          {question.type === 'chips' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {question.options?.map((option) => {
+                  const selected = (professionDetails[question.key] || []).includes(option);
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => toggleChip(question.key, option)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        selected
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary hover:bg-accent'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Other (comma-separated)</Label>
+                <Input
+                  placeholder="e.g. Rust, Go, WebAssembly"
+                  value={professionDetails[`${question.key}_custom`] || ''}
+                  onChange={(e) => updateProfessionDetail(`${question.key}_custom`, e.target.value)}
+                  className="h-12 glass-subtle border-border/50"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Project details
+    const projectStep = step - 1 - professionQuestions.length;
+    if (projectStep === 1) {
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h2 className="text-xl font-semibold text-foreground">Project Details</h2>
+            <p className="text-sm text-muted-foreground">What are you working on?</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Project Title</Label>
+              <Input
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                placeholder="e.g., Launch my portfolio website"
+                className="h-12 glass-subtle border-border/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Project Description</Label>
+              <Textarea
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Describe your goals..."
+                rows={4}
+                className="glass-subtle border-border/50 resize-none"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (projectStep === 2) {
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-2">
+            <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
+            <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
+          </div>
+
+          <div className="space-y-4">
+            <Input
+              type="date"
+              value={projectDeadline}
+              onChange={(e) => {
+                setProjectDeadline(e.target.value);
+                setNoDeadline(false);
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              disabled={noDeadline}
+              className="h-12 glass-subtle border-border/50"
+            />
+
+            <div className="flex items-center gap-3 p-4 glass-subtle rounded-xl">
+              <Checkbox
+                id="no-deadline-new"
+                checked={noDeadline}
+                onCheckedChange={(checked) => {
+                  setNoDeadline(checked === true);
+                  if (checked) setProjectDeadline('');
+                }}
+                className="border-primary/50 data-[state=checked]:bg-primary"
+              />
+              <label htmlFor="no-deadline-new" className="text-sm text-muted-foreground cursor-pointer flex-1">
+                There is no deadline
+              </label>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const isLastStep = step === totalSteps;
 
   return (
     <div className="min-h-screen gradient-subtle">
       {/* Header */}
       <header className="glass sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
@@ -199,195 +700,70 @@ const PlanReset = () => {
               <span className="hidden sm:inline">Home</span>
             </Button>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            {intent && (
+              <span className="text-sm text-muted-foreground">
+                Step {step} of {totalSteps}
+              </span>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
+      {/* Progress */}
+      {intent && (
+        <div className="max-w-xl mx-auto px-4 pt-4">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Hero Section */}
-        <div className="text-center animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-kaamyab mb-4">
-            <Sparkles className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Let's reshape your plan
-          </h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Your profile is ready. Adjust your project details below and generate a fresh plan.
-          </p>
-        </div>
+      <main className="max-w-xl mx-auto px-4 py-8">
+        <Card className="glass-card border-0 shadow-elevated">
+          <CardContent className="pt-6 pb-6">
+            {step === 0 && renderIntentSelection()}
+            {step > 0 && intent === 'same_field' && renderSameFieldFlow()}
+            {step > 0 && intent === 'new_field' && renderNewFieldFlow()}
 
-        {/* Context Card - Read Only Profile Info */}
-        <Card className="glass-card animate-slide-up">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-primary" />
-              Your Profile
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="glass-subtle p-3 rounded-lg">
-                <p className="text-xs text-muted-foreground mb-1">Profession</p>
-                <p className="text-sm font-medium text-foreground">{profile?.profession}</p>
-              </div>
-              {profDetails?.employmentType && (
-                <div className="glass-subtle p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Employment</p>
-                  <p className="text-sm font-medium text-foreground">{profDetails.employmentType}</p>
-                </div>
-              )}
-            </div>
-            
-            {profDetails?.techStack && profDetails.techStack.length > 0 && (
-              <div className="glass-subtle p-3 rounded-lg">
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                  <Code className="w-3 h-3" /> Tech Stack
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {profDetails.techStack.map((tech, i) => (
-                    <span 
-                      key={i} 
-                      className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary"
-                    >
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {profDetails?.aiToolsUsed && profDetails.aiToolsList && (
-              <div className="glass-subtle p-3 rounded-lg">
-                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Bot className="w-3 h-3" /> AI Tools
-                </p>
-                <p className="text-sm text-foreground">{profDetails.aiToolsList}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Adjustable Project Details */}
-        <Card className="glass-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              Project Details
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Modify these to reshape your plan
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Project Title */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Project Title
-              </label>
-              <Input
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-                placeholder="Enter project title"
-                className="glass-subtle border-border/50 focus:border-primary/50"
-              />
-            </div>
-
-            {/* Project Description */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Project Description
-              </label>
-              <Textarea
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                placeholder="Describe your project goals..."
-                rows={4}
-                className="glass-subtle border-border/50 focus:border-primary/50 resize-none"
-              />
-            </div>
-
-            {/* Deadline */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-foreground">
-                Project Deadline
-              </label>
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={noDeadline}
-                    className={cn(
-                      "w-full justify-start text-left glass-subtle border-border/50",
-                      !projectDeadline && !noDeadline && "text-muted-foreground",
-                      noDeadline && "opacity-50"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {projectDeadline && !noDeadline
-                      ? format(projectDeadline, "PPP")
-                      : "Select a deadline"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 glass" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={projectDeadline}
-                    onSelect={setProjectDeadline}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-
-              {/* No Deadline Checkbox */}
-              <div className="flex items-center gap-3 p-3 glass-subtle rounded-lg">
-                <Checkbox
-                  id="no-deadline"
-                  checked={noDeadline}
-                  onCheckedChange={(checked) => {
-                    setNoDeadline(checked === true);
-                    if (checked) {
-                      setProjectDeadline(undefined);
-                    }
-                  }}
-                  className="border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-                <label 
-                  htmlFor="no-deadline" 
-                  className="text-sm text-muted-foreground cursor-pointer flex-1"
+            {/* Navigation */}
+            {step > 0 && (
+              <div className="flex gap-3 mt-8">
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className="flex-1 h-12 glass border-border/50"
+                  disabled={isGenerating}
                 >
-                  There is no deadline — focus on consistency and momentum
-                </label>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  onClick={isLastStep ? handleGenerate : handleNext}
+                  disabled={!canProceed() || isGenerating}
+                  className="flex-1 h-12 gradient-kaamyab hover:opacity-90"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : isLastStep ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Plan
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* Generate Button */}
-        <div className="pt-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="w-full py-6 text-lg gradient-kaamyab hover:opacity-90 btn-press"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Generating your plan...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5 mr-2" />
-                Generate New Plan
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </>
-            )}
-          </Button>
-        </div>
       </main>
     </div>
   );
