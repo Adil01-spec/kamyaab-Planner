@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Rocket, User, Briefcase, FileText, Calendar, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { Rocket, User, Briefcase, FileText, Calendar, Sparkles, ArrowRight, Loader2, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const professionLabels: Record<string, string> = {
@@ -61,14 +61,25 @@ const PlanNew = () => {
     <div className="min-h-screen p-4 gradient-subtle">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8 animate-fade-in">
-          <div className="w-10 h-10 rounded-xl gradient-kaamyab flex items-center justify-center">
-            <Rocket className="w-5 h-5 text-primary-foreground" />
+        <div className="flex items-center justify-between mb-8 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl gradient-kaamyab flex items-center justify-center">
+              <Rocket className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Ready to Plan</h1>
+              <p className="text-muted-foreground text-sm">Review your profile and generate your AI plan</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Ready to Plan</h1>
-            <p className="text-muted-foreground text-sm">Review your profile and generate your AI plan</p>
-          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/home')}
+            className="btn-press text-muted-foreground hover:text-foreground"
+          >
+            <Home className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">Home</span>
+          </Button>
         </div>
 
         {/* Profile Summary */}

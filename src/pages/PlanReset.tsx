@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { 
   Rocket, Sparkles, CalendarIcon, Briefcase, Code, Bot, 
-  Loader2, ArrowRight
+  Loader2, ArrowRight, Home
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -182,11 +182,22 @@ const PlanReset = () => {
       {/* Header */}
       <header className="glass sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
-              <Rocket className="w-4 h-4 text-primary-foreground" />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
+                <Rocket className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <span className="font-semibold text-foreground">Kaamyab</span>
             </div>
-            <span className="font-semibold text-foreground">Kaamyab</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/home')}
+              className="btn-press text-muted-foreground hover:text-foreground"
+            >
+              <Home className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Home</span>
+            </Button>
           </div>
           <ThemeToggle />
         </div>
