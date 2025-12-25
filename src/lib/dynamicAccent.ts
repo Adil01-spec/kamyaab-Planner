@@ -75,11 +75,14 @@ const palettes: Record<TimeOfDay, AccentPalette> = {
 };
 
 const SESSION_KEY = 'kaamyab_accent_session';
+const DEBUG_KEY = 'kaamyab_accent_debug';
 
 interface SessionData {
   timeOfDay: TimeOfDay;
   date: string;
 }
+
+const TIME_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening', 'night'];
 
 function getTimeOfDay(): TimeOfDay {
   const hour = new Date().getHours();
@@ -95,10 +98,29 @@ function getTodayString(): string {
 }
 
 /**
+ * Get debug override if set
+ */
+function getDebugTimeOfDay(): TimeOfDay | null {
+  try {
+    const debug = sessionStorage.getItem(DEBUG_KEY);
+    if (debug && TIME_ORDER.includes(debug as TimeOfDay)) {
+      return debug as TimeOfDay;
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
+/**
  * Get cached time of day or calculate new one
  * Only recalculates on new day or fresh session
  */
 function getCachedTimeOfDay(): TimeOfDay {
+  // Check debug override first
+  const debugOverride = getDebugTimeOfDay();
+  if (debugOverride) return debugOverride;
+
   try {
     const stored = sessionStorage.getItem(SESSION_KEY);
     if (stored) {
@@ -155,4 +177,34 @@ export function getCurrentTimeOfDay(): TimeOfDay {
  */
 export function refreshAccent(isDark: boolean): void {
   applyDynamicAccent(isDark);
+}
+
+/**
+ * Cycle to next time of day (for debug/preview)
+ * Returns the new time of day
+ */
+export function cycleTimeOfDay(): TimeOfDay {
+  const current = getCachedTimeOfDay();
+  const currentIndex = TIME_ORDER.indexOf(current);
+  const nextIndex = (currentIndex + 1) % TIME_ORDER.length;
+  const next = TIME_ORDER[nextIndex];
+  
+  try {
+    sessionStorage.setItem(DEBUG_KEY, next);
+  } catch {
+    // Ignore
+  }
+  
+  return next;
+}
+
+/**
+ * Clear debug override
+ */
+export function clearDebugOverride(): void {
+  try {
+    sessionStorage.removeItem(DEBUG_KEY);
+  } catch {
+    // Ignore
+  }
 }
