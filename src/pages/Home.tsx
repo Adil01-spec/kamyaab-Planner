@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
-import { applyDynamicAccent, getBackgroundPosition } from '@/lib/dynamicAccent';
+import { applyDynamicAccent } from '@/lib/dynamicAccent';
 import { useTheme } from 'next-themes';
 import { 
   Loader2, 
@@ -66,7 +66,10 @@ const Home = () => {
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [bgPosition, setBgPosition] = useState({ x1: 10, y1: 10, x2: 90, y2: 90 });
+  const [bgPosition, setBgPosition] = useState({ x1: 25, y1: 20, x2: 75, y2: 80 });
+  const [breathePhase, setBreathePhase] = useState(0);
+  const mousePos = useRef({ x: 0.5, y: 0.5 });
+  const animationRef = useRef<number>();
 
   // Apply dynamic accent colors on mount and theme change
   useEffect(() => {
@@ -75,18 +78,43 @@ const Home = () => {
     applyDynamicAccent(isDark);
   }, [theme]);
 
-  // Track scroll for dynamic background position
+  // Breathing animation loop
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      const newPos = getBackgroundPosition(scrollY, maxScroll);
-      setBgPosition(newPos);
+    let startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      // Slow breathing: 8 second cycle
+      const phase = Math.sin(elapsed * Math.PI / 4) * 0.5 + 0.5;
+      setBreathePhase(phase);
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, []);
+
+  // Track mouse movement for interactive backgrounds
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = e.clientX / window.innerWidth;
+      const y = e.clientY / window.innerHeight;
+      mousePos.current = { x, y };
+      
+      // Smooth lerp towards mouse position
+      setBgPosition(prev => ({
+        x1: 20 + x * 15 + breathePhase * 5,
+        y1: 15 + y * 20 + breathePhase * 8,
+        x2: 80 - x * 15 - breathePhase * 5,
+        y2: 85 - y * 20 - breathePhase * 8,
+      }));
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [breathePhase]);
 
   const progress = calculatePlanProgress(planData);
 
@@ -237,16 +265,15 @@ const Home = () => {
       className="min-h-screen bg-background transition-colors relative overflow-hidden" 
       style={{ transitionDuration: 'var(--color-transition)' }}
     >
-      {/* Two-tone dynamic ambient background */}
+      {/* Two-tone dynamic ambient background with breathing */}
       <div 
-        className="fixed inset-0 pointer-events-none transition-all"
+        className="fixed inset-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse 60% 50% at ${bgPosition.x1}% ${bgPosition.y1}%, hsl(var(--dynamic-bg-1) / 0.4), transparent 70%),
-            radial-gradient(ellipse 50% 60% at ${bgPosition.x2}% ${bgPosition.y2}%, hsl(var(--dynamic-bg-2) / 0.35), transparent 70%)
+            radial-gradient(ellipse ${55 + breathePhase * 10}% ${45 + breathePhase * 10}% at ${bgPosition.x1}% ${bgPosition.y1}%, hsl(var(--dynamic-bg-1) / ${0.35 + breathePhase * 0.1}), transparent 70%),
+            radial-gradient(ellipse ${45 + breathePhase * 10}% ${55 + breathePhase * 10}% at ${bgPosition.x2}% ${bgPosition.y2}%, hsl(var(--dynamic-bg-2) / ${0.3 + breathePhase * 0.1}), transparent 70%)
           `,
-          transitionDuration: '1.5s',
-          transitionTimingFunction: 'ease-out'
+          transition: 'background 0.15s ease-out'
         }}
       />
 
