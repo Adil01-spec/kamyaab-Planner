@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
@@ -11,9 +10,9 @@ import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { 
   Loader2, 
   ArrowRight, 
-  Leaf,
   Flame,
-  Clock
+  Clock,
+  Check
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,6 +46,14 @@ interface PlanData {
   project_title?: string;
 }
 
+// Time-based greeting
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
 const Home = () => {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
@@ -57,10 +64,8 @@ const Home = () => {
   const [progressValue, setProgressValue] = useState(0);
   const [streak, setStreak] = useState(0);
 
-  // Calculate progress from the actual plan data
   const progress = calculatePlanProgress(planData);
 
-  // Get current active week (first week with incomplete tasks)
   const getCurrentWeekIndex = useCallback((): number => {
     if (!planData?.weeks) return 0;
     
@@ -72,7 +77,6 @@ const Home = () => {
     return planData.weeks.length - 1;
   }, [planData]);
 
-  // Get today's focus tasks (1-3 incomplete tasks from current week)
   const getTodaysTasks = useCallback((): { task: Task; weekIndex: number; taskIndex: number }[] => {
     if (!planData?.weeks) return [];
     
@@ -81,13 +85,11 @@ const Home = () => {
     
     if (!currentWeek) return [];
     
-    // Get incomplete tasks from current week
     const incompleteTasks = currentWeek.tasks
       .map((task, taskIndex) => ({ task, weekIndex: currentWeekIndex, taskIndex }))
       .filter(({ task }) => !task.completed)
       .slice(0, 3);
     
-    // If no tasks in current week, find next incomplete task
     if (incompleteTasks.length === 0) {
       for (let i = currentWeekIndex + 1; i < planData.weeks.length; i++) {
         const week = planData.weeks[i];
@@ -145,27 +147,23 @@ const Home = () => {
     fetchLatestPlan();
   }, [user, profile?.projectTitle]);
 
-  // Load streak on mount
   useEffect(() => {
     setStreak(getCurrentStreak());
   }, []);
 
-  // Animate progress bar on load
   useEffect(() => {
     if (planData) {
-      const timer = setTimeout(() => setProgressValue(progress.percent), 100);
+      const timer = setTimeout(() => setProgressValue(progress.percent), 150);
       return () => clearTimeout(timer);
     }
   }, [planData, progress.percent]);
 
-  // For users with no plan, redirect to /plan/reset
   useEffect(() => {
     if (!loading && hasNoPlan) {
       navigate('/plan/reset', { replace: true });
     }
   }, [loading, hasNoPlan, navigate]);
 
-  // Toggle task completion
   const toggleTask = useCallback(async (weekIndex: number, taskIndex: number) => {
     if (!planData || !planId) return;
 
@@ -176,13 +174,11 @@ const Home = () => {
 
     setPlanData(updatedPlan);
 
-    // Update streak if completing a task (not uncompleting)
     if (!wasCompleted) {
       const newStreak = recordTaskCompletion();
       setStreak(newStreak);
     }
 
-    // Persist to database
     try {
       await supabase
         .from('plans')
@@ -190,7 +186,6 @@ const Home = () => {
         .eq('id', planId);
     } catch (err) {
       console.error('Error updating task:', err);
-      // Revert on error
       task.completed = wasCompleted;
       setPlanData({ ...planData });
     }
@@ -207,162 +202,204 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
-        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 shadow-glow">
-          <Leaf className="w-8 h-8 text-primary-foreground" />
-        </div>
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <p className="text-muted-foreground mt-3">Loading...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <Loader2 className="w-5 h-5 animate-spin text-primary/60" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen gradient-subtle">
-      <div className="container max-w-2xl mx-auto px-4 py-6">
-        {/* Minimal Header */}
-        <header className="flex items-center justify-between mb-8 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg gradient-kaamyab flex items-center justify-center shadow-soft">
-              <Leaf className="w-5 h-5 text-primary-foreground" />
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-xl mx-auto px-5 py-8">
+        
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 1 — Personal Context
+            Soft, minimal header answering "Where am I?"
+        ═══════════════════════════════════════════════════════════════ */}
+        <header className="mb-10 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground/80 font-normal tracking-wide">
+                {getGreeting()}
+              </p>
+              <h2 className="text-base font-medium text-foreground/90">
+                {planData?.project_title || profile?.fullName || 'Your Workspace'}
+              </h2>
             </div>
-            {streak > 0 && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span>{streak}-day streak</span>
-              </div>
-            )}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
+                  <Avatar className="h-9 w-9 border border-border/40">
+                    <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-44 bg-card/95 backdrop-blur-xl border-border/30" align="end">
+                <div className="px-2.5 py-2">
+                  <p className="text-sm font-medium text-foreground/90">{profile?.fullName || 'User'}</p>
+                  <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
+                </div>
+                <DropdownMenuSeparator className="bg-border/30" />
+                <DropdownMenuItem 
+                  onClick={handleLogout} 
+                  className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                >
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 w-10 rounded-full p-0">
-                <Avatar className="h-10 w-10 border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-48" align="end">
-              <div className="px-2 py-1.5">
-                <p className="text-sm font-medium">{profile?.fullName || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Subtle divider fade */}
+          <div className="mt-6 h-px bg-gradient-to-r from-transparent via-border/40 to-transparent" />
         </header>
 
-        {/* Today's Focus Section */}
-        <section className="mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold text-foreground mb-1">
-              Today's Focus
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {todaysTasks.length > 0 
-                ? `Week ${currentWeekIndex + 1} · ${todaysTasks.length} task${todaysTasks.length !== 1 ? 's' : ''} to complete`
-                : 'All tasks completed!'
-              }
-            </p>
-          </div>
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 2 — Today's Focus (Hero Section)
+            Visual anchor of the Home screen
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="mb-10 animate-fade-in" style={{ animationDelay: '50ms' }}>
+          <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
+            Today's Focus
+          </p>
 
           {todaysTasks.length > 0 ? (
-            <div className="space-y-3">
-              {todaysTasks.map(({ task, weekIndex, taskIndex }) => (
-                <Card 
+            <div 
+              className="relative rounded-2xl p-5 space-y-4"
+              style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                border: '1px solid hsl(var(--border) / 0.15)',
+                boxShadow: '0 4px 24px -8px hsl(var(--primary) / 0.06)'
+              }}
+            >
+              {/* Subtle accent gradient at top */}
+              <div 
+                className="absolute inset-x-0 top-0 h-px rounded-t-2xl"
+                style={{
+                  background: 'linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)'
+                }}
+              />
+
+              {todaysTasks.map(({ task, weekIndex, taskIndex }, idx) => (
+                <div
                   key={`${weekIndex}-${taskIndex}`}
-                  className="glass-card rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30"
                   onClick={() => toggleTask(weekIndex, taskIndex)}
+                  className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all duration-200 hover:bg-primary/[0.03]"
+                  style={{
+                    boxShadow: 'inset 0 0 0 1px transparent',
+                    transition: 'box-shadow 0.2s ease, background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--primary) / 0.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
+                  }}
                 >
-                  <CardContent className="p-4 flex items-start gap-4">
+                  <div className="pt-0.5">
                     <Checkbox
                       checked={task.completed || false}
                       onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5 h-5 w-5 rounded-md border-2 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:scale-100"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-foreground leading-tight ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {task.estimated_hours}h
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          task.priority === 'high' 
-                            ? 'bg-destructive/10 text-destructive' 
-                            : task.priority === 'medium'
-                            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {task.priority}
-                        </span>
-                      </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
+                      task.completed 
+                        ? 'line-through text-muted-foreground/50' 
+                        : 'text-foreground/90'
+                    }`}>
+                      {task.title}
+                    </p>
+                    <div className="flex items-center gap-2.5 mt-1.5">
+                      <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {task.estimated_hours}h
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
+
+              {/* Week indicator */}
+              <p className="text-[11px] text-muted-foreground/40 pt-2 border-t border-border/10">
+                Week {currentWeekIndex + 1} of {planData?.total_weeks || 0}
+              </p>
             </div>
           ) : (
-            <Card className="glass-card rounded-xl">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                  <Leaf className="w-6 h-6 text-primary" />
-                </div>
-                <p className="text-muted-foreground">You're all caught up for today.</p>
-              </CardContent>
-            </Card>
+            <div 
+              className="rounded-2xl p-8 text-center"
+              style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                border: '1px solid hsl(var(--border) / 0.15)'
+              }}
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/8 flex items-center justify-center mx-auto mb-3">
+                <Check className="w-4 h-4 text-primary/60" />
+              </div>
+              <p className="text-sm text-muted-foreground/60">
+                You're clear for today.
+              </p>
+            </div>
           )}
         </section>
 
-        {/* Active Plan Overview */}
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 3 — Progress & Momentum (Quiet Support)
+            Informational, not motivating
+        ═══════════════════════════════════════════════════════════════ */}
         {planData && (
-          <Card 
-            className="glass-card rounded-xl animate-slide-up"
-            style={{ animationDelay: '0.2s' }}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                  Active Plan
-                </span>
-              </div>
-              <CardTitle className="text-lg">
-                {planData.project_title || 'Your Project'}
-              </CardTitle>
-              <CardDescription className="line-clamp-1 text-sm">
-                {planData.overview}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {/* Progress */}
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {progress.completed}/{progress.total} tasks
-                  </span>
-                  <span className="font-medium text-primary">{progress.percent}%</span>
+          <section className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+                Progress
+              </p>
+              {streak > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground/50">
+                  <Flame className="w-3 h-3 text-orange-400/70" />
+                  <span>{streak}d</span>
                 </div>
-                <Progress value={progressValue} className="h-2" />
+              )}
+            </div>
+
+            <div 
+              className="rounded-xl p-4"
+              style={{
+                background: 'hsl(var(--card) / 0.4)',
+                border: '1px solid hsl(var(--border) / 0.1)'
+              }}
+            >
+              {/* Progress bar */}
+              <div className="space-y-2 mb-5">
+                <Progress 
+                  value={progressValue} 
+                  className="h-1.5 bg-muted/30"
+                />
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground/50">
+                  <span>{progress.completed} of {progress.total} tasks</span>
+                  <span>{progress.percent}%</span>
+                </div>
               </div>
 
               {/* Primary CTA */}
               <Button
-                className="w-full gradient-kaamyab font-semibold shadow-soft btn-press"
+                variant="ghost"
+                className="w-full h-10 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-primary/5 transition-colors duration-200"
                 onClick={() => navigate('/plan')}
               >
                 Continue My Plan
-                <ArrowRight className="ml-2 w-4 h-4" />
+                <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-50" />
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         )}
       </div>
     </div>
