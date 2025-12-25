@@ -90,6 +90,8 @@ const Home = () => {
     }
   }, [planSummary]);
 
+  // For users with no plan, redirect to /plan/reset (for plan creation after deletion)
+  // First-time users should already have a plan generated after onboarding
   useEffect(() => {
     if (!loading && hasNoPlan) {
       navigate('/plan/reset', { replace: true });
