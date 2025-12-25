@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
-import { playCelebrationSound } from '@/lib/celebrationSound';
+import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, 
@@ -56,10 +56,10 @@ const Plan = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
   const celebratedWeeks = useRef<Set<number>>(new Set());
+  const hasCompletedPlan = useRef(false);
 
   // Trigger confetti celebration with sound
   const triggerCelebration = useCallback(() => {
-    // Play celebration sound
     playCelebrationSound();
     
     const duration = 2000;
@@ -87,6 +87,74 @@ const Plan = () => {
     };
 
     frame();
+  }, []);
+
+  // Trigger grand celebration for completing the entire plan
+  const triggerGrandCelebration = useCallback(() => {
+    playGrandCelebrationSound();
+    
+    // Grand confetti burst from center
+    confetti({
+      particleCount: 150,
+      spread: 100,
+      origin: { x: 0.5, y: 0.5 },
+      colors: ['#fbbf24', '#f59e0b', '#d97706', '#22c55e', '#10b981']
+    });
+
+    // Continuous confetti from sides
+    const duration = 4000;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 80,
+        origin: { x: 0, y: 0.6 },
+        colors: ['#fbbf24', '#f59e0b', '#22c55e', '#10b981', '#06b6d4']
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 80,
+        origin: { x: 1, y: 0.6 },
+        colors: ['#fbbf24', '#f59e0b', '#22c55e', '#10b981', '#06b6d4']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    frame();
+
+    // Extra bursts at intervals
+    setTimeout(() => {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { x: 0.3, y: 0.4 },
+        colors: ['#fbbf24', '#f59e0b', '#d97706']
+      });
+    }, 500);
+
+    setTimeout(() => {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { x: 0.7, y: 0.4 },
+        colors: ['#22c55e', '#10b981', '#14b8a6']
+      });
+    }, 1000);
+
+    setTimeout(() => {
+      confetti({
+        particleCount: 100,
+        spread: 100,
+        origin: { x: 0.5, y: 0.3 },
+        colors: ['#fbbf24', '#22c55e', '#06b6d4', '#8b5cf6']
+      });
+    }, 1500);
   }, []);
 
   useEffect(() => {
@@ -171,27 +239,40 @@ const Plan = () => {
 
       if (error) throw error;
 
-      // Check if the week is now fully completed (and wasn't before)
-      const week = updatedPlan.weeks[weekIndex];
-      const weekNowCompleted = week.tasks.every(t => t.completed);
-      
-      if (weekNowCompleted && !wasCompleted && !celebratedWeeks.current.has(weekIndex)) {
-        celebratedWeeks.current.add(weekIndex);
-        triggerCelebration();
+      // Check if the entire plan is now completed
+      const allTasksCompleted = updatedPlan.weeks.every(w => 
+        w.tasks.every(t => t.completed)
+      );
+
+      if (allTasksCompleted && !wasCompleted && !hasCompletedPlan.current) {
+        hasCompletedPlan.current = true;
+        triggerGrandCelebration();
         toast({
-          title: `🎉 Week ${week.week} Complete!`,
-          description: "Amazing progress! Keep up the great work!",
+          title: "🏆 Plan Complete!",
+          description: "Incredible! You've completed your entire plan. You're unstoppable!",
         });
+      } else {
+        // Check if the week is now fully completed (and wasn't before)
+        const week = updatedPlan.weeks[weekIndex];
+        const weekNowCompleted = week.tasks.every(t => t.completed);
+        
+        if (weekNowCompleted && !wasCompleted && !celebratedWeeks.current.has(weekIndex)) {
+          celebratedWeeks.current.add(weekIndex);
+          triggerCelebration();
+          toast({
+            title: `🎉 Week ${week.week} Complete!`,
+            description: "Amazing progress! Keep up the great work!",
+          });
+        }
       }
     } catch (error) {
       console.error('Error saving task completion:', error);
-      // Revert on error
       task.completed = !task.completed;
       setPlan({ ...updatedPlan });
     } finally {
       setSaving(false);
     }
-  }, [plan, user, triggerCelebration]);
+  }, [plan, user, triggerCelebration, triggerGrandCelebration]);
 
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);

@@ -12,18 +12,15 @@ export function playCelebrationSound() {
     const startTime = audioContext.currentTime;
     
     notes.forEach((frequency, index) => {
-      // Create oscillator for each note
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      // Use a pleasant sine wave
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(frequency, startTime + index * noteDuration);
       
-      // Envelope for each note
       const noteStart = startTime + index * noteDuration;
       gainNode.gain.setValueAtTime(0, noteStart);
       gainNode.gain.linearRampToValueAtTime(0.3, noteStart + 0.02);
@@ -41,7 +38,7 @@ export function playCelebrationSound() {
     sparkleGain.connect(audioContext.destination);
     
     sparkleOsc.type = 'sine';
-    sparkleOsc.frequency.setValueAtTime(1318.51, startTime + notes.length * noteDuration); // E6
+    sparkleOsc.frequency.setValueAtTime(1318.51, startTime + notes.length * noteDuration);
     
     const sparkleStart = startTime + notes.length * noteDuration;
     sparkleGain.gain.setValueAtTime(0, sparkleStart);
@@ -51,12 +48,93 @@ export function playCelebrationSound() {
     sparkleOsc.start(sparkleStart);
     sparkleOsc.stop(sparkleStart + 0.5);
     
-    // Clean up after sounds finish
-    setTimeout(() => {
-      audioContext.close();
-    }, 1500);
+    setTimeout(() => audioContext.close(), 1500);
   } catch (error) {
-    // Silently fail if audio context isn't available
     console.debug('Audio playback not available:', error);
   }
+}
+
+/**
+ * Generates a grand fanfare sound for completing the entire plan
+ */
+export function playGrandCelebrationSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // First fanfare phrase - triumphant ascending
+    const fanfare1 = [
+      { freq: 392.00, dur: 0.15 }, // G4
+      { freq: 523.25, dur: 0.15 }, // C5
+      { freq: 659.25, dur: 0.15 }, // E5
+      { freq: 783.99, dur: 0.3 },  // G5 (held)
+    ];
+    
+    // Second fanfare phrase - even higher
+    const fanfare2 = [
+      { freq: 659.25, dur: 0.12 }, // E5
+      { freq: 783.99, dur: 0.12 }, // G5
+      { freq: 1046.50, dur: 0.12 }, // C6
+      { freq: 1318.51, dur: 0.5 },  // E6 (held long)
+    ];
+    
+    let currentTime = startTime;
+    
+    // Play first phrase
+    fanfare1.forEach((note) => {
+      playNote(audioContext, note.freq, currentTime, note.dur, 0.35, 'triangle');
+      currentTime += note.dur;
+    });
+    
+    currentTime += 0.1; // Small pause
+    
+    // Play second phrase
+    fanfare2.forEach((note) => {
+      playNote(audioContext, note.freq, currentTime, note.dur, 0.35, 'triangle');
+      currentTime += note.dur;
+    });
+    
+    // Add shimmering harmonics at the end
+    const shimmerStart = currentTime - 0.3;
+    for (let i = 0; i < 5; i++) {
+      const shimmerFreq = 1318.51 + (i * 200);
+      playNote(audioContext, shimmerFreq, shimmerStart + i * 0.08, 0.4, 0.1, 'sine');
+    }
+    
+    // Final chord
+    const chordTime = currentTime + 0.2;
+    playNote(audioContext, 523.25, chordTime, 0.8, 0.2, 'sine'); // C5
+    playNote(audioContext, 659.25, chordTime, 0.8, 0.2, 'sine'); // E5
+    playNote(audioContext, 783.99, chordTime, 0.8, 0.2, 'sine'); // G5
+    playNote(audioContext, 1046.50, chordTime, 0.8, 0.25, 'sine'); // C6
+    
+    setTimeout(() => audioContext.close(), 3000);
+  } catch (error) {
+    console.debug('Audio playback not available:', error);
+  }
+}
+
+function playNote(
+  ctx: AudioContext, 
+  freq: number, 
+  startTime: number, 
+  duration: number, 
+  volume: number,
+  type: OscillatorType
+) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+  
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.1);
 }
