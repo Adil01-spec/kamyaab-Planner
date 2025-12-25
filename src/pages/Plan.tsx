@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
+import { calculatePlanProgress } from '@/lib/planProgress';
 import { 
   Rocket, LogOut, Target, Calendar, 
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight, Home
@@ -143,28 +144,8 @@ const Plan = () => {
     }
   }, [plan, user]);
 
-  // Calculate overall progress
-  const calculateProgress = useCallback(() => {
-    if (!plan) return { completed: 0, total: 0, percent: 0 };
-    
-    let completed = 0;
-    let total = 0;
-    
-    plan.weeks.forEach(week => {
-      week.tasks.forEach(task => {
-        total++;
-        if (task.completed) completed++;
-      });
-    });
-    
-    return {
-      completed,
-      total,
-      percent: total > 0 ? Math.round((completed / total) * 100) : 0
-    };
-  }, [plan]);
-
-  const progress = calculateProgress();
+  // Calculate overall progress using the shared utility
+  const progress = calculatePlanProgress(plan);
 
   // Check if user is nearing the end of their plan (last 2 weeks or 75%+ completed)
   const isNearingPlanEnd = useCallback(() => {
