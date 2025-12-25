@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { calculatePlanProgress } from '@/lib/planProgress';
 import { 
   Loader2, 
   ArrowRight, 
@@ -26,20 +27,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-interface PlanSummary {
+interface PlanData {
   overview: string;
   total_weeks: number;
-  current_week?: number;
+  weeks: { week: number; focus: string; tasks: { title: string; priority: string; estimated_hours: number; completed?: boolean }[] }[];
+  milestones?: { title: string; week: number }[];
+  motivation?: string[];
+  is_open_ended?: boolean;
   project_title?: string;
 }
 
 const Home = () => {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
-  const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null);
+  const [planData, setPlanData] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
+
+  // Calculate progress from the actual plan data
+  const progress = calculatePlanProgress(planData);
 
   useEffect(() => {
     const fetchLatestPlan = async () => {
@@ -63,11 +70,14 @@ const Home = () => {
         }
 
         if (data?.plan_json) {
-          const planData = data.plan_json as Record<string, unknown>;
-          setPlanSummary({
-            overview: planData.overview as string || '',
-            total_weeks: planData.total_weeks as number || 0,
-            current_week: 1,
+          const rawPlan = data.plan_json as Record<string, unknown>;
+          setPlanData({
+            overview: rawPlan.overview as string || '',
+            total_weeks: rawPlan.total_weeks as number || 0,
+            weeks: (rawPlan.weeks as PlanData['weeks']) || [],
+            milestones: rawPlan.milestones as PlanData['milestones'],
+            motivation: rawPlan.motivation as string[],
+            is_open_ended: rawPlan.is_open_ended as boolean,
             project_title: profile?.projectTitle || ''
           });
         }
@@ -83,12 +93,11 @@ const Home = () => {
 
   // Animate progress bar on load
   useEffect(() => {
-    if (planSummary) {
-      const targetPercent = Math.round(((planSummary.current_week || 1) / planSummary.total_weeks) * 100);
-      const timer = setTimeout(() => setProgressValue(targetPercent), 100);
+    if (planData) {
+      const timer = setTimeout(() => setProgressValue(progress.percent), 100);
       return () => clearTimeout(timer);
     }
-  }, [planSummary]);
+  }, [planData, progress.percent]);
 
   // For users with no plan, redirect to /plan/reset (for plan creation after deletion)
   // First-time users should already have a plan generated after onboarding
@@ -103,10 +112,6 @@ const Home = () => {
     await logout();
     navigate('/auth', { replace: true });
   };
-
-  const progressPercent = planSummary 
-    ? Math.round(((planSummary.current_week || 1) / planSummary.total_weeks) * 100) 
-    : 0;
 
   const userInitials = profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
@@ -188,7 +193,7 @@ const Home = () => {
         </section>
 
         {/* C. Active Plan Hero Card */}
-        {planSummary && (
+        {planData && (
           <Card 
             className="mb-6 glass-card glass-card-hover rounded-2xl overflow-hidden animate-slide-up"
             style={{ animationDelay: '0.2s' }}
@@ -202,10 +207,10 @@ const Home = () => {
                     </span>
                   </div>
                   <CardTitle className="text-xl mb-1">
-                    {planSummary.project_title || 'Your Project Plan'}
+                    {planData.project_title || 'Your Project Plan'}
                   </CardTitle>
                   <CardDescription className="line-clamp-2 text-base">
-                    {planSummary.overview}
+                    {planData.overview}
                   </CardDescription>
                 </div>
               </div>
@@ -215,7 +220,7 @@ const Home = () => {
               <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  {planSummary.total_weeks} weeks
+                  {planData.total_weeks} weeks
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Cpu className="w-4 h-4" />
@@ -227,9 +232,9 @@ const Home = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Week {planSummary.current_week || 1} of {planSummary.total_weeks} completed
+                    {progress.completed} of {progress.total} tasks completed
                   </span>
-                  <span className="font-semibold text-primary">{progressPercent}%</span>
+                  <span className="font-semibold text-primary">{progress.percent}%</span>
                 </div>
                 <Progress value={progressValue} className="h-2.5 transition-all duration-1000" />
               </div>
