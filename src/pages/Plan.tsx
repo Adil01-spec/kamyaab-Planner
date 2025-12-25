@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
+import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, 
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight, Home
@@ -53,6 +54,36 @@ const Plan = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
+  const celebratedWeeks = useRef<Set<number>>(new Set());
+
+  // Trigger confetti celebration
+  const triggerCelebration = useCallback(() => {
+    const duration = 2000;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.8 },
+        colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4']
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.8 },
+        colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    frame();
+  }, []);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -122,6 +153,7 @@ const Plan = () => {
 
     const updatedPlan = { ...plan };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
+    const wasCompleted = task.completed;
     task.completed = !task.completed;
     
     setPlan({ ...updatedPlan });
@@ -134,6 +166,19 @@ const Plan = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // Check if the week is now fully completed (and wasn't before)
+      const week = updatedPlan.weeks[weekIndex];
+      const weekNowCompleted = week.tasks.every(t => t.completed);
+      
+      if (weekNowCompleted && !wasCompleted && !celebratedWeeks.current.has(weekIndex)) {
+        celebratedWeeks.current.add(weekIndex);
+        triggerCelebration();
+        toast({
+          title: `🎉 Week ${week.week} Complete!`,
+          description: "Amazing progress! Keep up the great work!",
+        });
+      }
     } catch (error) {
       console.error('Error saving task completion:', error);
       // Revert on error
@@ -142,7 +187,7 @@ const Plan = () => {
     } finally {
       setSaving(false);
     }
-  }, [plan, user]);
+  }, [plan, user, triggerCelebration]);
 
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
