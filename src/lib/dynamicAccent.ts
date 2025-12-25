@@ -1,88 +1,105 @@
 /**
- * Dynamic Accent Color System
- * Changes based on time of day, cached per session
+ * Dynamic Accent & Background Color System
+ * Changes based on time of day with two-tone ambient backgrounds
  */
 
 type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
 interface AccentPalette {
   light: {
-    accent: string;      // HSL values
-    accentMuted: string; // Softer version for glows
-    accentFill: string;  // For progress bars
+    accent: string;
+    accentMuted: string;
+    accentFill: string;
+    bgGradient1: string;  // Primary ambient color
+    bgGradient2: string;  // Secondary ambient color
   };
   dark: {
     accent: string;
     accentMuted: string;
     accentFill: string;
+    bgGradient1: string;
+    bgGradient2: string;
   };
 }
 
-// Carefully curated palettes - desaturated, eye-safe
+// Two-tone palettes for each time of day
 const palettes: Record<TimeOfDay, AccentPalette> = {
   morning: {
-    // Soft mint / sky teal
+    // Refreshing: Soft peach + sky blue
     light: {
       accent: '168 45% 45%',
       accentMuted: '168 35% 75%',
       accentFill: '168 40% 50%',
+      bgGradient1: '32 85% 92%',   // Warm peach
+      bgGradient2: '195 75% 88%',  // Sky blue
     },
     dark: {
       accent: '168 35% 55%',
       accentMuted: '168 25% 25%',
       accentFill: '168 30% 45%',
+      bgGradient1: '32 40% 15%',   // Deep warm amber
+      bgGradient2: '195 35% 18%',  // Muted night blue
     },
   },
   afternoon: {
-    // Calm blue-green
+    // Energetic: Coral pink + mint green
     light: {
       accent: '175 40% 42%',
       accentMuted: '175 30% 72%',
       accentFill: '175 35% 48%',
+      bgGradient1: '15 80% 90%',   // Soft coral
+      bgGradient2: '155 60% 88%',  // Fresh mint
     },
     dark: {
       accent: '175 32% 52%',
       accentMuted: '175 22% 24%',
       accentFill: '175 28% 42%',
+      bgGradient1: '15 35% 14%',   // Deep coral
+      bgGradient2: '155 30% 16%',  // Dark mint
     },
   },
   evening: {
-    // Muted indigo / emerald blend
+    // Warm: Golden amber + lavender
     light: {
       accent: '160 38% 40%',
       accentMuted: '160 28% 70%',
       accentFill: '160 33% 46%',
+      bgGradient1: '38 75% 88%',   // Golden glow
+      bgGradient2: '275 50% 90%',  // Soft lavender
     },
     dark: {
       accent: '160 30% 50%',
       accentMuted: '160 20% 22%',
       accentFill: '160 25% 40%',
+      bgGradient1: '38 40% 12%',   // Deep amber
+      bgGradient2: '275 30% 15%',  // Muted purple
     },
   },
   night: {
-    // Deep jade / desaturated teal
+    // Calm: Deep indigo + teal
     light: {
       accent: '155 32% 38%',
       accentMuted: '155 22% 68%',
       accentFill: '155 28% 44%',
+      bgGradient1: '235 50% 92%',  // Soft indigo
+      bgGradient2: '185 45% 88%',  // Light teal
     },
     dark: {
       accent: '155 25% 48%',
       accentMuted: '155 18% 20%',
       accentFill: '155 22% 38%',
+      bgGradient1: '235 40% 10%',  // Deep indigo
+      bgGradient2: '185 35% 12%',  // Dark teal
     },
   },
 };
 
 const SESSION_KEY = 'kaamyab_accent_session';
-const DEBUG_KEY = 'kaamyab_accent_debug';
 
 interface SessionData {
   timeOfDay: TimeOfDay;
   date: string;
 }
-
-const TIME_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening', 'night'];
 
 function getTimeOfDay(): TimeOfDay {
   const hour = new Date().getHours();
@@ -98,34 +115,14 @@ function getTodayString(): string {
 }
 
 /**
- * Get debug override if set
- */
-function getDebugTimeOfDay(): TimeOfDay | null {
-  try {
-    const debug = sessionStorage.getItem(DEBUG_KEY);
-    if (debug && TIME_ORDER.includes(debug as TimeOfDay)) {
-      return debug as TimeOfDay;
-    }
-  } catch {
-    // Ignore
-  }
-  return null;
-}
-
-/**
  * Get cached time of day or calculate new one
  * Only recalculates on new day or fresh session
  */
 function getCachedTimeOfDay(): TimeOfDay {
-  // Check debug override first
-  const debugOverride = getDebugTimeOfDay();
-  if (debugOverride) return debugOverride;
-
   try {
     const stored = sessionStorage.getItem(SESSION_KEY);
     if (stored) {
       const data: SessionData = JSON.parse(stored);
-      // Only use cache if same day
       if (data.date === getTodayString()) {
         return data.timeOfDay;
       }
@@ -134,7 +131,6 @@ function getCachedTimeOfDay(): TimeOfDay {
     // Ignore parsing errors
   }
   
-  // Calculate fresh
   const timeOfDay = getTimeOfDay();
   const sessionData: SessionData = {
     timeOfDay,
@@ -151,7 +147,7 @@ function getCachedTimeOfDay(): TimeOfDay {
 }
 
 /**
- * Apply dynamic accent CSS variables to document
+ * Apply dynamic accent and background CSS variables
  */
 export function applyDynamicAccent(isDark: boolean): void {
   const timeOfDay = getCachedTimeOfDay();
@@ -160,9 +156,14 @@ export function applyDynamicAccent(isDark: boolean): void {
   
   const root = document.documentElement;
   
+  // Accent colors
   root.style.setProperty('--dynamic-accent', colors.accent);
   root.style.setProperty('--dynamic-accent-muted', colors.accentMuted);
   root.style.setProperty('--dynamic-accent-fill', colors.accentFill);
+  
+  // Two-tone background gradients
+  root.style.setProperty('--dynamic-bg-1', colors.bgGradient1);
+  root.style.setProperty('--dynamic-bg-2', colors.bgGradient2);
 }
 
 /**
@@ -180,31 +181,18 @@ export function refreshAccent(isDark: boolean): void {
 }
 
 /**
- * Cycle to next time of day (for debug/preview)
- * Returns the new time of day
+ * Get background position based on scroll or interaction
  */
-export function cycleTimeOfDay(): TimeOfDay {
-  const current = getCachedTimeOfDay();
-  const currentIndex = TIME_ORDER.indexOf(current);
-  const nextIndex = (currentIndex + 1) % TIME_ORDER.length;
-  const next = TIME_ORDER[nextIndex];
+export function getBackgroundPosition(scrollY: number, maxScroll: number): { x1: number; y1: number; x2: number; y2: number } {
+  const progress = Math.min(scrollY / Math.max(maxScroll, 1), 1);
   
-  try {
-    sessionStorage.setItem(DEBUG_KEY, next);
-  } catch {
-    // Ignore
-  }
+  // Gradient 1: Moves from top-left to center-left
+  const x1 = 10 + progress * 15;
+  const y1 = 10 + progress * 30;
   
-  return next;
-}
-
-/**
- * Clear debug override
- */
-export function clearDebugOverride(): void {
-  try {
-    sessionStorage.removeItem(DEBUG_KEY);
-  } catch {
-    // Ignore
-  }
+  // Gradient 2: Moves from bottom-right to center-right
+  const x2 = 90 - progress * 15;
+  const y2 = 90 - progress * 30;
+  
+  return { x1, y1, x2, y2 };
 }

@@ -44,6 +44,10 @@
     --dynamic-accent: 168 45% 45%;
     --dynamic-accent-muted: 168 35% 75%;
     --dynamic-accent-fill: 168 40% 50%;
+    
+    /* Two-tone dynamic backgrounds (set via JS) */
+    --dynamic-bg-1: 32 85% 92%;
+    --dynamic-bg-2: 195 75% 88%;
 
     /* Custom tokens */
     --kaamyab-green: 160 55% 38%;
@@ -116,6 +120,10 @@
     --dynamic-accent: 168 35% 55%;
     --dynamic-accent-muted: 168 25% 25%;
     --dynamic-accent-fill: 168 30% 45%;
+    
+    /* Two-tone dynamic backgrounds (set via JS) */
+    --dynamic-bg-1: 235 40% 10%;
+    --dynamic-bg-2: 185 35% 12%;
     
     /* Dark mode glassmorphism - softer */
     --glass-bg: rgba(255, 255, 255, 0.04);
