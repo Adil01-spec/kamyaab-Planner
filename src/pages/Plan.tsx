@@ -569,18 +569,18 @@ const Plan = () => {
 
             {/* Motivation */}
             {plan.motivation && plan.motivation.length > 0 && (
-              <Card className="glass-card gradient-kaamyab text-primary-foreground animate-slide-up">
+              <Card className="glass-card border-primary/20 animate-slide-up">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <Quote className="w-5 h-5" />
-                    <CardTitle className="text-primary-foreground">Stay Motivated</CardTitle>
+                    <Quote className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-foreground">Stay Motivated</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
                     {plan.motivation.map((tip, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 mt-1 flex-shrink-0" />
+                      <li key={index} className="flex items-start gap-2 text-muted-foreground">
+                        <Sparkles className="w-4 h-4 mt-1 flex-shrink-0 text-primary/60" />
                         <span>{tip}</span>
                       </li>
                     ))}
