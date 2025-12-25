@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
+import { playCelebrationSound } from '@/lib/celebrationSound';
 import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, 
@@ -56,8 +57,11 @@ const Plan = () => {
   const [isExtending, setIsExtending] = useState(false);
   const celebratedWeeks = useRef<Set<number>>(new Set());
 
-  // Trigger confetti celebration
+  // Trigger confetti celebration with sound
   const triggerCelebration = useCallback(() => {
+    // Play celebration sound
+    playCelebrationSound();
+    
     const duration = 2000;
     const end = Date.now() + duration;
 
