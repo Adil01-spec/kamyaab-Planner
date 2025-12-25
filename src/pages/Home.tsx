@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
-import { applyDynamicAccent, cycleTimeOfDay, getCurrentTimeOfDay } from '@/lib/dynamicAccent';
+import { applyDynamicAccent, getBackgroundPosition } from '@/lib/dynamicAccent';
 import { useTheme } from 'next-themes';
 import { 
   Loader2, 
@@ -66,16 +66,7 @@ const Home = () => {
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [currentPalette, setCurrentPalette] = useState(getCurrentTimeOfDay());
-
-  // Cycle through palettes (debug feature)
-  const handleCyclePalette = useCallback(() => {
-    const next = cycleTimeOfDay();
-    setCurrentPalette(next);
-    const isDark = theme === 'dark' || 
-      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    applyDynamicAccent(isDark);
-  }, [theme]);
+  const [bgPosition, setBgPosition] = useState({ x1: 10, y1: 10, x2: 90, y2: 90 });
 
   // Apply dynamic accent colors on mount and theme change
   useEffect(() => {
@@ -83,6 +74,19 @@ const Home = () => {
       (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     applyDynamicAccent(isDark);
   }, [theme]);
+
+  // Track scroll for dynamic background position
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const newPos = getBackgroundPosition(scrollY, maxScroll);
+      setBgPosition(newPos);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const progress = calculatePlanProgress(planData);
 
@@ -229,8 +233,24 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-colors" style={{ transitionDuration: 'var(--color-transition)' }}>
-      <div className="container max-w-xl mx-auto px-5 py-8">
+    <div 
+      className="min-h-screen bg-background transition-colors relative overflow-hidden" 
+      style={{ transitionDuration: 'var(--color-transition)' }}
+    >
+      {/* Two-tone dynamic ambient background */}
+      <div 
+        className="fixed inset-0 pointer-events-none transition-all"
+        style={{
+          background: `
+            radial-gradient(ellipse 60% 50% at ${bgPosition.x1}% ${bgPosition.y1}%, hsl(var(--dynamic-bg-1) / 0.4), transparent 70%),
+            radial-gradient(ellipse 50% 60% at ${bgPosition.x2}% ${bgPosition.y2}%, hsl(var(--dynamic-bg-2) / 0.35), transparent 70%)
+          `,
+          transitionDuration: '1.5s',
+          transitionTimingFunction: 'ease-out'
+        }}
+      />
+
+      <div className="container max-w-xl mx-auto px-5 py-8 relative z-10">
         
         {/* ═══════════════════════════════════════════════════════════════
             ZONE 1 — Personal Context
@@ -239,16 +259,9 @@ const Home = () => {
         <header className="mb-10 animate-fade-in">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <button 
-                onClick={handleCyclePalette}
-                className="text-sm text-muted-foreground/80 font-normal tracking-wide hover:text-muted-foreground transition-colors cursor-pointer flex items-center gap-2"
-                title="Click to preview different time palettes"
-              >
+              <p className="text-sm text-muted-foreground/80 font-normal tracking-wide">
                 {getGreeting()}
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground/60 capitalize">
-                  {currentPalette}
-                </span>
-              </button>
+              </p>
               <h2 className="text-base font-medium text-foreground/90">
                 {planData?.project_title || profile?.fullName || 'Your Workspace'}
               </h2>
