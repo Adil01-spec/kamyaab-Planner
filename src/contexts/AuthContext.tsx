@@ -112,12 +112,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // Handle stale/invalid refresh token by signing out
+      if (error && error.message?.includes('Refresh Token')) {
+        supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
       }
+      setLoading(false);
+    }).catch(() => {
+      // Clear state on any session error
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       setLoading(false);
     });
 
