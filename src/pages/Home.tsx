@@ -67,6 +67,7 @@ const Home = () => {
   const [progressValue, setProgressValue] = useState(0);
   const [streak, setStreak] = useState(0);
   const [bgPosition, setBgPosition] = useState({ x1: 25, y1: 20, x2: 75, y2: 80 });
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [breathePhase, setBreathePhase] = useState(0);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
@@ -96,25 +97,60 @@ const Home = () => {
     };
   }, []);
 
-  // Track mouse movement for interactive backgrounds
+  // Unified position handler for mouse and touch
+  const updatePosition = useCallback((clientX: number, clientY: number) => {
+    const x = clientX / window.innerWidth;
+    const y = clientY / window.innerHeight;
+    mousePos.current = { x, y };
+    
+    // Background position
+    setBgPosition({
+      x1: 20 + x * 15 + breathePhase * 5,
+      y1: 15 + y * 20 + breathePhase * 8,
+      x2: 80 - x * 15 - breathePhase * 5,
+      y2: 85 - y * 20 - breathePhase * 8,
+    });
+    
+    // Parallax offset (subtle: -8px to +8px)
+    setParallax({
+      x: (x - 0.5) * 16,
+      y: (y - 0.5) * 12,
+    });
+  }, [breathePhase]);
+
+  // Track mouse movement
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
-      mousePos.current = { x, y };
-      
-      // Smooth lerp towards mouse position
-      setBgPosition(prev => ({
-        x1: 20 + x * 15 + breathePhase * 5,
-        y1: 15 + y * 20 + breathePhase * 8,
-        x2: 80 - x * 15 - breathePhase * 5,
-        y2: 85 - y * 20 - breathePhase * 8,
-      }));
+      updatePosition(e.clientX, e.clientY);
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [breathePhase]);
+  }, [updatePosition]);
+
+  // Track touch movement for mobile
+  useEffect(() => {
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        updatePosition(touch.clientX, touch.clientY);
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        updatePosition(touch.clientX, touch.clientY);
+      }
+    };
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, [updatePosition]);
 
   const progress = calculatePlanProgress(planData);
 
@@ -338,7 +374,14 @@ const Home = () => {
             ZONE 2 — Today's Focus (Hero Section)
             Visual anchor of the Home screen
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="mb-10 animate-fade-in" style={{ animationDelay: '50ms' }}>
+        <section 
+          className="mb-10 animate-fade-in" 
+          style={{ 
+            animationDelay: '50ms',
+            transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`,
+            transition: 'transform 0.1s ease-out'
+          }}
+        >
           <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
             Today's Focus
           </p>
@@ -352,7 +395,8 @@ const Home = () => {
                 WebkitBackdropFilter: 'blur(28px)',
                 border: '1px solid hsl(var(--border) / 0.12)',
                 boxShadow: 'var(--shadow-glow), 0 4px 20px -6px hsl(var(--dynamic-accent) / 0.08)',
-                transitionDuration: 'var(--color-transition)'
+                transitionDuration: 'var(--color-transition)',
+                transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)`,
               }}
             >
               {/* Dynamic accent gradient at top */}
@@ -456,7 +500,14 @@ const Home = () => {
             Informational, not motivating
         ═══════════════════════════════════════════════════════════════ */}
         {planData && (
-          <section className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <section 
+            className="animate-fade-in" 
+            style={{ 
+              animationDelay: '100ms',
+              transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
                 Progress
@@ -474,7 +525,8 @@ const Home = () => {
               style={{
                 background: 'hsl(var(--card) / 0.35)',
                 border: '1px solid hsl(var(--border) / 0.08)',
-                transitionDuration: 'var(--color-transition)'
+                transitionDuration: 'var(--color-transition)',
+                transform: `translate3d(${parallax.x * 0.2}px, ${parallax.y * 0.2}px, 0)`,
               }}
             >
               {/* Progress bar with dynamic accent */}
