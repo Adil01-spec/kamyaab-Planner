@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
+import { applyDynamicAccent } from '@/lib/dynamicAccent';
+import { useTheme } from 'next-themes';
 import { 
   Loader2, 
   ArrowRight, 
@@ -56,6 +57,7 @@ const getGreeting = (): string => {
 
 const Home = () => {
   const { user, profile, logout } = useAuth();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const [planData, setPlanData] = useState<PlanData | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -63,6 +65,13 @@ const Home = () => {
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
   const [streak, setStreak] = useState(0);
+
+  // Apply dynamic accent colors on mount and theme change
+  useEffect(() => {
+    const isDark = theme === 'dark' || 
+      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyDynamicAccent(isDark);
+  }, [theme]);
 
   const progress = calculatePlanProgress(planData);
 
@@ -209,7 +218,7 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background transition-colors" style={{ transitionDuration: 'var(--color-transition)' }}>
       <div className="container max-w-xl mx-auto px-5 py-8">
         
         {/* ═══════════════════════════════════════════════════════════════
@@ -253,8 +262,14 @@ const Home = () => {
             </DropdownMenu>
           </div>
           
-          {/* Subtle divider fade */}
-          <div className="mt-6 h-px bg-gradient-to-r from-transparent via-border/40 to-transparent" />
+          {/* Subtle divider with dynamic accent */}
+          <div 
+            className="mt-6 h-px transition-colors"
+            style={{ 
+              background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.2), transparent)',
+              transitionDuration: 'var(--color-transition)'
+            }} 
+          />
         </header>
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -268,37 +283,41 @@ const Home = () => {
 
           {todaysTasks.length > 0 ? (
             <div 
-              className="relative rounded-2xl p-5 space-y-4"
+              className="relative rounded-2xl p-5 space-y-4 transition-shadow"
               style={{
                 background: 'var(--glass-bg)',
-                backdropFilter: 'blur(24px)',
-                WebkitBackdropFilter: 'blur(24px)',
-                border: '1px solid hsl(var(--border) / 0.15)',
-                boxShadow: '0 4px 24px -8px hsl(var(--primary) / 0.06)'
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+                border: '1px solid hsl(var(--border) / 0.12)',
+                boxShadow: 'var(--shadow-glow), 0 4px 20px -6px hsl(var(--dynamic-accent) / 0.08)',
+                transitionDuration: 'var(--color-transition)'
               }}
             >
-              {/* Subtle accent gradient at top */}
+              {/* Dynamic accent gradient at top */}
               <div 
-                className="absolute inset-x-0 top-0 h-px rounded-t-2xl"
+                className="absolute inset-x-0 top-0 h-px rounded-t-2xl transition-colors"
                 style={{
-                  background: 'linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)'
+                  background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.4), transparent)',
+                  transitionDuration: 'var(--color-transition)'
                 }}
               />
 
-              {todaysTasks.map(({ task, weekIndex, taskIndex }, idx) => (
+              {todaysTasks.map(({ task, weekIndex, taskIndex }) => (
                 <div
                   key={`${weekIndex}-${taskIndex}`}
                   onClick={() => toggleTask(weekIndex, taskIndex)}
-                  className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all duration-200 hover:bg-primary/[0.03]"
+                  className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
                   style={{
                     boxShadow: 'inset 0 0 0 1px transparent',
-                    transition: 'box-shadow 0.2s ease, background 0.2s ease'
+                    transition: 'box-shadow 0.25s ease, background 0.25s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--primary) / 0.08)';
+                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
+                    e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
+                    e.currentTarget.style.background = 'transparent';
                   }}
                 >
                   <div className="pt-0.5">
@@ -306,7 +325,12 @@ const Home = () => {
                       checked={task.completed || false}
                       onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
                       onClick={(e) => e.stopPropagation()}
-                      className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:scale-100"
+                      className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
+                      style={{
+                        '--tw-bg-opacity': task.completed ? '1' : '0',
+                        backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                        borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                      } as React.CSSProperties}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -334,16 +358,29 @@ const Home = () => {
             </div>
           ) : (
             <div 
-              className="rounded-2xl p-8 text-center"
+              className="rounded-2xl p-8 text-center transition-colors"
               style={{
                 background: 'var(--glass-bg)',
-                backdropFilter: 'blur(24px)',
-                WebkitBackdropFilter: 'blur(24px)',
-                border: '1px solid hsl(var(--border) / 0.15)'
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+                border: '1px solid hsl(var(--border) / 0.12)',
+                transitionDuration: 'var(--color-transition)'
               }}
             >
-              <div className="w-10 h-10 rounded-full bg-primary/8 flex items-center justify-center mx-auto mb-3">
-                <Check className="w-4 h-4 text-primary/60" />
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors"
+                style={{ 
+                  background: 'hsl(var(--dynamic-accent-muted) / 0.4)',
+                  transitionDuration: 'var(--color-transition)'
+                }}
+              >
+                <Check 
+                  className="w-4 h-4 transition-colors" 
+                  style={{ 
+                    color: 'hsl(var(--dynamic-accent))',
+                    transitionDuration: 'var(--color-transition)'
+                  }} 
+                />
               </div>
               <p className="text-sm text-muted-foreground/60">
                 You're clear for today.
@@ -371,18 +408,32 @@ const Home = () => {
             </div>
 
             <div 
-              className="rounded-xl p-4"
+              className="rounded-xl p-4 transition-colors"
               style={{
-                background: 'hsl(var(--card) / 0.4)',
-                border: '1px solid hsl(var(--border) / 0.1)'
+                background: 'hsl(var(--card) / 0.35)',
+                border: '1px solid hsl(var(--border) / 0.08)',
+                transitionDuration: 'var(--color-transition)'
               }}
             >
-              {/* Progress bar */}
+              {/* Progress bar with dynamic accent */}
               <div className="space-y-2 mb-5">
-                <Progress 
-                  value={progressValue} 
-                  className="h-1.5 bg-muted/30"
-                />
+                <div 
+                  className="h-1.5 rounded-full overflow-hidden transition-colors"
+                  style={{ 
+                    background: 'hsl(var(--muted) / 0.25)',
+                    transitionDuration: 'var(--color-transition)'
+                  }}
+                >
+                  <div 
+                    className="h-full rounded-full transition-all"
+                    style={{ 
+                      width: `${progressValue}%`,
+                      background: 'hsl(var(--dynamic-accent-fill))',
+                      transitionDuration: '800ms',
+                      transitionTimingFunction: 'ease-out'
+                    }}
+                  />
+                </div>
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground/50">
                   <span>{progress.completed} of {progress.total} tasks</span>
                   <span>{progress.percent}%</span>
@@ -392,11 +443,14 @@ const Home = () => {
               {/* Primary CTA */}
               <Button
                 variant="ghost"
-                className="w-full h-10 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-primary/5 transition-colors duration-200"
+                className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                style={{
+                  transitionDuration: 'var(--color-transition)'
+                }}
                 onClick={() => navigate('/plan')}
               >
                 Continue My Plan
-                <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-50" />
+                <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
               </Button>
             </div>
           </section>
