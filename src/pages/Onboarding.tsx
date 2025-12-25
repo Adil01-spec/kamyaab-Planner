@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -194,7 +195,7 @@ const Onboarding = () => {
     setLoading(true);
     try {
       // Process profession details to combine predefined and custom technologies
-      const processedDetails = { ...data.professionDetails };
+      const processedDetails: Record<string, any> = { ...data.professionDetails, noDeadline: data.noDeadline };
       
       // Combine technologies if present
       if (processedDetails.technologies !== undefined || processedDetails.technologies_custom) {
@@ -208,18 +209,45 @@ const Onboarding = () => {
         delete processedDetails.tools_custom;
       }
       
+      // Save the profile first
       await saveProfile({
         fullName: data.fullName,
         profession: data.profession,
         professionDetails: processedDetails,
         projectTitle: data.projectTitle,
         projectDescription: data.projectDescription,
-        projectDeadline: data.noDeadline ? '' : data.projectDeadline,
+        projectDeadline: data.noDeadline ? null : data.projectDeadline,
       });
-      toast.success('Profile saved successfully!');
-      navigate('/plan/reset');
+      
+      toast.success('Profile saved! Generating your plan...');
+      
+      // Generate the plan immediately for first-time users
+      const { data: planData, error: planError } = await supabase.functions.invoke('generate-plan', {
+        body: { 
+          profile: {
+            fullName: data.fullName,
+            profession: data.profession,
+            professionDetails: processedDetails,
+            projectTitle: data.projectTitle,
+            projectDescription: data.projectDescription,
+            projectDeadline: data.noDeadline ? null : data.projectDeadline,
+            noDeadline: data.noDeadline,
+          }
+        },
+      });
+
+      if (planError) {
+        console.error('Plan generation error:', planError);
+        toast.error('Plan generation failed. Redirecting to plan setup...');
+        navigate('/plan/reset');
+        return;
+      }
+
+      toast.success('Your plan is ready!');
+      navigate('/plan');
     } catch (error) {
-      toast.error('Failed to save profile. Please try again.');
+      console.error('Onboarding error:', error);
+      toast.error('Failed to complete setup. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -557,7 +585,10 @@ const Onboarding = () => {
                 className="flex-1 h-12 gradient-kaamyab hover:opacity-90 transition-opacity"
               >
                 {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Generating Plan...
+                  </>
                 ) : isLastStep ? (
                   'Complete Setup'
                 ) : (
