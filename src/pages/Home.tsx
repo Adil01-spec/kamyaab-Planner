@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface Task {
   title: string;
@@ -253,30 +254,34 @@ const Home = () => {
               </h2>
             </div>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
-                  <Avatar className="h-9 w-9 border border-border/40">
-                    <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-44 bg-card/95 backdrop-blur-xl border-border/30" align="end">
-                <div className="px-2.5 py-2">
-                  <p className="text-sm font-medium text-foreground/90">{profile?.fullName || 'User'}</p>
-                  <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
-                </div>
-                <DropdownMenuSeparator className="bg-border/30" />
-                <DropdownMenuItem 
-                  onClick={handleLogout} 
-                  className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
-                >
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
+                    <Avatar className="h-9 w-9 border border-border/40">
+                      <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-44 bg-card/95 backdrop-blur-xl border-border/30" align="end">
+                  <div className="px-2.5 py-2">
+                    <p className="text-sm font-medium text-foreground/90">{profile?.fullName || 'User'}</p>
+                    <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
+                  </div>
+                  <DropdownMenuSeparator className="bg-border/30" />
+                  <DropdownMenuItem 
+                    onClick={handleLogout} 
+                    className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                  >
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           
           {/* Subtle divider with dynamic accent */}
