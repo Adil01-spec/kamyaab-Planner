@@ -69,8 +69,22 @@ const Home = () => {
   const [bgPosition, setBgPosition] = useState({ x1: 25, y1: 20, x2: 75, y2: 80 });
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [breathePhase, setBreathePhase] = useState(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
+
+  // Check for reduced motion preference
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // Apply dynamic accent colors on mount and theme change
   useEffect(() => {
@@ -79,8 +93,13 @@ const Home = () => {
     applyDynamicAccent(isDark);
   }, [theme]);
 
-  // Breathing animation loop
+  // Breathing animation loop (reduced for accessibility)
   useEffect(() => {
+    if (prefersReducedMotion) {
+      setBreathePhase(0.5); // Static middle state
+      return;
+    }
+    
     let startTime = Date.now();
     
     const animate = () => {
@@ -95,10 +114,12 @@ const Home = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, []);
+  }, [prefersReducedMotion]);
 
-  // Unified position handler for mouse and touch
+  // Unified position handler for mouse, touch, and device orientation
   const updatePosition = useCallback((clientX: number, clientY: number) => {
+    if (prefersReducedMotion) return; // Skip motion updates
+    
     const x = clientX / window.innerWidth;
     const y = clientY / window.innerHeight;
     mousePos.current = { x, y };
@@ -116,7 +137,7 @@ const Home = () => {
       x: (x - 0.5) * 16,
       y: (y - 0.5) * 12,
     });
-  }, [breathePhase]);
+  }, [breathePhase, prefersReducedMotion]);
 
   // Track mouse movement
   useEffect(() => {
@@ -151,6 +172,70 @@ const Home = () => {
       window.removeEventListener('touchstart', handleTouchStart);
     };
   }, [updatePosition]);
+
+  // Device orientation tracking for mobile tilt
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      // gamma: left/right tilt (-90 to 90)
+      // beta: front/back tilt (-180 to 180)
+      const gamma = e.gamma ?? 0;
+      const beta = e.beta ?? 0;
+      
+      // Normalize to 0-1 range (clamp to reasonable tilt angles ±30°)
+      const x = Math.max(0, Math.min(1, (gamma + 30) / 60));
+      const y = Math.max(0, Math.min(1, (beta - 30) / 60)); // beta ~45-90 is natural phone hold
+      
+      // Background position based on tilt
+      setBgPosition({
+        x1: 20 + x * 15 + breathePhase * 5,
+        y1: 15 + y * 20 + breathePhase * 8,
+        x2: 80 - x * 15 - breathePhase * 5,
+        y2: 85 - y * 20 - breathePhase * 8,
+      });
+      
+      // Parallax based on tilt (gentler than mouse)
+      setParallax({
+        x: (x - 0.5) * 10,
+        y: (y - 0.5) * 8,
+      });
+    };
+
+    // Check if DeviceOrientationEvent is available and requires permission
+    if (typeof DeviceOrientationEvent !== 'undefined') {
+      // For iOS 13+ we need to request permission
+      if (typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
+        // Permission will be requested on first user interaction
+        const requestPermission = async () => {
+          try {
+            const permission = await (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
+            if (permission === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+            }
+          } catch {
+            // Permission denied or error
+          }
+        };
+        
+        // Add one-time click listener to request permission
+        const handleClick = () => {
+          requestPermission();
+          document.removeEventListener('click', handleClick);
+        };
+        document.addEventListener('click', handleClick, { once: true });
+        
+        return () => {
+          document.removeEventListener('click', handleClick);
+          window.removeEventListener('deviceorientation', handleOrientation);
+        };
+      } else {
+        // Non-iOS devices don't need permission
+        window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+        return () => window.removeEventListener('deviceorientation', handleOrientation);
+      }
+    }
+  }, [breathePhase, prefersReducedMotion]);
 
   const progress = calculatePlanProgress(planData);
 
