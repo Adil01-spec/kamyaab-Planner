@@ -643,6 +643,9 @@ const Plan = () => {
                             howTo={task.how_to}
                             expectedOutcome={task.expected_outcome}
                             isLocked={isLockedWeek}
+                            weekNumber={week.week}
+                            taskIndex={taskIndex}
+                            showCalendarButton={isActiveWeek && !isWeekComplete}
                           />
                         ))}
                       </div>

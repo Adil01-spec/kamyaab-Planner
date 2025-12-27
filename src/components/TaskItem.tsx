@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createSingleTaskCalendarEvent, getCurrentWeekStart } from '@/lib/calendarService';
+import { toast } from '@/hooks/use-toast';
 
 interface TaskExplanation {
   how: string;
@@ -21,6 +24,9 @@ interface TaskItemProps {
   howTo?: string;
   expectedOutcome?: string;
   isLocked?: boolean;
+  weekNumber?: number;
+  taskIndex?: number;
+  showCalendarButton?: boolean;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -82,6 +88,9 @@ export function TaskItem({
   howTo,
   expectedOutcome,
   isLocked = false,
+  weekNumber,
+  taskIndex,
+  showCalendarButton = false,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -98,6 +107,26 @@ export function TaskItem({
   const handleCheckboxChange = () => {
     if (isLocked) return;
     onToggle();
+  };
+
+  const handleAddToCalendar = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (weekNumber !== undefined && taskIndex !== undefined) {
+      const taskInput = {
+        title,
+        priority,
+        estimated_hours: estimatedHours,
+        explanation,
+        how_to: howTo,
+        expected_outcome: expectedOutcome
+      };
+      const weekStart = getCurrentWeekStart();
+      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, weekStart);
+      toast({
+        title: "Task added to calendar",
+        description: `"${title}" has been added to your calendar.`,
+      });
+    }
   };
 
   return (
@@ -192,6 +221,20 @@ export function TaskItem({
                   </button>
                 </CollapsibleTrigger>
               </Collapsible>
+            )}
+            
+            {/* Per-task calendar button */}
+            {showCalendarButton && !isLocked && !completed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAddToCalendar}
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5"
+                title="Add this task to calendar"
+              >
+                <CalendarPlus className="w-3 h-3 mr-1" />
+                <span className="hidden sm:inline">Add to calendar</span>
+              </Button>
             )}
           </div>
         </div>

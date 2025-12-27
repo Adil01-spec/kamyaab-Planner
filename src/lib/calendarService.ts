@@ -75,7 +75,8 @@ function getTaskExplanationText(task: TaskInput): { how: string; why: string; ex
 // Distribute tasks evenly across a week (Mon-Fri)
 export const distributeTasksAcrossWeek = (
   tasks: TaskInput[],
-  weekStartDate: Date
+  weekStartDate: Date,
+  weekNumber?: number
 ): CalendarTask[] => {
   const calendarTasks: CalendarTask[] = [];
   const workDays = 5; // Monday to Friday
@@ -111,8 +112,11 @@ export const distributeTasksAcrossWeek = (
     
     description += `\n—\nPart of your Kaamyab productivity plan.`;
     
+    // Add [Kaamyab] Week X prefix to title
+    const titlePrefix = weekNumber ? `[Kaamyab] Week ${weekNumber} — ` : '[Kaamyab] ';
+    
     calendarTasks.push({
-      title: task.title,
+      title: `${titlePrefix}${task.title}`,
       description,
       date: taskDate,
       durationHours: 1,
@@ -392,33 +396,44 @@ export const syncWeekToCalendar = async (
     }
   }
 
-  // Fallback: Open calendar URLs based on detected provider
+  // Fallback: Open calendar URLs for ALL tasks
   const provider = detectCalendarProvider();
   
-  // For fallback, open the first task's calendar URL
-  // (Opening all at once would be intrusive)
   if (tasks.length > 0) {
-    let url: string;
-    switch (provider) {
-      case 'outlook':
-        url = getOutlookCalendarUrl(tasks[0]);
-        break;
-      case 'apple':
-      case 'google':
-      default:
-        url = getGoogleCalendarUrl(tasks[0]);
+    let eventsOpened = 0;
+    
+    // Open all task calendar URLs with a small delay between each
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      let url: string;
+      switch (provider) {
+        case 'outlook':
+          url = getOutlookCalendarUrl(task);
+          break;
+        case 'apple':
+        case 'google':
+        default:
+          url = getGoogleCalendarUrl(task);
+      }
+      
+      // Open each task with a slight delay to prevent popup blocking
+      if (i === 0) {
+        openCalendarUrl(url);
+        eventsOpened++;
+      } else {
+        // Small delay between opens
+        await new Promise(resolve => setTimeout(resolve, 300));
+        openCalendarUrl(url);
+        eventsOpened++;
+      }
     }
     
-    openCalendarUrl(url);
     markWeekSynced(userId, weekNumber);
     
     return {
       success: true,
-      eventsCreated: 1,
+      eventsCreated: eventsOpened,
       provider,
-      error: tasks.length > 1 
-        ? `Opened first task. Please add remaining ${tasks.length - 1} tasks manually.`
-        : undefined,
     };
   }
 
@@ -428,4 +443,62 @@ export const syncWeekToCalendar = async (
     error: 'No tasks to add to calendar',
     provider: 'none',
   };
+};
+
+// Create a single task calendar event (for per-task button)
+export const createSingleTaskCalendarEvent = (
+  task: TaskInput,
+  weekNumber: number,
+  taskIndex: number,
+  weekStartDate: Date
+): void => {
+  const provider = detectCalendarProvider();
+  
+  // Calculate date for this task
+  const workDays = 5;
+  const dayOffset = Math.min(taskIndex, workDays - 1);
+  const taskDate = new Date(weekStartDate);
+  taskDate.setDate(taskDate.getDate() + dayOffset);
+  
+  const timeSlots = [9, 11, 14, 16];
+  const slotIndex = taskIndex % 4;
+  taskDate.setHours(timeSlots[slotIndex] || 9, 0, 0, 0);
+  
+  const explanationDetails = getTaskExplanationText(task);
+  
+  let description = `Priority: ${task.priority}\nEstimated time: ${task.estimated_hours} hours\n`;
+  
+  if (explanationDetails.why) {
+    description += `\n📌 Why it matters:\n${explanationDetails.why}\n`;
+  }
+  
+  if (explanationDetails.how) {
+    description += `\n🔧 How to do it:\n${explanationDetails.how}\n`;
+  }
+  
+  if (explanationDetails.expectedOutcome) {
+    description += `\n🎯 Expected outcome:\n${explanationDetails.expectedOutcome}\n`;
+  }
+  
+  description += `\n—\nPart of your Kaamyab productivity plan.`;
+  
+  const calendarTask: CalendarTask = {
+    title: `[Kaamyab] Week ${weekNumber} — ${task.title}`,
+    description,
+    date: taskDate,
+    durationHours: 1,
+  };
+  
+  let url: string;
+  switch (provider) {
+    case 'outlook':
+      url = getOutlookCalendarUrl(calendarTask);
+      break;
+    case 'apple':
+    case 'google':
+    default:
+      url = getGoogleCalendarUrl(calendarTask);
+  }
+  
+  openCalendarUrl(url);
 };
