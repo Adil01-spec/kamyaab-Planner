@@ -11,10 +11,11 @@ import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import confetti from 'canvas-confetti';
 import { 
-  Rocket, LogOut, Target, Calendar, 
+  Rocket, LogOut, Target, Calendar, CalendarPlus,
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight, Home
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
@@ -339,6 +340,18 @@ const Plan = () => {
 
   const showExtendButton = isNearingPlanEnd();
 
+  // Calendar sync hook
+  const {
+    isSyncing: isCalendarSyncing,
+    syncingWeek,
+    syncWeek,
+    canSyncWeek,
+    getDisabledReason,
+  } = useCalendarSync({
+    userId: user?.id || '',
+    weeks: plan?.weeks || [],
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen gradient-subtle flex items-center justify-center">
@@ -516,6 +529,10 @@ const Plan = () => {
                 const weekCompleted = week.tasks.filter(t => t.completed).length;
                 const weekTotal = week.tasks.length;
                 const weekPercent = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
+                const isWeekComplete = weekCompleted === weekTotal;
+                const canSync = canSyncWeek(weekIndex);
+                const disabledReason = getDisabledReason(weekIndex);
+                const isSyncingThisWeek = isCalendarSyncing && syncingWeek === week.week;
                 
                 return (
                   <Card 
@@ -561,6 +578,35 @@ const Plan = () => {
                           />
                         ))}
                       </div>
+                      
+                      {/* Calendar Sync Button - Only for active week */}
+                      {!isWeekComplete && (
+                        <div className="mt-4 pt-3 border-t border-border/50">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => syncWeek(weekIndex)}
+                            disabled={!canSync || isSyncingThisWeek}
+                            className="w-full sm:w-auto btn-press glass border-primary/30 hover:bg-primary/5 disabled:opacity-50"
+                            title={disabledReason || undefined}
+                          >
+                            {isSyncingThisWeek ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Adding to Calendar...
+                              </>
+                            ) : (
+                              <>
+                                <CalendarPlus className="w-4 h-4 mr-2" />
+                                Add This Week to Calendar
+                              </>
+                            )}
+                          </Button>
+                          {disabledReason && !canSync && (
+                            <p className="text-xs text-muted-foreground mt-1.5">{disabledReason}</p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
