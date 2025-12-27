@@ -38,7 +38,14 @@ export const markWeekSynced = (userId: string, weekNumber: number): void => {
 
 // Distribute tasks evenly across a week (Mon-Fri)
 export const distributeTasksAcrossWeek = (
-  tasks: { title: string; priority: string; estimated_hours: number }[],
+  tasks: { 
+    title: string; 
+    priority: string; 
+    estimated_hours: number;
+    explanation?: string;
+    how_to?: string;
+    expected_outcome?: string;
+  }[],
   weekStartDate: Date
 ): CalendarTask[] => {
   const calendarTasks: CalendarTask[] = [];
@@ -55,9 +62,26 @@ export const distributeTasksAcrossWeek = (
     const slotIndex = index % tasksPerDay;
     taskDate.setHours(timeSlots[slotIndex] || 9, 0, 0, 0);
     
+    // Build rich description with how-to and expected outcome
+    let description = `Priority: ${task.priority}\nEstimated time: ${task.estimated_hours} hours\n`;
+    
+    if (task.explanation) {
+      description += `\n📌 Why it matters:\n${task.explanation}\n`;
+    }
+    
+    if (task.how_to) {
+      description += `\n🔧 How to do it:\n${task.how_to}\n`;
+    }
+    
+    if (task.expected_outcome) {
+      description += `\n🎯 Expected outcome:\n${task.expected_outcome}\n`;
+    }
+    
+    description += `\n—\nPart of your Kaamyab productivity plan.`;
+    
     calendarTasks.push({
       title: task.title,
-      description: `Priority: ${task.priority}\nEstimated time: ${task.estimated_hours} hours\n\nPart of your Kaamyab productivity plan.`,
+      description,
       date: taskDate,
       durationHours: 1,
     });

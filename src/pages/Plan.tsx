@@ -9,6 +9,7 @@ import { TaskItem } from '@/components/TaskItem';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
+import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, CalendarPlus,
@@ -25,12 +26,16 @@ interface Task {
   priority: 'High' | 'Medium' | 'Low';
   estimated_hours: number;
   completed?: boolean;
+  explanation?: string;
+  how_to?: string;
+  expected_outcome?: string;
 }
 
 interface Week {
   week: number;
   focus: string;
   tasks: Task[];
+  calendar_synced?: boolean;
 }
 
 interface Milestone {
@@ -530,6 +535,15 @@ const Plan = () => {
                 const weekTotal = week.tasks.length;
                 const weekPercent = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
                 const isWeekComplete = weekCompleted === weekTotal;
+                
+                // Sequential unlock: find the first incomplete week
+                const firstIncompleteWeekIndex = plan.weeks.findIndex(w => 
+                  !w.tasks.every(t => t.completed)
+                );
+                const isActiveWeek = weekIndex === firstIncompleteWeekIndex;
+                const isLockedWeek = firstIncompleteWeekIndex !== -1 && weekIndex > firstIncompleteWeekIndex;
+                const isPastWeek = isWeekComplete && weekIndex < firstIncompleteWeekIndex;
+                
                 const canSync = canSyncWeek(weekIndex);
                 const disabledReason = getDisabledReason(weekIndex);
                 const isSyncingThisWeek = isCalendarSyncing && syncingWeek === week.week;
@@ -537,18 +551,59 @@ const Plan = () => {
                 return (
                   <Card 
                     key={week.week} 
-                    className="glass-card glass-card-hover animate-slide-up"
+                    className={cn(
+                      "glass-card animate-slide-up transition-all duration-300",
+                      isActiveWeek && "ring-2 ring-primary/50 glass-card-hover",
+                      isLockedWeek && "opacity-70",
+                      isWeekComplete && "border-primary/20"
+                    )}
                     style={{ animationDelay: `${0.1 * (weekIndex + 2)}s` }}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full gradient-kaamyab flex items-center justify-center text-primary-foreground font-bold">
-                            {week.week}
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground font-bold transition-all",
+                            isWeekComplete ? "bg-primary" : isActiveWeek ? "gradient-kaamyab" : "bg-muted text-muted-foreground"
+                          )}>
+                            {isWeekComplete ? (
+                              <CheckCircle2 className="w-5 h-5" />
+                            ) : isLockedWeek ? (
+                              <span className="text-muted-foreground">{week.week}</span>
+                            ) : (
+                              week.week
+                            )}
                           </div>
                           <div>
-                            <CardTitle className="text-lg">Week {week.week}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{week.focus}</p>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className={cn(
+                                "text-lg",
+                                isLockedWeek && "text-muted-foreground"
+                              )}>
+                                Week {week.week}
+                              </CardTitle>
+                              {isActiveWeek && (
+                                <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">
+                                  Current
+                                </Badge>
+                              )}
+                              {isLockedWeek && (
+                                <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
+                                  Locked
+                                </Badge>
+                              )}
+                              {isWeekComplete && (
+                                <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+                                  Completed
+                                </Badge>
+                              )}
+                            </div>
+                            <p className={cn(
+                              "text-sm text-muted-foreground",
+                              isLockedWeek && "opacity-70"
+                            )}>
+                              {week.focus}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -557,7 +612,10 @@ const Plan = () => {
                           </span>
                           <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-primary transition-all duration-500"
+                              className={cn(
+                                "h-full transition-all duration-500",
+                                isWeekComplete ? "bg-primary" : "bg-primary/70"
+                              )}
                               style={{ width: `${weekPercent}%` }}
                             />
                           </div>
@@ -575,12 +633,16 @@ const Plan = () => {
                             estimatedHours={task.estimated_hours}
                             completed={task.completed || false}
                             onToggle={() => toggleTask(weekIndex, taskIndex)}
+                            explanation={task.explanation}
+                            howTo={task.how_to}
+                            expectedOutcome={task.expected_outcome}
+                            isLocked={isLockedWeek}
                           />
                         ))}
                       </div>
                       
                       {/* Calendar Sync Button - Only for active week */}
-                      {!isWeekComplete && (
+                      {isActiveWeek && !isWeekComplete && (
                         <div className="mt-4 pt-3 border-t border-border/50">
                           <Button
                             variant="outline"
@@ -605,6 +667,16 @@ const Plan = () => {
                           {disabledReason && !canSync && (
                             <p className="text-xs text-muted-foreground mt-1.5">{disabledReason}</p>
                           )}
+                        </div>
+                      )}
+                      
+                      {/* Locked week message */}
+                      {isLockedWeek && (
+                        <div className="mt-4 pt-3 border-t border-border/30">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <span>🔒</span>
+                            <span>Complete Week {firstIncompleteWeekIndex + 1} to unlock this week</span>
+                          </p>
                         </div>
                       )}
                     </CardContent>
