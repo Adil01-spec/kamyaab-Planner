@@ -80,6 +80,7 @@ const Home = () => {
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [breathePhase, setBreathePhase] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [selectedMotivation, setSelectedMotivation] = useState<string | null>(null);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
 
@@ -315,6 +316,17 @@ const Home = () => {
       return () => clearTimeout(timer);
     }
   }, [planData, progress.percent]);
+
+  // Set motivation quote with timeout to prevent glitching
+  useEffect(() => {
+    if (planData?.motivation && planData.motivation.length > 0 && !selectedMotivation) {
+      const timer = setTimeout(() => {
+        const randomIndex = Math.floor(Math.random() * planData.motivation!.length);
+        setSelectedMotivation(planData.motivation![randomIndex]);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [planData, selectedMotivation]);
 
   useEffect(() => {
     if (!loading && hasNoPlan) {
@@ -659,7 +671,7 @@ const Home = () => {
                 </Button>
 
                 {/* Motivation Card */}
-                {planData?.motivation && planData.motivation.length > 0 && (
+                {selectedMotivation && (
                   <div 
                     className="mt-4 rounded-xl p-4"
                     style={{
@@ -668,7 +680,7 @@ const Home = () => {
                     }}
                   >
                     <p className="text-sm text-foreground/80 italic leading-relaxed">
-                      "{planData.motivation[Math.floor(Math.random() * planData.motivation.length)]}"
+                      "{selectedMotivation}"
                     </p>
                   </div>
                 )}
