@@ -36,16 +36,45 @@ export const markWeekSynced = (userId: string, weekNumber: number): void => {
   syncedWeeks.add(getWeekKey(userId, weekNumber));
 };
 
+// Task explanation can be nested object or flat fields
+interface TaskExplanation {
+  how: string;
+  why: string;
+  expected_outcome: string;
+}
+
+interface TaskInput {
+  title: string;
+  priority: string;
+  estimated_hours: number;
+  explanation?: TaskExplanation | string;
+  how_to?: string;
+  expected_outcome?: string;
+}
+
+// Helper to extract explanation details from task
+function getTaskExplanationText(task: TaskInput): { how: string; why: string; expectedOutcome: string } {
+  // Handle nested explanation object (new structure)
+  if (task.explanation && typeof task.explanation === 'object') {
+    const exp = task.explanation as TaskExplanation;
+    return {
+      how: exp.how || '',
+      why: exp.why || '',
+      expectedOutcome: exp.expected_outcome || ''
+    };
+  }
+  
+  // Handle flat structure (legacy)
+  return {
+    how: task.how_to || '',
+    why: typeof task.explanation === 'string' ? task.explanation : '',
+    expectedOutcome: task.expected_outcome || ''
+  };
+}
+
 // Distribute tasks evenly across a week (Mon-Fri)
 export const distributeTasksAcrossWeek = (
-  tasks: { 
-    title: string; 
-    priority: string; 
-    estimated_hours: number;
-    explanation?: string;
-    how_to?: string;
-    expected_outcome?: string;
-  }[],
+  tasks: TaskInput[],
   weekStartDate: Date
 ): CalendarTask[] => {
   const calendarTasks: CalendarTask[] = [];
@@ -62,19 +91,22 @@ export const distributeTasksAcrossWeek = (
     const slotIndex = index % tasksPerDay;
     taskDate.setHours(timeSlots[slotIndex] || 9, 0, 0, 0);
     
+    // Get explanation details (handles both nested and flat structure)
+    const explanationDetails = getTaskExplanationText(task);
+    
     // Build rich description with how-to and expected outcome
     let description = `Priority: ${task.priority}\nEstimated time: ${task.estimated_hours} hours\n`;
     
-    if (task.explanation) {
-      description += `\n📌 Why it matters:\n${task.explanation}\n`;
+    if (explanationDetails.why) {
+      description += `\n📌 Why it matters:\n${explanationDetails.why}\n`;
     }
     
-    if (task.how_to) {
-      description += `\n🔧 How to do it:\n${task.how_to}\n`;
+    if (explanationDetails.how) {
+      description += `\n🔧 How to do it:\n${explanationDetails.how}\n`;
     }
     
-    if (task.expected_outcome) {
-      description += `\n🎯 Expected outcome:\n${task.expected_outcome}\n`;
+    if (explanationDetails.expectedOutcome) {
+      description += `\n🎯 Expected outcome:\n${explanationDetails.expectedOutcome}\n`;
     }
     
     description += `\n—\nPart of your Kaamyab productivity plan.`;

@@ -2,8 +2,14 @@ import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, Info, Target, Lock } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface TaskExplanation {
+  how: string;
+  why: string;
+  expected_outcome: string;
+}
 
 interface TaskItemProps {
   title: string;
@@ -11,7 +17,7 @@ interface TaskItemProps {
   estimatedHours: number;
   completed: boolean;
   onToggle: () => void;
-  explanation?: string;
+  explanation?: TaskExplanation | string;
   howTo?: string;
   expectedOutcome?: string;
   isLocked?: boolean;
@@ -30,6 +36,42 @@ const getPriorityColor = (priority: string) => {
   }
 };
 
+// Helper to normalize explanation structure
+function getExplanationDetails(props: TaskItemProps): {
+  how: string;
+  why: string;
+  expectedOutcome: string;
+  hasDetails: boolean;
+  needsRegeneration: boolean;
+} {
+  const { explanation, howTo, expectedOutcome } = props;
+  
+  // Handle nested explanation object (new structure)
+  if (explanation && typeof explanation === 'object') {
+    const exp = explanation as TaskExplanation;
+    const hasDetails = !!(exp.how || exp.why || exp.expected_outcome);
+    return {
+      how: exp.how || '',
+      why: exp.why || '',
+      expectedOutcome: exp.expected_outcome || '',
+      hasDetails,
+      needsRegeneration: !hasDetails
+    };
+  }
+  
+  // Handle flat structure (legacy)
+  const legacyWhy = typeof explanation === 'string' ? explanation : '';
+  const hasDetails = !!(legacyWhy || howTo || expectedOutcome);
+  
+  return {
+    how: howTo || '',
+    why: legacyWhy,
+    expectedOutcome: expectedOutcome || '',
+    hasDetails,
+    needsRegeneration: !hasDetails
+  };
+}
+
 export function TaskItem({ 
   title, 
   priority, 
@@ -42,7 +84,11 @@ export function TaskItem({
   isLocked = false,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const hasDetails = explanation || howTo || expectedOutcome;
+  
+  const details = getExplanationDetails({ 
+    title, priority, estimatedHours, completed, onToggle,
+    explanation, howTo, expectedOutcome, isLocked 
+  });
 
   const handleClick = () => {
     if (isLocked) return;
@@ -114,7 +160,17 @@ export function TaskItem({
               <Clock className="w-3 h-3" />
               {estimatedHours}h
             </span>
-            {hasDetails && (
+            
+            {/* Show warning for tasks without explanations */}
+            {details.needsRegeneration && !isLocked && (
+              <span className="text-xs text-amber-500 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                <span>Needs guidance</span>
+              </span>
+            )}
+            
+            {/* Expand button for tasks with details */}
+            {details.hasDetails && (
               <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                 <CollapsibleTrigger asChild>
                   <button
@@ -127,8 +183,8 @@ export function TaskItem({
                       (completed || isLocked) && "opacity-50"
                     )}
                   >
-                    <Info className="w-3 h-3" />
-                    <span>Details</span>
+                    <HelpCircle className="w-3 h-3" />
+                    <span>How to do this</span>
                     <ChevronDown className={cn(
                       "w-3 h-3 transition-transform duration-200",
                       isOpen && "rotate-180"
@@ -142,43 +198,57 @@ export function TaskItem({
       </div>
       
       {/* Expandable Details Section */}
-      {hasDetails && (
+      {details.hasDetails && (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleContent>
             <div className={cn(
-              "px-4 pb-4 pt-0 space-y-3 border-t border-border/30 mt-2 pt-3 mx-4 mb-4",
+              "px-4 pb-4 space-y-3 border-t border-border/30 mx-4 mb-4 pt-3",
               (completed || isLocked) && "opacity-60"
             )}>
-              {explanation && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Why it matters
-                  </p>
-                  <p className="text-sm text-foreground/80">{explanation}</p>
-                </div>
-              )}
-              
-              {howTo && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              {details.how && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-base">🔧</span>
                     <span>How to do it</span>
                   </p>
-                  <p className="text-sm text-foreground/80">{howTo}</p>
+                  <p className="text-sm text-foreground/90 leading-relaxed pl-5">{details.how}</p>
                 </div>
               )}
               
-              {expectedOutcome && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <Target className="w-3 h-3" />
+              {details.why && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <Lightbulb className="w-4 h-4" />
+                    <span>Why it matters</span>
+                  </p>
+                  <p className="text-sm text-foreground/90 leading-relaxed pl-5">{details.why}</p>
+                </div>
+              )}
+              
+              {details.expectedOutcome && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <Target className="w-4 h-4" />
                     <span>Expected outcome</span>
                   </p>
-                  <p className="text-sm text-foreground/80">{expectedOutcome}</p>
+                  <p className="text-sm text-foreground/90 leading-relaxed pl-5">{details.expectedOutcome}</p>
                 </div>
               )}
             </div>
           </CollapsibleContent>
         </Collapsible>
+      )}
+      
+      {/* Fallback UI for tasks without explanations */}
+      {details.needsRegeneration && !isLocked && (
+        <div className="px-4 pb-3">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              This task lacks guidance. Regenerate your plan for detailed steps.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

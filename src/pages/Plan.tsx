@@ -21,12 +21,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 
+interface TaskExplanation {
+  how: string;
+  why: string;
+  expected_outcome: string;
+}
+
 interface Task {
   title: string;
   priority: 'High' | 'Medium' | 'Low';
   estimated_hours: number;
   completed?: boolean;
-  explanation?: string;
+  explanation?: TaskExplanation | string;
   how_to?: string;
   expected_outcome?: string;
 }
