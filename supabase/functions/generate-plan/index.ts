@@ -73,7 +73,8 @@ Your response MUST be valid JSON only. No markdown, no explanations, no code blo
 - Create ${weeksRemaining} weeks of planning (rolling, extendable)
 - Focus on building consistent habits and sustainable momentum
 - Each week should have 3-5 manageable tasks
-- Tasks should be specific and actionable
+- Tasks should be specific and actionable with clear explanations
+- Each task MUST include: title, priority, estimated_hours, explanation, how_to, and expected_outcome
 - Priority must be "High", "Medium", or "Low"
 - Include 3-5 meaningful milestones based on progress, not dates
 - Add 3-5 motivational messages focused on consistency and growth
@@ -82,7 +83,8 @@ Your response MUST be valid JSON only. No markdown, no explanations, no code blo
       : `Requirements:
 - Create ${weeksRemaining} weeks of planning
 - Each week should have 3-5 tasks
-- Tasks should be specific and actionable
+- Tasks should be specific and actionable with clear explanations
+- Each task MUST include: title, priority, estimated_hours, explanation, how_to, and expected_outcome
 - Priority must be "High", "Medium", or "Low"
 - Include 3-5 key milestones
 - Add 3-5 motivational messages
@@ -114,9 +116,12 @@ Generate a JSON response with this EXACT structure:
       "focus": "main focus for this week",
       "tasks": [
         {
-          "title": "specific task",
+          "title": "specific task title",
           "priority": "High",
-          "estimated_hours": 4
+          "estimated_hours": 4,
+          "explanation": "Why this task matters and how it contributes to the project goals",
+          "how_to": "Step-by-step guidance on how to complete this task effectively",
+          "expected_outcome": "What success looks like when this task is completed"
         }
       ]
     }
@@ -128,6 +133,8 @@ Generate a JSON response with this EXACT structure:
 }
 
 ${planningRequirements}
+
+IMPORTANT: Every task MUST have all six fields (title, priority, estimated_hours, explanation, how_to, expected_outcome). Do not skip any field.
 
 RESPOND WITH ONLY THE JSON OBJECT.`;
 
