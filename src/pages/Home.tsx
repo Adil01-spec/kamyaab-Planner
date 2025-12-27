@@ -3,19 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { applyDynamicAccent } from '@/lib/dynamicAccent';
-import { downloadICS, generateWeekCalendarEvents, getWeekStartDate } from '@/lib/calendarExport';
 import { useTheme } from 'next-themes';
-import { toast } from '@/hooks/use-toast';
-import { ActiveWeekFocus } from '@/components/home/ActiveWeekFocus';
-import { WeekOverview } from '@/components/home/WeekOverview';
 import { 
   Loader2, 
   ArrowRight, 
   Flame,
-  Sparkles,
+  Clock,
+  Check
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -58,20 +56,12 @@ const getGreeting = (): string => {
   return 'Good evening';
 };
 
-// Get current week label
-const getWeekLabel = (weekNumber: number): string => {
-  const labels = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth'];
-  if (weekNumber <= labels.length) return `${labels[weekNumber - 1]} week`;
-  return `Week ${weekNumber}`;
-};
-
 const Home = () => {
   const { user, profile, logout } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [planData, setPlanData] = useState<PlanData | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [planCreatedAt, setPlanCreatedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
@@ -80,7 +70,6 @@ const Home = () => {
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [breathePhase, setBreathePhase] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [selectedMotivation, setSelectedMotivation] = useState<string | null>(null);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
 
@@ -107,7 +96,7 @@ const Home = () => {
   // Breathing animation loop (reduced for accessibility)
   useEffect(() => {
     if (prefersReducedMotion) {
-      setBreathePhase(0.5);
+      setBreathePhase(0.5); // Static middle state
       return;
     }
     
@@ -115,6 +104,7 @@ const Home = () => {
     
     const animate = () => {
       const elapsed = (Date.now() - startTime) / 1000;
+      // Slow breathing: 8 second cycle
       const phase = Math.sin(elapsed * Math.PI / 4) * 0.5 + 0.5;
       setBreathePhase(phase);
       animationRef.current = requestAnimationFrame(animate);
@@ -126,14 +116,15 @@ const Home = () => {
     };
   }, [prefersReducedMotion]);
 
-  // Position handler for mouse, touch, and device orientation
+  // Unified position handler for mouse, touch, and device orientation
   const updatePosition = useCallback((clientX: number, clientY: number) => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion) return; // Skip motion updates
     
     const x = clientX / window.innerWidth;
     const y = clientY / window.innerHeight;
     mousePos.current = { x, y };
     
+    // Background position
     setBgPosition({
       x1: 20 + x * 15 + breathePhase * 5,
       y1: 15 + y * 20 + breathePhase * 8,
@@ -141,6 +132,7 @@ const Home = () => {
       y2: 85 - y * 20 - breathePhase * 8,
     });
     
+    // Parallax offset (subtle: -8px to +8px)
     setParallax({
       x: (x - 0.5) * 16,
       y: (y - 0.5) * 12,
@@ -186,12 +178,16 @@ const Home = () => {
     if (prefersReducedMotion) return;
     
     const handleOrientation = (e: DeviceOrientationEvent) => {
+      // gamma: left/right tilt (-90 to 90)
+      // beta: front/back tilt (-180 to 180)
       const gamma = e.gamma ?? 0;
       const beta = e.beta ?? 0;
       
+      // Normalize to 0-1 range (clamp to reasonable tilt angles ±30°)
       const x = Math.max(0, Math.min(1, (gamma + 30) / 60));
-      const y = Math.max(0, Math.min(1, (beta - 30) / 60));
+      const y = Math.max(0, Math.min(1, (beta - 30) / 60)); // beta ~45-90 is natural phone hold
       
+      // Background position based on tilt
       setBgPosition({
         x1: 20 + x * 15 + breathePhase * 5,
         y1: 15 + y * 20 + breathePhase * 8,
@@ -199,14 +195,18 @@ const Home = () => {
         y2: 85 - y * 20 - breathePhase * 8,
       });
       
+      // Parallax based on tilt (gentler than mouse)
       setParallax({
         x: (x - 0.5) * 10,
         y: (y - 0.5) * 8,
       });
     };
 
+    // Check if DeviceOrientationEvent is available and requires permission
     if (typeof DeviceOrientationEvent !== 'undefined') {
+      // For iOS 13+ we need to request permission
       if (typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission === 'function') {
+        // Permission will be requested on first user interaction
         const requestPermission = async () => {
           try {
             const permission = await (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission();
@@ -214,10 +214,11 @@ const Home = () => {
               window.addEventListener('deviceorientation', handleOrientation, { passive: true });
             }
           } catch {
-            // Permission denied
+            // Permission denied or error
           }
         };
         
+        // Add one-time click listener to request permission
         const handleClick = () => {
           requestPermission();
           document.removeEventListener('click', handleClick);
@@ -229,6 +230,7 @@ const Home = () => {
           window.removeEventListener('deviceorientation', handleOrientation);
         };
       } else {
+        // Non-iOS devices don't need permission
         window.addEventListener('deviceorientation', handleOrientation, { passive: true });
         return () => window.removeEventListener('deviceorientation', handleOrientation);
       }
@@ -237,8 +239,7 @@ const Home = () => {
 
   const progress = calculatePlanProgress(planData);
 
-  // Get active week index (first week with incomplete tasks)
-  const getActiveWeekIndex = useCallback((): number => {
+  const getCurrentWeekIndex = useCallback((): number => {
     if (!planData?.weeks) return 0;
     
     for (let i = 0; i < planData.weeks.length; i++) {
@@ -249,17 +250,31 @@ const Home = () => {
     return planData.weeks.length - 1;
   }, [planData]);
 
-  // Check if a week is locked (future weeks are locked)
-  const isWeekLocked = useCallback((weekIndex: number): boolean => {
-    const activeIndex = getActiveWeekIndex();
-    return weekIndex > activeIndex;
-  }, [getActiveWeekIndex]);
-
-  // Check if a week is completed
-  const isWeekCompleted = useCallback((weekIndex: number): boolean => {
-    if (!planData?.weeks?.[weekIndex]) return false;
-    return planData.weeks[weekIndex].tasks.every(t => t.completed);
-  }, [planData]);
+  const getTodaysTasks = useCallback((): { task: Task; weekIndex: number; taskIndex: number }[] => {
+    if (!planData?.weeks) return [];
+    
+    const currentWeekIndex = getCurrentWeekIndex();
+    const currentWeek = planData.weeks[currentWeekIndex];
+    
+    if (!currentWeek) return [];
+    
+    const incompleteTasks = currentWeek.tasks
+      .map((task, taskIndex) => ({ task, weekIndex: currentWeekIndex, taskIndex }))
+      .filter(({ task }) => !task.completed)
+      .slice(0, 3);
+    
+    if (incompleteTasks.length === 0) {
+      for (let i = currentWeekIndex + 1; i < planData.weeks.length; i++) {
+        const week = planData.weeks[i];
+        const firstIncomplete = week.tasks.findIndex(t => !t.completed);
+        if (firstIncomplete !== -1) {
+          return [{ task: week.tasks[firstIncomplete], weekIndex: i, taskIndex: firstIncomplete }];
+        }
+      }
+    }
+    
+    return incompleteTasks;
+  }, [planData, getCurrentWeekIndex]);
 
   useEffect(() => {
     const fetchLatestPlan = async () => {
@@ -268,7 +283,7 @@ const Home = () => {
       try {
         const { data, error } = await supabase
           .from('plans')
-          .select('id, plan_json, created_at')
+          .select('id, plan_json')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -284,7 +299,6 @@ const Home = () => {
 
         if (data?.plan_json) {
           setPlanId(data.id);
-          setPlanCreatedAt(new Date(data.created_at));
           const rawPlan = data.plan_json as Record<string, unknown>;
           setPlanData({
             overview: rawPlan.overview as string || '',
@@ -317,17 +331,6 @@ const Home = () => {
     }
   }, [planData, progress.percent]);
 
-  // Set motivation quote with timeout to prevent glitching
-  useEffect(() => {
-    if (planData?.motivation && planData.motivation.length > 0 && !selectedMotivation) {
-      const timer = setTimeout(() => {
-        const randomIndex = Math.floor(Math.random() * planData.motivation!.length);
-        setSelectedMotivation(planData.motivation![randomIndex]);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [planData, selectedMotivation]);
-
   useEffect(() => {
     if (!loading && hasNoPlan) {
       navigate('/plan/reset', { replace: true });
@@ -336,16 +339,6 @@ const Home = () => {
 
   const toggleTask = useCallback(async (weekIndex: number, taskIndex: number) => {
     if (!planData || !planId) return;
-
-    // Check if week is locked
-    if (isWeekLocked(weekIndex)) {
-      toast({
-        title: "Week locked",
-        description: "Complete the current week before moving to the next.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     const updatedPlan = { ...planData };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
@@ -364,46 +357,12 @@ const Home = () => {
         .from('plans')
         .update({ plan_json: updatedPlan as unknown as import('@/integrations/supabase/types').Json })
         .eq('id', planId);
-
-      // Check if week just completed
-      const weekNowCompleted = updatedPlan.weeks[weekIndex].tasks.every(t => t.completed);
-      if (weekNowCompleted && !wasCompleted) {
-        toast({
-          title: `🎉 Week ${weekIndex + 1} Complete!`,
-          description: weekIndex + 1 < updatedPlan.weeks.length 
-            ? "Great work! Week " + (weekIndex + 2) + " is now unlocked."
-            : "Amazing! You've completed all weeks!",
-        });
-      }
     } catch (err) {
       console.error('Error updating task:', err);
       task.completed = wasCompleted;
       setPlanData({ ...planData });
     }
-  }, [planData, planId, isWeekLocked]);
-
-  const handleAddToCalendar = useCallback(() => {
-    if (!planData || !planCreatedAt) return;
-
-    const activeIndex = getActiveWeekIndex();
-    const activeWeek = planData.weeks[activeIndex];
-    
-    if (!activeWeek) return;
-
-    const weekStartDate = getWeekStartDate(activeWeek.week, planCreatedAt);
-    const { icsContent } = generateWeekCalendarEvents(
-      activeWeek,
-      weekStartDate,
-      planData.project_title || 'Kaamyab Project'
-    );
-
-    downloadICS(icsContent, `kaamyab-week-${activeWeek.week}.ics`);
-
-    toast({
-      title: "Calendar file downloaded",
-      description: "Import the .ics file into your calendar app.",
-    });
-  }, [planData, planCreatedAt, getActiveWeekIndex]);
+  }, [planData, planId]);
 
   const handleLogout = async () => {
     await logout();
@@ -411,8 +370,8 @@ const Home = () => {
   };
 
   const userInitials = profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
-  const activeWeekIndex = getActiveWeekIndex();
-  const activeWeek = planData?.weeks?.[activeWeekIndex];
+  const todaysTasks = getTodaysTasks();
+  const currentWeekIndex = getCurrentWeekIndex();
 
   if (loading) {
     return (
@@ -439,40 +398,29 @@ const Home = () => {
         }}
       />
 
-      {/* Main Container - Responsive */}
-      <div className="relative z-10 min-h-screen">
-        {/* Header */}
-        <header 
-          className="sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4"
-          style={{
-            background: 'hsl(var(--background) / 0.8)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-          }}
-        >
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-sm text-muted-foreground/80 font-normal">
+      <div className="container max-w-xl mx-auto px-5 py-8 relative z-10">
+        
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 1 — Personal Context
+            Soft, minimal header answering "Where am I?"
+        ═══════════════════════════════════════════════════════════════ */}
+        <header className="mb-10 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground/80 font-normal tracking-wide">
                 {getGreeting()}
               </p>
-              <h1 className="text-base sm:text-lg font-semibold text-foreground/90 truncate max-w-[200px] sm:max-w-none">
-                {planData?.project_title || profile?.fullName || 'Your Project'}
-              </h1>
+              <h2 className="text-base font-medium text-foreground/90">
+                {planData?.project_title || profile?.fullName || 'Your Workspace'}
+              </h2>
             </div>
             
-            <div className="flex items-center gap-2 sm:gap-3">
-              {streak > 0 && (
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500">
-                  <Flame className="w-4 h-4" />
-                  <span className="text-sm font-medium">{streak}d streak</span>
-                </div>
-              )}
-              
+            <div className="flex items-center gap-2">
               <ThemeToggle />
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
+                  <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
                     <Avatar className="h-9 w-9 border border-border/40">
                       <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
                         {userInitials}
@@ -480,22 +428,15 @@ const Home = () => {
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-48 bg-card/95 backdrop-blur-xl border-border/30" align="end">
-                  <div className="px-3 py-2">
+                <DropdownMenuContent className="w-44 bg-card/95 backdrop-blur-xl border-border/30" align="end">
+                  <div className="px-2.5 py-2">
                     <p className="text-sm font-medium text-foreground/90">{profile?.fullName || 'User'}</p>
                     <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
                   </div>
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
-                    onClick={() => navigate('/plan')} 
-                    className="cursor-pointer text-muted-foreground hover:text-foreground"
-                  >
-                    View Full Plan
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border/30" />
-                  <DropdownMenuItem 
                     onClick={handleLogout} 
-                    className="cursor-pointer text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
                   >
                     Log out
                   </DropdownMenuItem>
@@ -503,191 +444,216 @@ const Home = () => {
               </DropdownMenu>
             </div>
           </div>
+          
+          {/* Subtle divider with dynamic accent */}
+          <div 
+            className="mt-6 h-px transition-colors"
+            style={{ 
+              background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.2), transparent)',
+              transitionDuration: 'var(--color-transition)'
+            }} 
+          />
         </header>
 
-        {/* Main Content - Responsive Grid */}
-        <main className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="max-w-7xl mx-auto">
-            
-            {/* Hero Section */}
-            <section 
-              className="mb-8 sm:mb-10 animate-fade-in"
-              style={{ 
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 2 — Today's Focus (Hero Section)
+            Visual anchor of the Home screen
+        ═══════════════════════════════════════════════════════════════ */}
+        <section 
+          className="mb-10 animate-fade-in" 
+          style={{ 
+            animationDelay: '50ms',
+            transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`,
+            transition: 'transform 0.1s ease-out'
+          }}
+        >
+          <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
+            Today's Focus
+          </p>
+
+          {todaysTasks.length > 0 ? (
+            <div 
+              className="relative rounded-2xl p-5 space-y-4 transition-shadow"
+              style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+                border: '1px solid hsl(var(--border) / 0.12)',
+                boxShadow: 'var(--shadow-glow), 0 4px 20px -6px hsl(var(--dynamic-accent) / 0.08)',
+                transitionDuration: 'var(--color-transition)',
                 transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)`,
-                transition: 'transform 0.1s ease-out'
+              }}
+            >
+              {/* Dynamic accent gradient at top */}
+              <div 
+                className="absolute inset-x-0 top-0 h-px rounded-t-2xl transition-colors"
+                style={{
+                  background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.4), transparent)',
+                  transitionDuration: 'var(--color-transition)'
+                }}
+              />
+
+              {todaysTasks.map(({ task, weekIndex, taskIndex }) => (
+                <div
+                  key={`${weekIndex}-${taskIndex}`}
+                  onClick={() => toggleTask(weekIndex, taskIndex)}
+                  className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
+                  style={{
+                    boxShadow: 'inset 0 0 0 1px transparent',
+                    transition: 'box-shadow 0.25s ease, background 0.25s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
+                    e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <div className="pt-0.5">
+                    <Checkbox
+                      checked={task.completed || false}
+                      onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
+                      style={{
+                        '--tw-bg-opacity': task.completed ? '1' : '0',
+                        backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                        borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                      } as React.CSSProperties}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
+                      task.completed 
+                        ? 'line-through text-muted-foreground/50' 
+                        : 'text-foreground/90'
+                    }`}>
+                      {task.title}
+                    </p>
+                    <div className="flex items-center gap-2.5 mt-1.5">
+                      <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {task.estimated_hours}h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Week indicator */}
+              <p className="text-[11px] text-muted-foreground/40 pt-2 border-t border-border/10">
+                Week {currentWeekIndex + 1} of {planData?.total_weeks || 0}
+              </p>
+            </div>
+          ) : (
+            <div 
+              className="rounded-2xl p-8 text-center transition-colors"
+              style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+                border: '1px solid hsl(var(--border) / 0.12)',
+                transitionDuration: 'var(--color-transition)'
               }}
             >
               <div 
-                className="rounded-2xl p-5 sm:p-6 lg:p-8"
-                style={{
-                  background: 'var(--glass-bg)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid hsl(var(--border) / 0.1)',
+                className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors"
+                style={{ 
+                  background: 'hsl(var(--dynamic-accent-muted) / 0.4)',
+                  transitionDuration: 'var(--color-transition)'
                 }}
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-8">
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
-                      {getWeekLabel(activeWeekIndex + 1)} of your journey
-                    </p>
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2">
-                      {activeWeek?.focus || 'Keep moving forward'}
-                    </h2>
-                    <p className="text-sm sm:text-base text-muted-foreground/80">
-                      {progress.completed} of {progress.total} tasks completed • {progress.percent}% overall progress
-                    </p>
-                  </div>
-                  
-                  {/* Progress Circle */}
-                  <div className="flex items-center gap-4 lg:gap-6">
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24">
-                      <svg className="w-full h-full -rotate-90">
-                        <circle
-                          cx="50%"
-                          cy="50%"
-                          r="42%"
-                          fill="none"
-                          stroke="hsl(var(--muted) / 0.2)"
-                          strokeWidth="8"
-                        />
-                        <circle
-                          cx="50%"
-                          cy="50%"
-                          r="42%"
-                          fill="none"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          strokeDasharray={`${progressValue * 2.64} 264`}
-                          className="transition-all duration-700"
-                        />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-lg sm:text-xl font-bold text-primary">
-                        {progress.percent}%
-                      </span>
-                    </div>
-                    
-                    <Button
-                      onClick={() => navigate('/plan')}
-                      variant="outline"
-                      className="hidden sm:flex"
-                    >
-                      View Full Plan
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                </div>
+                <Check 
+                  className="w-4 h-4 transition-colors" 
+                  style={{ 
+                    color: 'hsl(var(--dynamic-accent))',
+                    transitionDuration: 'var(--color-transition)'
+                  }} 
+                />
               </div>
-            </section>
+              <p className="text-sm text-muted-foreground/60">
+                You're clear for today.
+              </p>
+            </div>
+          )}
+        </section>
 
-            {/* Responsive Grid Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-              
-              {/* Active Week Focus - Takes 2 columns on desktop */}
-              <section 
-                className="lg:col-span-2 animate-fade-in"
-                style={{ animationDelay: '50ms' }}
-              >
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
-                  Active Week
-                </p>
-                
-                {activeWeek ? (
-                  <ActiveWeekFocus
-                    weekNumber={activeWeekIndex + 1}
-                    focus={activeWeek.focus}
-                    tasks={activeWeek.tasks}
-                    onTaskToggle={(taskIndex) => toggleTask(activeWeekIndex, taskIndex)}
-                    onAddToCalendar={handleAddToCalendar}
-                    totalWeeks={planData?.total_weeks || 0}
-                  />
-                ) : (
-                  <div 
-                    className="rounded-2xl p-8 text-center"
-                    style={{
-                      background: 'var(--glass-bg)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid hsl(var(--border) / 0.1)',
-                    }}
-                  >
-                    <Sparkles className="w-10 h-10 text-primary/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground">No active tasks</p>
-                  </div>
-                )}
-              </section>
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 3 — Progress & Momentum (Quiet Support)
+            Informational, not motivating
+        ═══════════════════════════════════════════════════════════════ */}
+        {planData && (
+          <section 
+            className="animate-fade-in" 
+            style={{ 
+              animationDelay: '100ms',
+              transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0)`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+                Progress
+              </p>
+              {streak > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground/50">
+                  <Flame className="w-3 h-3 text-orange-400/70" />
+                  <span>{streak}d</span>
+                </div>
+              )}
+            </div>
 
-              {/* Week Overview Sidebar */}
-              <section 
-                className="animate-fade-in"
-                style={{ animationDelay: '100ms' }}
-              >
-                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
-                  All Weeks
-                </p>
-                
+            <div 
+              className="rounded-xl p-4 transition-colors"
+              style={{
+                background: 'hsl(var(--card) / 0.35)',
+                border: '1px solid hsl(var(--border) / 0.08)',
+                transitionDuration: 'var(--color-transition)',
+                transform: `translate3d(${parallax.x * 0.2}px, ${parallax.y * 0.2}px, 0)`,
+              }}
+            >
+              {/* Progress bar with dynamic accent */}
+              <div className="space-y-2 mb-5">
                 <div 
-                  className="rounded-2xl p-4 sm:p-5"
-                  style={{
-                    background: 'hsl(var(--card) / 0.3)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid hsl(var(--border) / 0.1)',
+                  className="h-1.5 rounded-full overflow-hidden transition-colors"
+                  style={{ 
+                    background: 'hsl(var(--muted) / 0.25)',
+                    transitionDuration: 'var(--color-transition)'
                   }}
                 >
-                  {planData?.weeks && (
-                    <WeekOverview 
-                      weeks={planData.weeks} 
-                      activeWeekIndex={activeWeekIndex}
-                    />
-                  )}
-                  
-                  {/* Legend */}
-                  <div className="mt-4 pt-4 border-t border-border/10 flex flex-wrap gap-4 text-xs text-muted-foreground/60">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded bg-primary/20 ring-1 ring-primary/40" />
-                      <span>Active</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded bg-primary/10 flex items-center justify-center">
-                        <span className="text-[8px] text-primary">✓</span>
-                      </div>
-                      <span>Completed</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded bg-muted/30 opacity-50" />
-                      <span>Locked</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mobile: View Full Plan Button */}
-                <Button
-                  onClick={() => navigate('/plan')}
-                  className="w-full mt-4 sm:hidden gradient-kaamyab text-primary-foreground"
-                >
-                  View Full Plan
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-
-                {/* Motivation Card */}
-                {selectedMotivation && (
                   <div 
-                    className="mt-4 rounded-xl p-4"
-                    style={{
-                      background: 'hsl(var(--primary) / 0.05)',
-                      border: '1px solid hsl(var(--primary) / 0.1)',
+                    className="h-full rounded-full transition-all"
+                    style={{ 
+                      width: `${progressValue}%`,
+                      background: 'hsl(var(--dynamic-accent-fill))',
+                      transitionDuration: '800ms',
+                      transitionTimingFunction: 'ease-out'
                     }}
-                  >
-                    <p className="text-sm text-foreground/80 italic leading-relaxed">
-                      "{selectedMotivation}"
-                    </p>
-                  </div>
-                )}
-              </section>
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground/50">
+                  <span>{progress.completed} of {progress.total} tasks</span>
+                  <span>{progress.percent}%</span>
+                </div>
+              </div>
+
+              {/* Primary CTA */}
+              <Button
+                variant="ghost"
+                className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                style={{
+                  transitionDuration: 'var(--color-transition)'
+                }}
+                onClick={() => navigate('/plan')}
+              >
+                Continue My Plan
+                <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
+              </Button>
             </div>
-          </div>
-        </main>
+          </section>
+        )}
       </div>
     </div>
   );
