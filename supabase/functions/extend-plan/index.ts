@@ -6,6 +6,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Normalize task structure to use nested explanation object
+function normalizeTaskStructure(weeks: any[]): any[] {
+  return weeks.map((week: any) => ({
+    ...week,
+    tasks: week.tasks.map((task: any) => {
+      // Already has nested structure
+      if (task.explanation && typeof task.explanation === 'object') {
+        return {
+          ...task,
+          explanation: {
+            how: task.explanation.how || task.explanation.how_to || "",
+            why: task.explanation.why || "",
+            expected_outcome: task.explanation.expected_outcome || task.explanation.expectedOutcome || ""
+          }
+        };
+      }
+      
+      // Convert flat structure to nested
+      return {
+        title: task.title,
+        priority: task.priority,
+        estimated_hours: task.estimated_hours,
+        completed: task.completed || false,
+        explanation: {
+          how: task.how_to || "",
+          why: task.explanation || "",
+          expected_outcome: task.expected_outcome || ""
+        }
+      };
+    })
+  }));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,7 +88,13 @@ serve(async (req) => {
     ) || [];
 
     const systemPrompt = `You are an expert productivity coach extending an existing project plan.
-Your response MUST be valid JSON only. No markdown, no explanations, no code blocks.`;
+You create deeply actionable plans with clear guidance for every task.
+
+CRITICAL RULES:
+1. Every task MUST have the explanation object with how, why, and expected_outcome
+2. Never generate vague or shallow tasks
+3. Prefer fewer, deeper tasks over many shallow ones
+4. Your response MUST be valid JSON only. No markdown, no code blocks.`;
 
     const userPrompt = `Extend an existing project plan with ${weeksToAdd} additional weeks.
 
@@ -84,9 +123,14 @@ Generate ONLY the NEW weeks (weeks ${startWeek} to ${endWeek}) as a JSON respons
       "focus": "main focus for this week",
       "tasks": [
         {
-          "title": "specific task",
+          "title": "specific task title",
           "priority": "High",
-          "estimated_hours": 4
+          "estimated_hours": 4,
+          "explanation": {
+            "how": "Concrete step-by-step instructions on HOW to complete this task",
+            "why": "Clear explanation of WHY this task matters to the project",
+            "expected_outcome": "What success looks like when this task is done"
+          }
         }
       ]
     }
@@ -100,8 +144,9 @@ Generate ONLY the NEW weeks (weeks ${startWeek} to ${endWeek}) as a JSON respons
 Requirements:
 - Create exactly ${weeksToAdd} new weeks (numbered ${startWeek} to ${endWeek})
 - Build upon the existing progress and pending work
-- Each week should have 3-5 manageable tasks
-- Tasks should be specific and actionable
+- Each week should have 3-4 DEEP, well-explained tasks (quality over quantity)
+- Every task MUST have the "explanation" object with "how", "why", and "expected_outcome"
+- Do NOT generate vague tasks
 - Priority must be "High", "Medium", or "Low"
 - Include 1-2 new milestones for the extended period
 - Keep the sustainable, non-rushed pace
@@ -177,12 +222,15 @@ RESPOND WITH ONLY THE JSON OBJECT.`;
       throw new Error("Invalid extension structure");
     }
 
+    // Normalize the new weeks to use nested explanation structure
+    const normalizedNewWeeks = normalizeTaskStructure(extensionJson.new_weeks);
+
     // Merge with existing plan
     const updatedPlan = {
       ...existingPlan,
       overview: extensionJson.updated_overview || existingPlan.overview,
-      total_weeks: currentWeeks + extensionJson.new_weeks.length,
-      weeks: [...existingPlan.weeks, ...extensionJson.new_weeks],
+      total_weeks: currentWeeks + normalizedNewWeeks.length,
+      weeks: [...existingPlan.weeks, ...normalizedNewWeeks],
       milestones: [
         ...(existingPlan.milestones || []),
         ...(extensionJson.new_milestones || [])
