@@ -127,9 +127,9 @@ export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
         return false;
       }
 
-      // Distribute tasks across the week
+      // Distribute tasks across the week with week number for title prefix
       const weekStart = getCurrentWeekStart();
-      const calendarTasks = distributeTasksAcrossWeek(incompleteTasks, weekStart);
+      const calendarTasks = distributeTasksAcrossWeek(incompleteTasks, weekStart, week.week);
 
       // Sync to calendar
       const result = await syncWeekToCalendar(calendarTasks, userId, week.week);
@@ -137,8 +137,8 @@ export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
       if (result.success) {
         if (result.eventsCreated > 0) {
           toast({
-            title: "This week's tasks have been added to your calendar.",
-            description: result.error || `${result.eventsCreated} event${result.eventsCreated > 1 ? 's' : ''} created.`,
+            title: `${result.eventsCreated} task${result.eventsCreated > 1 ? 's' : ''} added to your calendar`,
+            description: "Focus and execute. You've got this!",
           });
         } else if (result.error) {
           // Already synced case
@@ -150,8 +150,8 @@ export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
         return true;
       } else {
         toast({
-          title: 'Calendar sync failed',
-          description: result.error || 'Could not add events to your calendar. Please try again.',
+          title: 'Some tasks could not be added',
+          description: result.error || 'Please retry or add tasks individually.',
           variant: 'destructive',
         });
         return false;
