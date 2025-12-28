@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { CalendarCheck, CalendarX, Clock } from 'lucide-react';
 import { playCalendarConfirmSound, playCalendarRetrySound } from '@/lib/celebrationSound';
+import { hapticSuccess, hapticWarning } from '@/lib/hapticFeedback';
 
 interface CalendarConfirmationDialogProps {
   open: boolean;
@@ -21,11 +22,13 @@ export function CalendarConfirmationDialog({
   onRemindLater,
 }: CalendarConfirmationDialogProps) {
   const handleConfirm = () => {
+    hapticSuccess();
     playCalendarConfirmSound();
     onConfirm();
   };
   
   const handleDeny = () => {
+    hapticWarning();
     playCalendarRetrySound();
     onDeny();
   };
