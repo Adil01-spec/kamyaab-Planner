@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CalendarCheck, CalendarX, Clock } from 'lucide-react';
+import { playCalendarConfirmSound, playCalendarRetrySound } from '@/lib/celebrationSound';
 
 interface CalendarConfirmationDialogProps {
   open: boolean;
@@ -19,6 +20,16 @@ export function CalendarConfirmationDialog({
   onDeny,
   onRemindLater,
 }: CalendarConfirmationDialogProps) {
+  const handleConfirm = () => {
+    playCalendarConfirmSound();
+    onConfirm();
+  };
+  
+  const handleDeny = () => {
+    playCalendarRetrySound();
+    onDeny();
+  };
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -38,7 +49,7 @@ export function CalendarConfirmationDialog({
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className="w-full gradient-kaamyab hover:opacity-90"
           >
             <CalendarCheck className="w-4 h-4 mr-2" />
@@ -46,7 +57,7 @@ export function CalendarConfirmationDialog({
           </Button>
           <Button
             variant="outline"
-            onClick={onDeny}
+            onClick={handleDeny}
             className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
           >
             <CalendarX className="w-4 h-4 mr-2" />

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { createSingleTaskCalendarEvent, isAppleDevice, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { playCalendarConfirmSound, playCalendarRetrySound } from '@/lib/celebrationSound';
 import { 
   useTaskCalendarStatus, 
   getTaskCalendarStatus, 
@@ -194,6 +195,7 @@ export function TaskItem({
   // Handle inline confirmation (user confirms from task card)
   const handleInlineConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
+    playCalendarConfirmSound();
     confirmAdded();
     toast({
       title: "Task confirmed",
@@ -204,6 +206,7 @@ export function TaskItem({
   // Handle inline retry (user wants to add again)
   const handleInlineRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
+    playCalendarRetrySound();
     resetCalendarStatus();
   };
 

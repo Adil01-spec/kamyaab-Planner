@@ -138,3 +138,44 @@ function playNote(
   osc.start(startTime);
   osc.stop(startTime + duration + 0.1);
 }
+
+/**
+ * Plays a pleasant confirmation sound for calendar additions
+ * Two-note ascending chime - soft and friendly
+ */
+export function playCalendarConfirmSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Gentle ascending two-note chime (G5 → C6)
+    playNote(audioContext, 783.99, startTime, 0.15, 0.25, 'sine');
+    playNote(audioContext, 1046.50, startTime + 0.1, 0.25, 0.2, 'sine');
+    
+    // Subtle harmonics for warmth
+    playNote(audioContext, 1318.51, startTime + 0.15, 0.3, 0.08, 'sine');
+    
+    setTimeout(() => audioContext.close(), 800);
+  } catch (error) {
+    console.debug('Audio playback not available:', error);
+  }
+}
+
+/**
+ * Plays a soft "retry" sound for denied calendar additions
+ * Descending tone - gentle, non-judgmental
+ */
+export function playCalendarRetrySound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Soft descending two-note (E5 → C5)
+    playNote(audioContext, 659.25, startTime, 0.12, 0.2, 'sine');
+    playNote(audioContext, 523.25, startTime + 0.08, 0.2, 0.15, 'sine');
+    
+    setTimeout(() => audioContext.close(), 600);
+  } catch (error) {
+    console.debug('Audio playback not available:', error);
+  }
+}
