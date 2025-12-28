@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createSingleTaskCalendarEvent, isAppleDevice, getCalendarButtonLabel, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 // Helper functions for tracking calendar-added tasks
 const getCalendarAddedTasks = (): Set<string> => {
@@ -126,6 +129,9 @@ export function TaskItem({
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAddedToCalendar, setIsAddedToCalendar] = useState(false);
+  const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedHour, setSelectedHour] = useState<string>('9');
   
   // Check if task was added to calendar
   useEffect(() => {
@@ -143,6 +149,13 @@ export function TaskItem({
   
   const scheduledDate = getScheduledDate();
   
+  // Initialize selected date when popover opens
+  useEffect(() => {
+    if (calendarPopoverOpen && scheduledDate && !selectedDate) {
+      setSelectedDate(scheduledDate);
+    }
+  }, [calendarPopoverOpen, scheduledDate, selectedDate]);
+  
   const details = getExplanationDetails({
     title, priority, estimatedHours, completed, onToggle,
     explanation, howTo, expectedOutcome, isLocked 
@@ -158,8 +171,7 @@ export function TaskItem({
     onToggle();
   };
 
-  const handleAddToCalendar = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleAddToCalendar = (customDate?: Date) => {
     if (weekNumber !== undefined && taskIndex !== undefined) {
       const taskInput = {
         title,
@@ -172,22 +184,48 @@ export function TaskItem({
       
       // Use plan's created_at date for correct future date calculation
       const planStartDate = getPlanStartDate(planCreatedAt);
-      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate);
+      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate, customDate);
       
       // Mark task as added to calendar
       const taskKey = `week-${weekNumber}-task-${taskIndex}`;
       markTaskAsCalendarAdded(taskKey);
       setIsAddedToCalendar(true);
+      setCalendarPopoverOpen(false);
       
+      const dateToShow = customDate || scheduledDate;
       toast({
         title: "Task added to calendar",
-        description: `"${title}" has been added to your calendar.`,
+        description: dateToShow 
+          ? `"${title}" scheduled for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}.`
+          : `"${title}" has been added to your calendar.`,
       });
     }
   };
 
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleAddToCalendar();
+  };
+
+  const handleCustomDateAdd = () => {
+    if (selectedDate) {
+      const dateWithTime = new Date(selectedDate);
+      dateWithTime.setHours(parseInt(selectedHour), 0, 0, 0);
+      handleAddToCalendar(dateWithTime);
+    }
+  };
+
+  // Generate time options
+  const timeOptions = Array.from({ length: 14 }, (_, i) => {
+    const hour = i + 6; // 6 AM to 7 PM
+    return {
+      value: hour.toString(),
+      label: format(new Date().setHours(hour, 0), 'h:mm a'),
+    };
+  });
+
   return (
-    <div 
+    <div
       className={cn(
         "rounded-xl glass-subtle transition-all duration-200",
         isLocked && "opacity-60 cursor-not-allowed",
@@ -295,23 +333,90 @@ export function TaskItem({
               </span>
             )}
             
-            {/* Per-task calendar button with date preview - hide if already added, touch optimized */}
+            {/* Per-task calendar button with date picker popover */}
             {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && scheduledDate && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md hidden sm:flex items-center gap-1">
-                  <CalendarPlus className="w-3 h-3" />
-                  {format(scheduledDate, 'EEE, MMM d')} • 9 AM
-                </span>
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                {/* Quick add with suggested date */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleAddToCalendar}
-                  className="h-9 px-3 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
-                  title={`${getCalendarButtonLabel()} for ${format(scheduledDate, 'EEEE, MMMM d')} at 9:00 AM`}
+                  onClick={handleQuickAdd}
+                  className="h-9 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px] hidden sm:flex"
+                  title={`Quick add for ${format(scheduledDate, 'EEEE, MMMM d')} at 9:00 AM`}
                 >
-                  <CalendarPlus className="w-4 h-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">{isAppleDevice() ? 'Add' : 'Add'}</span>
+                  <CalendarPlus className="w-4 h-4 mr-1" />
+                  {format(scheduledDate, 'MMM d')}
                 </Button>
+                
+                {/* Custom date picker popover */}
+                <Popover open={calendarPopoverOpen} onOpenChange={setCalendarPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 px-3 text-xs border-primary/30 hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
+                    >
+                      <CalendarPlus className="w-4 h-4 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Pick date</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-auto p-0 z-50" 
+                    align="end"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-3 space-y-3">
+                      <div className="text-sm font-medium text-foreground">
+                        Schedule: {title.slice(0, 30)}{title.length > 30 ? '...' : ''}
+                      </div>
+                      
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                        className="rounded-md border pointer-events-auto"
+                      />
+                      
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <Select value={selectedHour} onValueChange={setSelectedHour}>
+                          <SelectTrigger className="flex-1 h-10">
+                            <SelectValue placeholder="Select time" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[60]">
+                            {timeOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setCalendarPopoverOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleCustomDateAdd}
+                          disabled={!selectedDate}
+                        >
+                          <CalendarPlus className="w-4 h-4 mr-1.5" />
+                          {isAppleDevice() ? 'Add to Apple' : 'Add to Calendar'}
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>

@@ -573,14 +573,16 @@ export const syncWeekToCalendar = async (
 };
 
 // Create a single task calendar event (for per-task button)
+// Accepts optional customDate to allow user-selected scheduling
 export const createSingleTaskCalendarEvent = (
   task: TaskInput,
   weekNumber: number,
   taskIndex: number,
-  planStartDate: Date
+  planStartDate: Date,
+  customDate?: Date
 ): void => {
-  // Calculate the correct future date for this task
-  const taskDate = calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
+  // Use custom date if provided, otherwise calculate based on plan
+  const taskDate = customDate || calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
   
   const explanationDetails = getTaskExplanationText(task);
   
