@@ -6,6 +6,8 @@ export interface CalendarTaskStatus {
   status: CalendarStatus;
   calendarIntentStartedAt?: number;
   calendarConfirmedAt?: number;
+  scheduledAt?: string; // ISO datetime - the date user chose for the calendar event
+  draftScheduledAt?: string; // ISO datetime - temporarily stored before confirmation
 }
 
 interface CalendarStatusStore {
@@ -42,42 +44,76 @@ export const getTaskCalendarStatus = (weekNumber: number, taskIndex: number): Ca
   return store[taskKey] || { status: 'not_added' };
 };
 
-// Set task to pending confirmation
-export const setTaskPendingConfirmation = (weekNumber: number, taskIndex: number) => {
+// Set task to pending confirmation with draft date
+export const setTaskPendingConfirmation = (weekNumber: number, taskIndex: number, draftDate?: Date) => {
   const taskKey = getTaskKey(weekNumber, taskIndex);
   const store = getCalendarStatusStore();
   store[taskKey] = {
     status: 'pending_confirmation',
     calendarIntentStartedAt: Date.now(),
+    draftScheduledAt: draftDate?.toISOString(),
   };
   saveCalendarStatusStore(store);
 };
 
-// Confirm task was added to calendar
+// Confirm task was added to calendar - moves draftScheduledAt to scheduledAt
 export const confirmTaskCalendarAdded = (weekNumber: number, taskIndex: number) => {
   const taskKey = getTaskKey(weekNumber, taskIndex);
   const store = getCalendarStatusStore();
+  const existingStatus: CalendarTaskStatus = store[taskKey] || { status: 'not_added' };
+  
+  // Validate date is not in the past
+  const draftDate = existingStatus.draftScheduledAt;
+  let scheduledAt = draftDate;
+  
+  if (draftDate) {
+    const dateObj = new Date(draftDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (dateObj < today) {
+      // Date is in the past, clear it - user will need to re-add
+      scheduledAt = undefined;
+    }
+  }
+  
   store[taskKey] = {
     status: 'added',
     calendarConfirmedAt: Date.now(),
+    scheduledAt: scheduledAt,
   };
   saveCalendarStatusStore(store);
+  
+  return { hasValidDate: !!scheduledAt };
 };
 
-// Reset task to not added (user said no)
+// Reset task to not added (user said no or wants to retry)
 export const resetTaskCalendarStatus = (weekNumber: number, taskIndex: number) => {
   const taskKey = getTaskKey(weekNumber, taskIndex);
   const store = getCalendarStatusStore();
   store[taskKey] = {
     status: 'not_added',
+    // Clear all dates
+    scheduledAt: undefined,
+    draftScheduledAt: undefined,
   };
   saveCalendarStatusStore(store);
 };
 
 // Get all pending confirmation tasks
-export const getPendingConfirmationTasks = (): { weekNumber: number; taskIndex: number; intentStartedAt: number }[] => {
+export const getPendingConfirmationTasks = (): { 
+  weekNumber: number; 
+  taskIndex: number; 
+  intentStartedAt: number;
+  draftScheduledAt?: string;
+}[] => {
   const store = getCalendarStatusStore();
-  const pendingTasks: { weekNumber: number; taskIndex: number; intentStartedAt: number }[] = [];
+  const pendingTasks: { 
+    weekNumber: number; 
+    taskIndex: number; 
+    intentStartedAt: number;
+    draftScheduledAt?: string;
+  }[] = [];
   
   Object.entries(store).forEach(([taskKey, status]) => {
     if (status.status === 'pending_confirmation' && status.calendarIntentStartedAt) {
@@ -94,6 +130,7 @@ export const getPendingConfirmationTasks = (): { weekNumber: number; taskIndex: 
             weekNumber,
             taskIndex,
             intentStartedAt: status.calendarIntentStartedAt,
+            draftScheduledAt: status.draftScheduledAt,
           });
         } else {
           // Auto-clear expired pending states
@@ -104,6 +141,35 @@ export const getPendingConfirmationTasks = (): { weekNumber: number; taskIndex: 
   });
   
   return pendingTasks;
+};
+
+// Get all tasks that are confirmed added with valid scheduled dates
+export const getConfirmedCalendarTasks = (): {
+  weekNumber: number;
+  taskIndex: number;
+  scheduledAt: string;
+}[] => {
+  const store = getCalendarStatusStore();
+  const confirmedTasks: {
+    weekNumber: number;
+    taskIndex: number;
+    scheduledAt: string;
+  }[] = [];
+  
+  Object.entries(store).forEach(([taskKey, status]) => {
+    if (status.status === 'added' && status.scheduledAt) {
+      const match = taskKey.match(/^week-(\d+)-task-(\d+)$/);
+      if (match) {
+        confirmedTasks.push({
+          weekNumber: parseInt(match[1], 10),
+          taskIndex: parseInt(match[2], 10),
+          scheduledAt: status.scheduledAt,
+        });
+      }
+    }
+  });
+  
+  return confirmedTasks;
 };
 
 // Clear pending status for completed tasks
@@ -125,26 +191,27 @@ export function useTaskCalendarStatus(weekNumber?: number, taskIndex?: number) {
     }
   }, [weekNumber, taskIndex]);
   
-  // Set to pending confirmation
-  const setPending = useCallback(() => {
+  // Set to pending confirmation with draft date
+  const setPending = useCallback((draftDate?: Date) => {
     if (weekNumber !== undefined && taskIndex !== undefined) {
-      setTaskPendingConfirmation(weekNumber, taskIndex);
+      setTaskPendingConfirmation(weekNumber, taskIndex, draftDate);
       setStatus({
         status: 'pending_confirmation',
         calendarIntentStartedAt: Date.now(),
+        draftScheduledAt: draftDate?.toISOString(),
       });
     }
   }, [weekNumber, taskIndex]);
   
-  // Confirm added
+  // Confirm added - moves draft date to confirmed
   const confirmAdded = useCallback(() => {
     if (weekNumber !== undefined && taskIndex !== undefined) {
-      confirmTaskCalendarAdded(weekNumber, taskIndex);
-      setStatus({
-        status: 'added',
-        calendarConfirmedAt: Date.now(),
-      });
+      const result = confirmTaskCalendarAdded(weekNumber, taskIndex);
+      const updatedStatus = getTaskCalendarStatus(weekNumber, taskIndex);
+      setStatus(updatedStatus);
+      return result;
     }
+    return { hasValidDate: false };
   }, [weekNumber, taskIndex]);
   
   // Reset to not added
@@ -159,6 +226,8 @@ export function useTaskCalendarStatus(weekNumber?: number, taskIndex?: number) {
     status: status.status,
     intentStartedAt: status.calendarIntentStartedAt,
     confirmedAt: status.calendarConfirmedAt,
+    scheduledAt: status.scheduledAt,
+    draftScheduledAt: status.draftScheduledAt,
     setPending,
     confirmAdded,
     reset,
@@ -171,6 +240,7 @@ export function usePendingCalendarConfirmation() {
     weekNumber: number;
     taskIndex: number;
     intentStartedAt: number;
+    draftScheduledAt?: string;
   } | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   
@@ -205,9 +275,9 @@ export function usePendingCalendarConfirmation() {
   }, [checkPendingTasks]);
   
   // Handle user confirmation
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback((): { hasValidDate: boolean } => {
     if (pendingTask) {
-      confirmTaskCalendarAdded(pendingTask.weekNumber, pendingTask.taskIndex);
+      const result = confirmTaskCalendarAdded(pendingTask.weekNumber, pendingTask.taskIndex);
       setShowConfirmation(false);
       
       // Check if there are more pending tasks
@@ -221,7 +291,10 @@ export function usePendingCalendarConfirmation() {
           setPendingTask(null);
         }
       }, 300);
+      
+      return result;
     }
+    return { hasValidDate: false };
   }, [pendingTask]);
   
   // Handle user denial
@@ -249,6 +322,12 @@ export function usePendingCalendarConfirmation() {
     setShowConfirmation(false);
   }, []);
   
+  // Force a refresh of calendar data (for WeeklyCalendarView to rerender)
+  const [refreshKey, setRefreshKey] = useState(0);
+  const triggerRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+  
   return {
     pendingTask,
     showConfirmation,
@@ -257,5 +336,7 @@ export function usePendingCalendarConfirmation() {
     handleDeny,
     handleDismiss,
     checkPendingTasks,
+    refreshKey,
+    triggerRefresh,
   };
 }

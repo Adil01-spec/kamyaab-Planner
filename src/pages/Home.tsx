@@ -380,10 +380,26 @@ const Home = () => {
     pendingTask,
     showConfirmation,
     setShowConfirmation,
-    handleConfirm: confirmCalendarTask,
-    handleDeny: denyCalendarTask,
+    handleConfirm: baseConfirmCalendarTask,
+    handleDeny: baseDenyCalendarTask,
     handleDismiss: dismissCalendarConfirmation,
+    triggerRefresh,
   } = usePendingCalendarConfirmation();
+  
+  // Wrapped handlers that show toasts for confirmation
+  const confirmCalendarTask = () => {
+    const result = baseConfirmCalendarTask();
+    triggerRefresh();
+    
+    if (!result.hasValidDate) {
+      // No valid date - show error, it will be reset by the hook
+    }
+  };
+  
+  const denyCalendarTask = () => {
+    baseDenyCalendarTask();
+    triggerRefresh();
+  };
   
   // Get task title for confirmation dialog
   const getPendingTaskTitle = (): string | undefined => {
