@@ -375,10 +375,36 @@ const Plan = () => {
     pendingTask,
     showConfirmation,
     setShowConfirmation,
-    handleConfirm: confirmCalendarTask,
-    handleDeny: denyCalendarTask,
+    handleConfirm: baseConfirmCalendarTask,
+    handleDeny: baseDenyCalendarTask,
     handleDismiss: dismissCalendarConfirmation,
+    refreshKey,
+    triggerRefresh,
   } = usePendingCalendarConfirmation();
+  
+  // Wrapped handlers that trigger calendar refresh and show toasts
+  const confirmCalendarTask = () => {
+    const result = baseConfirmCalendarTask();
+    triggerRefresh();
+    
+    if (!result.hasValidDate) {
+      toast({
+        title: "Date missing",
+        description: "We couldn't detect the date. Please add again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Task confirmed",
+        description: `Calendar event confirmed!`,
+      });
+    }
+  };
+  
+  const denyCalendarTask = () => {
+    baseDenyCalendarTask();
+    triggerRefresh();
+  };
   
   // Get task title for confirmation dialog
   const getPendingTaskTitle = (): string | undefined => {
@@ -530,6 +556,7 @@ const Plan = () => {
               weeks={plan.weeks}
               planCreatedAt={planCreatedAt || undefined}
               activeWeekIndex={plan.weeks.findIndex(w => !w.tasks.every(t => t.completed))}
+              refreshKey={refreshKey}
             />
 
             {/* Milestones */}

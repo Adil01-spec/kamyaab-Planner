@@ -179,8 +179,15 @@ export function TaskItem({
       const planStartDate = getPlanStartDate(planCreatedAt);
       createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate, customDate);
       
-      // Set to pending confirmation - DO NOT mark as added yet
-      setPending();
+      // Determine the date to store for this calendar intent
+      const dateToStore = customDate || (scheduledDate ? new Date(scheduledDate) : undefined);
+      if (dateToStore && !customDate) {
+        // If using scheduled date without custom time, default to 9 AM
+        dateToStore.setHours(9, 0, 0, 0);
+      }
+      
+      // Set to pending confirmation with the draft date - DO NOT mark as added yet
+      setPending(dateToStore);
       setCalendarPopoverOpen(false);
       
       const dateToShow = customDate || scheduledDate;
@@ -198,11 +205,22 @@ export function TaskItem({
     e.stopPropagation();
     hapticSuccess();
     playCalendarConfirmSound();
-    confirmAdded();
-    toast({
-      title: "Task confirmed",
-      description: `"${title}" has been confirmed in your calendar.`,
-    });
+    const result = confirmAdded();
+    
+    if (!result.hasValidDate) {
+      // No valid date stored - show error and reset
+      toast({
+        title: "Date missing",
+        description: "We couldn't detect the date. Please add again.",
+        variant: "destructive",
+      });
+      resetCalendarStatus();
+    } else {
+      toast({
+        title: "Task confirmed",
+        description: `"${title}" has been confirmed in your calendar.`,
+      });
+    }
   };
   
   // Handle inline retry (user wants to add again)

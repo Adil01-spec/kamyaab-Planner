@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Calendar, CheckCircle2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { calculateTaskEventDate, getPlanStartDate } from '@/lib/calendarService';
-import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, isToday, parseISO } from 'date-fns';
+import { getConfirmedCalendarTasks } from '@/hooks/useCalendarStatus';
 
 interface Task {
   title: string;
@@ -24,6 +24,7 @@ interface WeeklyCalendarViewProps {
   weeks: Week[];
   planCreatedAt?: string;
   activeWeekIndex: number;
+  refreshKey?: number; // Used to trigger re-render when calendar status changes
 }
 
 const getPriorityColor = (priority: string) => {
@@ -45,9 +46,7 @@ interface ScheduledTask extends Task {
   scheduledDate: Date;
 }
 
-export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex }: WeeklyCalendarViewProps) {
-  const planStartDate = useMemo(() => getPlanStartDate(planCreatedAt), [planCreatedAt]);
-  
+export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex, refreshKey }: WeeklyCalendarViewProps) {
   // Get the current week's start (Monday)
   const currentWeekStart = useMemo(() => {
     const today = new Date();
@@ -59,24 +58,37 @@ export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex }: We
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
   
-  // Calculate all scheduled tasks with their dates
+  // Get ONLY confirmed calendar tasks with valid scheduledAt dates
+  // This is the SINGLE SOURCE OF TRUTH - tasks MUST be confirmed to appear here
   const scheduledTasks = useMemo(() => {
+    const confirmedTasks = getConfirmedCalendarTasks();
     const tasks: ScheduledTask[] = [];
     
-    weeks.forEach((week, weekIndex) => {
-      week.tasks.forEach((task, taskIndex) => {
-        const scheduledDate = calculateTaskEventDate(planStartDate, week.week, taskIndex);
+    confirmedTasks.forEach(({ weekNumber, taskIndex, scheduledAt }) => {
+      // Find the task in weeks data
+      const week = weeks.find(w => w.week === weekNumber);
+      if (!week || !week.tasks[taskIndex]) return;
+      
+      const task = week.tasks[taskIndex];
+      const scheduledDate = parseISO(scheduledAt);
+      
+      // Only include if scheduledDate is valid (not in the past more than a day)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      if (scheduledDate >= yesterday) {
         tasks.push({
           ...task,
-          weekNumber: week.week,
+          weekNumber,
           taskIndex,
           scheduledDate,
         });
-      });
+      }
     });
     
     return tasks;
-  }, [weeks, planStartDate]);
+  }, [weeks, refreshKey]); // refreshKey triggers re-evaluation when calendar status changes
   
   // Group tasks by day
   const tasksByDay = useMemo(() => {
@@ -115,7 +127,10 @@ export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex }: We
             <CardTitle className="text-lg">This Week's Schedule</CardTitle>
           </div>
           <Badge variant="outline" className="text-xs">
-            {weekStats.completed}/{weekStats.total} tasks
+            {weekStats.total === 0 
+              ? 'No events scheduled' 
+              : `${weekStats.completed}/${weekStats.total} tasks`
+            }
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -195,6 +210,9 @@ export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex }: We
                             <span className="flex items-center gap-0.5">
                               <Clock className="w-2.5 h-2.5" />
                               {task.estimated_hours}h
+                            </span>
+                            <span className="flex items-center gap-0.5">
+                              {format(task.scheduledDate, 'h:mm a')}
                             </span>
                             <Badge 
                               variant="outline" 
