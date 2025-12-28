@@ -6,6 +6,7 @@ import {
   getCurrentWeekStart,
   isWeekSynced,
 } from '@/lib/calendarService';
+import { markWeekTasksAsCalendarAdded } from '@/components/TaskItem';
 
 interface Task {
   title: string;
@@ -135,6 +136,9 @@ export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
       const result = await syncWeekToCalendar(calendarTasks, userId, week.week);
 
       if (result.success) {
+        // Mark all tasks in this week as added to calendar for visual indicator
+        markWeekTasksAsCalendarAdded(week.week, week.tasks.length);
+        
         if (result.eventsCreated > 0) {
           toast({
             title: `${result.eventsCreated} task${result.eventsCreated > 1 ? 's' : ''} added to your calendar`,
