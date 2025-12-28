@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
+import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
@@ -503,6 +504,13 @@ const Plan = () => {
                 </Card>
               </div>
             )}
+
+            {/* Weekly Calendar View */}
+            <WeeklyCalendarView 
+              weeks={plan.weeks}
+              planCreatedAt={planCreatedAt || undefined}
+              activeWeekIndex={plan.weeks.findIndex(w => !w.tasks.every(t => t.completed))}
+            />
 
             {/* Milestones */}
             {plan.milestones && plan.milestones.length > 0 && (
