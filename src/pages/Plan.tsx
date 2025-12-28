@@ -63,6 +63,7 @@ const Plan = () => {
   const { profile, logout, user } = useAuth();
   const navigate = useNavigate();
   const [plan, setPlan] = useState<PlanData | null>(null);
+  const [planCreatedAt, setPlanCreatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -177,13 +178,14 @@ const Plan = () => {
       try {
         const { data, error } = await supabase
           .from('plans')
-          .select('plan_json')
+          .select('plan_json, created_at')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (error) throw error;
         if (data?.plan_json) {
           setPlan(data.plan_json as unknown as PlanData);
+          setPlanCreatedAt(data.created_at);
         }
       } catch (error) {
         console.error('Error fetching plan:', error);
@@ -352,7 +354,7 @@ const Plan = () => {
 
   const showExtendButton = isNearingPlanEnd();
 
-  // Calendar sync hook
+  // Calendar sync hook - pass plan's created_at for correct date calculation
   const {
     isSyncing: isCalendarSyncing,
     syncingWeek,
@@ -362,6 +364,7 @@ const Plan = () => {
   } = useCalendarSync({
     userId: user?.id || '',
     weeks: plan?.weeks || [],
+    planCreatedAt: planCreatedAt || undefined,
   });
 
   if (loading) {
@@ -647,6 +650,7 @@ const Plan = () => {
                             weekNumber={week.week}
                             taskIndex={taskIndex}
                             showCalendarButton={isActiveWeek && !isWeekComplete}
+                            planCreatedAt={planCreatedAt || undefined}
                           />
                         ))}
                       </div>
