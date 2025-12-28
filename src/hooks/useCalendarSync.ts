@@ -3,7 +3,7 @@ import { toast } from '@/hooks/use-toast';
 import {
   syncWeekToCalendar,
   distributeTasksAcrossWeek,
-  getCurrentWeekStart,
+  getPlanStartDate,
   isWeekSynced,
 } from '@/lib/calendarService';
 import { markWeekTasksAsCalendarAdded } from '@/components/TaskItem';
@@ -13,6 +13,9 @@ interface Task {
   priority: string;
   estimated_hours: number;
   completed?: boolean;
+  explanation?: any;
+  how_to?: string;
+  expected_outcome?: string;
 }
 
 interface Week {
@@ -24,6 +27,7 @@ interface Week {
 interface UseCalendarSyncOptions {
   userId: string;
   weeks: Week[];
+  planCreatedAt?: string;
 }
 
 interface CalendarSyncState {
@@ -31,7 +35,7 @@ interface CalendarSyncState {
   syncingWeek: number | null;
 }
 
-export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
+export const useCalendarSync = ({ userId, weeks, planCreatedAt }: UseCalendarSyncOptions) => {
   const [state, setState] = useState<CalendarSyncState>({
     isSyncing: false,
     syncingWeek: null,
@@ -128,9 +132,9 @@ export const useCalendarSync = ({ userId, weeks }: UseCalendarSyncOptions) => {
         return false;
       }
 
-      // Distribute tasks across the week with week number for title prefix
-      const weekStart = getCurrentWeekStart();
-      const calendarTasks = distributeTasksAcrossWeek(incompleteTasks, weekStart, week.week);
+      // Use plan's created_at date for correct future date calculation
+      const planStartDate = getPlanStartDate(planCreatedAt);
+      const calendarTasks = distributeTasksAcrossWeek(incompleteTasks, planStartDate, week.week);
 
       // Sync to calendar
       const result = await syncWeekToCalendar(calendarTasks, userId, week.week);

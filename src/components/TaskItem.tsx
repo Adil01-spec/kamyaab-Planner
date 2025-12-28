@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, getCurrentWeekStart, isAppleDevice, getCalendarButtonLabel } from '@/lib/calendarService';
+import { createSingleTaskCalendarEvent, isAppleDevice, getCalendarButtonLabel, getPlanStartDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
 
 // Helper functions for tracking calendar-added tasks
@@ -56,6 +56,7 @@ interface TaskItemProps {
   weekNumber?: number;
   taskIndex?: number;
   showCalendarButton?: boolean;
+  planCreatedAt?: string;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -120,6 +121,7 @@ export function TaskItem({
   weekNumber,
   taskIndex,
   showCalendarButton = false,
+  planCreatedAt,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAddedToCalendar, setIsAddedToCalendar] = useState(false);
@@ -157,8 +159,10 @@ export function TaskItem({
         how_to: howTo,
         expected_outcome: expectedOutcome
       };
-      const weekStart = getCurrentWeekStart();
-      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, weekStart);
+      
+      // Use plan's created_at date for correct future date calculation
+      const planStartDate = getPlanStartDate(planCreatedAt);
+      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate);
       
       // Mark task as added to calendar
       const taskKey = `week-${weekNumber}-task-${taskIndex}`;

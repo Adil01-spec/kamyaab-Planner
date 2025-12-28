@@ -103,25 +103,53 @@ function getTaskExplanationText(task: TaskInput): { how: string; why: string; ex
   };
 }
 
-// Distribute tasks evenly across a week (Mon-Fri)
+// Calculate the event date based on plan start date, week number, and task index
+// This ensures events are always scheduled correctly in the future
+export const calculateTaskEventDate = (
+  planStartDate: Date,
+  weekNumber: number,
+  taskIndex: number
+): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Calculate the start of the week based on plan start date
+  // Week 1 starts on planStartDate, Week 2 starts 7 days later, etc.
+  const weekStartDate = new Date(planStartDate);
+  weekStartDate.setDate(weekStartDate.getDate() + (weekNumber - 1) * 7);
+  weekStartDate.setHours(0, 0, 0, 0);
+  
+  // Add task day offset (task 0 = day 0, task 1 = day 1, etc.)
+  // Cap at 6 days max (within the week)
+  const dayOffset = Math.min(taskIndex, 6);
+  const eventDate = new Date(weekStartDate);
+  eventDate.setDate(eventDate.getDate() + dayOffset);
+  
+  // Set time to 9:00 AM local to avoid timezone issues
+  eventDate.setHours(9, 0, 0, 0);
+  
+  // SAFETY CHECK: If event date is in the past, reschedule to tomorrow at 9 AM
+  if (eventDate < today) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    return tomorrow;
+  }
+  
+  return eventDate;
+};
+
+// Distribute tasks evenly across a week based on plan start date
 export const distributeTasksAcrossWeek = (
   tasks: TaskInput[],
-  weekStartDate: Date,
-  weekNumber?: number
+  planStartDate: Date,
+  weekNumber: number
 ): CalendarTask[] => {
   const calendarTasks: CalendarTask[] = [];
-  const workDays = 5; // Monday to Friday
-  const tasksPerDay = Math.ceil(tasks.length / workDays);
   
   tasks.forEach((task, index) => {
-    const dayOffset = Math.floor(index / tasksPerDay);
-    const taskDate = new Date(weekStartDate);
-    taskDate.setDate(taskDate.getDate() + dayOffset);
-    
-    // Set time based on position in day (9am, 11am, 2pm, 4pm)
-    const timeSlots = [9, 11, 14, 16];
-    const slotIndex = index % tasksPerDay;
-    taskDate.setHours(timeSlots[slotIndex] || 9, 0, 0, 0);
+    // Calculate the correct future date for this task
+    const taskDate = calculateTaskEventDate(planStartDate, weekNumber, index);
     
     // Get explanation details (handles both nested and flat structure)
     const explanationDetails = getTaskExplanationText(task);
@@ -144,7 +172,7 @@ export const distributeTasksAcrossWeek = (
     description += `\n—\nPart of your Kaamyab productivity plan.`;
     
     // Add [Kaamyab] Week X prefix to title
-    const titlePrefix = weekNumber ? `[Kaamyab] Week ${weekNumber} — ` : '[Kaamyab] ';
+    const titlePrefix = `[Kaamyab] Week ${weekNumber} — `;
     
     calendarTasks.push({
       title: `${titlePrefix}${task.title}`,
@@ -157,14 +185,18 @@ export const distributeTasksAcrossWeek = (
   return calendarTasks;
 };
 
-// Get the start of the current week (Monday)
-export const getCurrentWeekStart = (): Date => {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-  const monday = new Date(now.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+// Get the plan start date from created_at timestamp
+// Falls back to current date if not provided
+export const getPlanStartDate = (planCreatedAt?: string | Date): Date => {
+  if (planCreatedAt) {
+    const startDate = new Date(planCreatedAt);
+    startDate.setHours(0, 0, 0, 0);
+    return startDate;
+  }
+  // Fallback to today if no created_at
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
 };
 
 // ============ Google Calendar Integration ============
@@ -545,19 +577,10 @@ export const createSingleTaskCalendarEvent = (
   task: TaskInput,
   weekNumber: number,
   taskIndex: number,
-  weekStartDate: Date
+  planStartDate: Date
 ): void => {
-  const provider = detectCalendarProvider();
-  
-  // Calculate date for this task
-  const workDays = 5;
-  const dayOffset = Math.min(taskIndex, workDays - 1);
-  const taskDate = new Date(weekStartDate);
-  taskDate.setDate(taskDate.getDate() + dayOffset);
-  
-  const timeSlots = [9, 11, 14, 16];
-  const slotIndex = taskIndex % 4;
-  taskDate.setHours(timeSlots[slotIndex] || 9, 0, 0, 0);
+  // Calculate the correct future date for this task
+  const taskDate = calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
   
   const explanationDetails = getTaskExplanationText(task);
   
