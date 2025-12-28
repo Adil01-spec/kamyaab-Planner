@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, isAppleDevice, getCalendarButtonLabel, getPlanStartDate } from '@/lib/calendarService';
+import { createSingleTaskCalendarEvent, isAppleDevice, getCalendarButtonLabel, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 // Helper functions for tracking calendar-added tasks
 const getCalendarAddedTasks = (): Set<string> => {
@@ -132,6 +133,15 @@ export function TaskItem({
       setIsAddedToCalendar(isTaskAddedToCalendar(weekNumber, taskIndex));
     }
   }, [weekNumber, taskIndex]);
+  
+  // Calculate the scheduled date for preview
+  const getScheduledDate = (): Date | null => {
+    if (weekNumber === undefined || taskIndex === undefined) return null;
+    const planStartDate = getPlanStartDate(planCreatedAt);
+    return calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
+  };
+  
+  const scheduledDate = getScheduledDate();
   
   const details = getExplanationDetails({
     title, priority, estimatedHours, completed, onToggle,
@@ -278,25 +288,31 @@ export function TaskItem({
             )}
             
             {/* Calendar indicator - show if added */}
-            {isAddedToCalendar && (
-              <span className="text-xs text-primary flex items-center gap-1">
-                <CalendarCheck className="w-3 h-3" />
-                <span className="hidden sm:inline">In calendar</span>
+            {isAddedToCalendar && scheduledDate && (
+              <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-md">
+                <CalendarCheck className="w-3.5 h-3.5" />
+                <span>{format(scheduledDate, 'EEE, MMM d')}</span>
               </span>
             )}
             
-            {/* Per-task calendar button - hide if already added, touch optimized */}
-            {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddToCalendar}
-                className="h-9 px-3 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
-                title={getCalendarButtonLabel()}
-              >
-                <CalendarPlus className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">{isAppleDevice() ? 'Add to Apple Calendar' : 'Add to Calendar'}</span>
-              </Button>
+            {/* Per-task calendar button with date preview - hide if already added, touch optimized */}
+            {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && scheduledDate && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md hidden sm:flex items-center gap-1">
+                  <CalendarPlus className="w-3 h-3" />
+                  {format(scheduledDate, 'EEE, MMM d')} • 9 AM
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddToCalendar}
+                  className="h-9 px-3 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
+                  title={`${getCalendarButtonLabel()} for ${format(scheduledDate, 'EEEE, MMMM d')} at 9:00 AM`}
+                >
+                  <CalendarPlus className="w-4 h-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{isAppleDevice() ? 'Add' : 'Add'}</span>
+                </Button>
+              </div>
             )}
           </div>
         </div>
