@@ -8,6 +8,8 @@ import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { applyDynamicAccent } from '@/lib/dynamicAccent';
 import { useTheme } from 'next-themes';
+import { CalendarConfirmationDialog } from '@/components/CalendarConfirmationDialog';
+import { usePendingCalendarConfirmation } from '@/hooks/useCalendarStatus';
 import { 
   Loader2, 
   ArrowRight, 
@@ -372,6 +374,24 @@ const Home = () => {
   const userInitials = profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
   const todaysTasks = getTodaysTasks();
   const currentWeekIndex = getCurrentWeekIndex();
+  
+  // Calendar confirmation hook - detect when user returns to app
+  const {
+    pendingTask,
+    showConfirmation,
+    setShowConfirmation,
+    handleConfirm: confirmCalendarTask,
+    handleDeny: denyCalendarTask,
+    handleDismiss: dismissCalendarConfirmation,
+  } = usePendingCalendarConfirmation();
+  
+  // Get task title for confirmation dialog
+  const getPendingTaskTitle = (): string | undefined => {
+    if (!pendingTask || !planData) return undefined;
+    const week = planData.weeks.find(w => w.week === pendingTask.weekNumber);
+    if (!week) return undefined;
+    return week.tasks[pendingTask.taskIndex]?.title;
+  };
 
   if (loading) {
     return (
@@ -655,6 +675,16 @@ const Home = () => {
           </section>
         )}
       </div>
+      
+      {/* Calendar Confirmation Dialog */}
+      <CalendarConfirmationDialog
+        open={showConfirmation}
+        onOpenChange={setShowConfirmation}
+        taskTitle={getPendingTaskTitle()}
+        onConfirm={confirmCalendarTask}
+        onDeny={denyCalendarTask}
+        onRemindLater={dismissCalendarConfirmation}
+      />
     </div>
   );
 };

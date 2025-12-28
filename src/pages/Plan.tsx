@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
+import { CalendarConfirmationDialog } from '@/components/CalendarConfirmationDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { usePendingCalendarConfirmation } from '@/hooks/useCalendarStatus';
 import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
@@ -367,6 +369,24 @@ const Plan = () => {
     weeks: plan?.weeks || [],
     planCreatedAt: planCreatedAt || undefined,
   });
+  
+  // Calendar confirmation hook - detect when user returns to app
+  const {
+    pendingTask,
+    showConfirmation,
+    setShowConfirmation,
+    handleConfirm: confirmCalendarTask,
+    handleDeny: denyCalendarTask,
+    handleDismiss: dismissCalendarConfirmation,
+  } = usePendingCalendarConfirmation();
+  
+  // Get task title for confirmation dialog
+  const getPendingTaskTitle = (): string | undefined => {
+    if (!pendingTask || !plan) return undefined;
+    const week = plan.weeks.find(w => w.week === pendingTask.weekNumber);
+    if (!week) return undefined;
+    return week.tasks[pendingTask.taskIndex]?.title;
+  };
 
   if (loading) {
     return (
@@ -796,6 +816,16 @@ const Plan = () => {
         onOpenChange={setShowDeleteDialog}
         onConfirm={handleDeletePlan}
         isDeleting={isDeleting}
+      />
+      
+      {/* Calendar Confirmation Dialog */}
+      <CalendarConfirmationDialog
+        open={showConfirmation}
+        onOpenChange={setShowConfirmation}
+        taskTitle={getPendingTaskTitle()}
+        onConfirm={confirmCalendarTask}
+        onDeny={denyCalendarTask}
+        onRemindLater={dismissCalendarConfirmation}
       />
     </div>
   );
