@@ -6,39 +6,30 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, isAppleDevice, getCalendarButtonLabel, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
+import { createSingleTaskCalendarEvent, isAppleDevice, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
+import { 
+  useTaskCalendarStatus, 
+  getTaskCalendarStatus, 
+  setTaskPendingConfirmation,
+  confirmTaskCalendarAdded,
+  resetTaskCalendarStatus,
+  type CalendarStatus 
+} from '@/hooks/useCalendarStatus';
 
-// Helper functions for tracking calendar-added tasks
-const getCalendarAddedTasks = (): Set<string> => {
-  try {
-    const stored = localStorage.getItem('kaamyab-calendar-tasks');
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch {
-    return new Set();
-  }
-};
-
-const markTaskAsCalendarAdded = (taskKey: string) => {
-  const tasks = getCalendarAddedTasks();
-  tasks.add(taskKey);
-  localStorage.setItem('kaamyab-calendar-tasks', JSON.stringify([...tasks]));
-};
-
+// Legacy export for backward compatibility with useCalendarSync
 export const isTaskAddedToCalendar = (weekNumber: number, taskIndex: number): boolean => {
-  const taskKey = `week-${weekNumber}-task-${taskIndex}`;
-  return getCalendarAddedTasks().has(taskKey);
+  const status = getTaskCalendarStatus(weekNumber, taskIndex);
+  return status.status === 'added';
 };
 
 export const markWeekTasksAsCalendarAdded = (weekNumber: number, taskCount: number) => {
-  const tasks = getCalendarAddedTasks();
   for (let i = 0; i < taskCount; i++) {
-    tasks.add(`week-${weekNumber}-task-${i}`);
+    confirmTaskCalendarAdded(weekNumber, i);
   }
-  localStorage.setItem('kaamyab-calendar-tasks', JSON.stringify([...tasks]));
 };
 
 interface TaskExplanation {
@@ -128,17 +119,17 @@ export function TaskItem({
   planCreatedAt,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isAddedToCalendar, setIsAddedToCalendar] = useState(false);
   const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedHour, setSelectedHour] = useState<string>('9');
   
-  // Check if task was added to calendar
-  useEffect(() => {
-    if (weekNumber !== undefined && taskIndex !== undefined) {
-      setIsAddedToCalendar(isTaskAddedToCalendar(weekNumber, taskIndex));
-    }
-  }, [weekNumber, taskIndex]);
+  // Use the new calendar status hook
+  const { 
+    status: calendarStatus, 
+    setPending, 
+    confirmAdded, 
+    reset: resetCalendarStatus 
+  } = useTaskCalendarStatus(weekNumber, taskIndex);
   
   // Calculate the scheduled date for preview
   const getScheduledDate = (): Date | null => {
@@ -186,20 +177,34 @@ export function TaskItem({
       const planStartDate = getPlanStartDate(planCreatedAt);
       createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate, customDate);
       
-      // Mark task as added to calendar
-      const taskKey = `week-${weekNumber}-task-${taskIndex}`;
-      markTaskAsCalendarAdded(taskKey);
-      setIsAddedToCalendar(true);
+      // Set to pending confirmation - DO NOT mark as added yet
+      setPending();
       setCalendarPopoverOpen(false);
       
       const dateToShow = customDate || scheduledDate;
       toast({
-        title: "Task added to calendar",
+        title: "Calendar opened",
         description: dateToShow 
-          ? `"${title}" scheduled for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}.`
-          : `"${title}" has been added to your calendar.`,
+          ? `Add "${title}" for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}. We'll confirm when you return.`
+          : `Add "${title}" to your calendar. We'll confirm when you return.`,
       });
     }
+  };
+  
+  // Handle inline confirmation (user confirms from task card)
+  const handleInlineConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    confirmAdded();
+    toast({
+      title: "Task confirmed",
+      description: `"${title}" has been confirmed in your calendar.`,
+    });
+  };
+  
+  // Handle inline retry (user wants to add again)
+  const handleInlineRetry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    resetCalendarStatus();
   };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
@@ -325,16 +330,44 @@ export function TaskItem({
               </Collapsible>
             )}
             
-            {/* Calendar indicator - show if added */}
-            {isAddedToCalendar && scheduledDate && (
+            {/* Calendar status indicator - show based on status */}
+            {calendarStatus === 'added' && scheduledDate && (
               <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-md">
                 <CalendarCheck className="w-3.5 h-3.5" />
                 <span>{format(scheduledDate, 'EEE, MMM d')}</span>
               </span>
             )}
             
-            {/* Per-task calendar button with date picker popover */}
-            {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && scheduledDate && (
+            {/* Pending confirmation inline UI */}
+            {calendarStatus === 'pending_confirmation' && !completed && (
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded-md">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Waiting for confirmation</span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleInlineConfirm}
+                  className="h-8 px-2 text-xs text-primary hover:bg-primary/5 min-h-[32px]"
+                  title="Confirm added to calendar"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleInlineRetry}
+                  className="h-8 px-2 text-xs text-muted-foreground hover:bg-muted/50 min-h-[32px]"
+                  title="Add again"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            
+            {/* Per-task calendar button with date picker popover - only show for not_added status */}
+            {showCalendarButton && !isLocked && !completed && calendarStatus === 'not_added' && scheduledDate && (
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {/* Quick add with suggested date */}
                 <Button
