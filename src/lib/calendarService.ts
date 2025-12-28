@@ -1,5 +1,5 @@
 // Calendar integration service for direct calendar insertion
-// Supports Google Calendar API with fallback deep links for Apple/Outlook
+// Supports Google Calendar API with device-aware fallbacks for Apple/Google
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID || '';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
@@ -34,6 +34,37 @@ export const isWeekSynced = (userId: string, weekNumber: number): boolean => {
 // Mark week as synced
 export const markWeekSynced = (userId: string, weekNumber: number): void => {
   syncedWeeks.add(getWeekKey(userId, weekNumber));
+};
+
+// ============ Device Detection ============
+
+/**
+ * Detect if current device is an Apple device (iPhone, iPad, macOS Safari)
+ * Uses navigator.userAgent safely without external libraries
+ */
+export const isAppleDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  
+  const userAgent = navigator.userAgent.toLowerCase();
+  const platform = (navigator.platform || '').toLowerCase();
+  
+  // Check for iOS devices
+  const isIOS = /iphone|ipad|ipod/.test(userAgent);
+  
+  // Check for macOS (including Safari on Mac)
+  const isMac = /macintosh|mac os x/.test(userAgent) || platform.includes('mac');
+  
+  // Additional check for Safari on Mac (not Chrome/Firefox on Mac)
+  const isSafari = /safari/.test(userAgent) && !/chrome|chromium|crios|firefox|fxios/.test(userAgent);
+  
+  return isIOS || (isMac && isSafari);
+};
+
+/**
+ * Get appropriate button label based on device
+ */
+export const getCalendarButtonLabel = (): string => {
+  return isAppleDevice() ? 'Add to Apple Calendar' : 'Add to Calendar';
 };
 
 // Task explanation can be nested object or flat fields
@@ -322,42 +353,80 @@ export const getGoogleCalendarUrl = (task: CalendarTask): string => {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 };
 
-// Generate Outlook Calendar URL
-export const getOutlookCalendarUrl = (task: CalendarTask): string => {
+// Generate Apple Calendar ICS content (in memory, no file download)
+const generateICSContent = (task: CalendarTask): string => {
   const endTime = new Date(task.date);
   endTime.setHours(endTime.getHours() + task.durationHours);
   
-  const params = new URLSearchParams({
-    path: '/calendar/action/compose',
-    rru: 'addevent',
-    subject: task.title,
-    startdt: task.date.toISOString(),
-    enddt: endTime.toISOString(),
-    body: task.description || '',
-  });
+  // Format dates for ICS (YYYYMMDDTHHmmssZ format)
+  const formatICSDate = (d: Date): string => {
+    return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
   
-  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+  // Escape special characters for ICS format
+  const escapeICS = (text: string): string => {
+    return text
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n');
+  };
+  
+  // Generate unique ID for event
+  const uid = `kaamyab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@kaamyab.app`;
+  const now = formatICSDate(new Date());
+  
+  const icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Kaamyab//Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${formatICSDate(task.date)}`,
+    `DTEND:${formatICSDate(endTime)}`,
+    `SUMMARY:${escapeICS(task.title)}`,
+    `DESCRIPTION:${escapeICS(task.description || '')}`,
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+  
+  return icsContent;
 };
 
-// Generate Apple Calendar URL (webcal protocol)
-export const getAppleCalendarUrl = (task: CalendarTask): string => {
-  // Apple Calendar uses webcal:// protocol or system calendar intent
-  // For web, we'll use the Google Calendar URL as Apple Calendar can subscribe to it
-  return getGoogleCalendarUrl(task);
+// Open Apple Calendar using data URI (triggers native iOS/macOS calendar dialog)
+const openAppleCalendar = (task: CalendarTask): boolean => {
+  try {
+    const icsContent = generateICSContent(task);
+    
+    // Create data URI for the ICS content
+    const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+    
+    // Open the data URI - on Apple devices this triggers the native "Add to Calendar" dialog
+    window.location.href = dataUri;
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to open Apple Calendar:', error);
+    return false;
+  }
 };
 
-// Open calendar URL in new tab
+// Open calendar URL in new tab (for Google/Outlook)
 export const openCalendarUrl = (url: string): void => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
 // Detect user's likely calendar provider
 export const detectCalendarProvider = (): 'google' | 'apple' | 'outlook' => {
-  const userAgent = navigator.userAgent.toLowerCase();
-  
-  if (/iphone|ipad|ipod|macintosh/.test(userAgent)) {
+  if (isAppleDevice()) {
     return 'apple';
   }
+  
+  const userAgent = navigator.userAgent.toLowerCase();
   
   // Check for Outlook-related indicators
   if (/outlook|microsoft/.test(userAgent)) {
@@ -396,25 +465,51 @@ export const syncWeekToCalendar = async (
     }
   }
 
-  // Fallback: Open calendar URLs for ALL tasks
-  const provider = detectCalendarProvider();
-  
+  // For Apple devices, use ICS data URI approach
+  if (isAppleDevice()) {
+    if (tasks.length > 0) {
+      let eventsOpened = 0;
+      
+      // Open each task as ICS - small delay between to prevent issues
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        
+        if (i === 0) {
+          const success = openAppleCalendar(task);
+          if (success) eventsOpened++;
+        } else {
+          // Queue remaining tasks with delay
+          await new Promise(resolve => setTimeout(resolve, 800));
+          const success = openAppleCalendar(task);
+          if (success) eventsOpened++;
+        }
+      }
+      
+      markWeekSynced(userId, weekNumber);
+      
+      return {
+        success: eventsOpened > 0,
+        eventsCreated: eventsOpened,
+        provider: 'apple',
+      };
+    }
+    
+    return {
+      success: false,
+      eventsCreated: 0,
+      error: 'No tasks to add to calendar',
+      provider: 'none',
+    };
+  }
+
+  // Fallback for non-Apple: Open Google Calendar URLs for ALL tasks
   if (tasks.length > 0) {
     let eventsOpened = 0;
     
     // Open all task calendar URLs with a small delay between each
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
-      let url: string;
-      switch (provider) {
-        case 'outlook':
-          url = getOutlookCalendarUrl(task);
-          break;
-        case 'apple':
-        case 'google':
-        default:
-          url = getGoogleCalendarUrl(task);
-      }
+      const url = getGoogleCalendarUrl(task);
       
       // Open each task with a slight delay to prevent popup blocking
       if (i === 0) {
@@ -433,7 +528,7 @@ export const syncWeekToCalendar = async (
     return {
       success: true,
       eventsCreated: eventsOpened,
-      provider,
+      provider: 'google',
     };
   }
 
@@ -489,16 +584,11 @@ export const createSingleTaskCalendarEvent = (
     durationHours: 1,
   };
   
-  let url: string;
-  switch (provider) {
-    case 'outlook':
-      url = getOutlookCalendarUrl(calendarTask);
-      break;
-    case 'apple':
-    case 'google':
-    default:
-      url = getGoogleCalendarUrl(calendarTask);
+  // Use device-aware calendar opening
+  if (isAppleDevice()) {
+    openAppleCalendar(calendarTask);
+  } else {
+    const url = getGoogleCalendarUrl(calendarTask);
+    openCalendarUrl(url);
   }
-  
-  openCalendarUrl(url);
 };

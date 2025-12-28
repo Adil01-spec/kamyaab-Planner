@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, getCurrentWeekStart } from '@/lib/calendarService';
+import { createSingleTaskCalendarEvent, getCurrentWeekStart, isAppleDevice, getCalendarButtonLabel } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
 
 // Helper functions for tracking calendar-added tasks
@@ -281,10 +281,10 @@ export function TaskItem({
                 size="sm"
                 onClick={handleAddToCalendar}
                 className="h-6 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5"
-                title="Add this task to calendar"
+                title={getCalendarButtonLabel()}
               >
                 <CalendarPlus className="w-3 h-3 mr-1" />
-                <span className="hidden sm:inline">Add to calendar</span>
+                <span className="hidden sm:inline">{isAppleDevice() ? 'Add to Apple Calendar' : 'Add to Calendar'}</span>
               </Button>
             )}
           </div>
