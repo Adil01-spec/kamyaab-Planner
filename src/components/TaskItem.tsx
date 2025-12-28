@@ -1,12 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createSingleTaskCalendarEvent, getCurrentWeekStart } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
+
+// Helper functions for tracking calendar-added tasks
+const getCalendarAddedTasks = (): Set<string> => {
+  try {
+    const stored = localStorage.getItem('kaamyab-calendar-tasks');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+const markTaskAsCalendarAdded = (taskKey: string) => {
+  const tasks = getCalendarAddedTasks();
+  tasks.add(taskKey);
+  localStorage.setItem('kaamyab-calendar-tasks', JSON.stringify([...tasks]));
+};
+
+export const isTaskAddedToCalendar = (weekNumber: number, taskIndex: number): boolean => {
+  const taskKey = `week-${weekNumber}-task-${taskIndex}`;
+  return getCalendarAddedTasks().has(taskKey);
+};
+
+export const markWeekTasksAsCalendarAdded = (weekNumber: number, taskCount: number) => {
+  const tasks = getCalendarAddedTasks();
+  for (let i = 0; i < taskCount; i++) {
+    tasks.add(`week-${weekNumber}-task-${i}`);
+  }
+  localStorage.setItem('kaamyab-calendar-tasks', JSON.stringify([...tasks]));
+};
 
 interface TaskExplanation {
   how: string;
@@ -93,8 +122,16 @@ export function TaskItem({
   showCalendarButton = false,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAddedToCalendar, setIsAddedToCalendar] = useState(false);
   
-  const details = getExplanationDetails({ 
+  // Check if task was added to calendar
+  useEffect(() => {
+    if (weekNumber !== undefined && taskIndex !== undefined) {
+      setIsAddedToCalendar(isTaskAddedToCalendar(weekNumber, taskIndex));
+    }
+  }, [weekNumber, taskIndex]);
+  
+  const details = getExplanationDetails({
     title, priority, estimatedHours, completed, onToggle,
     explanation, howTo, expectedOutcome, isLocked 
   });
@@ -122,6 +159,12 @@ export function TaskItem({
       };
       const weekStart = getCurrentWeekStart();
       createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, weekStart);
+      
+      // Mark task as added to calendar
+      const taskKey = `week-${weekNumber}-task-${taskIndex}`;
+      markTaskAsCalendarAdded(taskKey);
+      setIsAddedToCalendar(true);
+      
       toast({
         title: "Task added to calendar",
         description: `"${title}" has been added to your calendar.`,
@@ -223,8 +266,16 @@ export function TaskItem({
               </Collapsible>
             )}
             
-            {/* Per-task calendar button */}
-            {showCalendarButton && !isLocked && !completed && (
+            {/* Calendar indicator - show if added */}
+            {isAddedToCalendar && (
+              <span className="text-xs text-primary flex items-center gap-1">
+                <CalendarCheck className="w-3 h-3" />
+                <span className="hidden sm:inline">In calendar</span>
+              </span>
+            )}
+            
+            {/* Per-task calendar button - hide if already added */}
+            {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && (
               <Button
                 variant="ghost"
                 size="sm"
