@@ -177,20 +177,27 @@ export function TaskItem({
       className={cn(
         "rounded-xl glass-subtle transition-all duration-200",
         isLocked && "opacity-60 cursor-not-allowed",
-        !isLocked && "click-feedback"
+        !isLocked && "touch-press"
       )}
     >
       <div 
         className={cn(
-          "flex items-start gap-3 p-4 cursor-pointer group",
+          "flex items-start gap-4 p-4 sm:p-4 cursor-pointer group select-none",
           completed && "task-completed"
         )}
         onClick={handleClick}
       >
-        <div className="relative">
+        {/* Touch-friendly checkbox wrapper */}
+        <div 
+          className="relative flex items-center justify-center touch-checkbox"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isLocked) onToggle();
+          }}
+        >
           {isLocked ? (
-            <div className="mt-0.5 h-5 w-5 rounded-md border-2 border-muted-foreground/30 flex items-center justify-center bg-muted/30">
-              <Lock className="w-3 h-3 text-muted-foreground/50" />
+            <div className="h-6 w-6 rounded-md border-2 border-muted-foreground/30 flex items-center justify-center bg-muted/30">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground/50" />
             </div>
           ) : (
             <Checkbox
@@ -198,7 +205,7 @@ export function TaskItem({
               onCheckedChange={handleCheckboxChange}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                "mt-0.5 h-5 w-5 rounded-md border-2 checkbox-fill",
+                "h-6 w-6 rounded-md border-2 checkbox-fill",
                 completed 
                   ? "border-primary bg-primary data-[state=checked]:bg-primary" 
                   : "border-muted-foreground/40 hover:border-primary/60"
@@ -241,7 +248,7 @@ export function TaskItem({
               </span>
             )}
             
-            {/* Expand button for tasks with details */}
+            {/* Expand button for tasks with details - touch optimized */}
             {details.hasDetails && (
               <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                 <CollapsibleTrigger asChild>
@@ -251,14 +258,14 @@ export function TaskItem({
                       setIsOpen(!isOpen);
                     }}
                     className={cn(
-                      "text-xs text-primary flex items-center gap-1 hover:underline transition-colors",
+                      "text-xs text-primary flex items-center gap-1.5 py-1.5 px-2 -mx-2 rounded-md transition-colors active:bg-primary/10",
                       (completed || isLocked) && "opacity-50"
                     )}
                   >
-                    <HelpCircle className="w-3 h-3" />
+                    <HelpCircle className="w-4 h-4" />
                     <span>How to do this</span>
                     <ChevronDown className={cn(
-                      "w-3 h-3 transition-transform duration-200",
+                      "w-4 h-4 transition-transform duration-200",
                       isOpen && "rotate-180"
                     )} />
                   </button>
@@ -274,16 +281,16 @@ export function TaskItem({
               </span>
             )}
             
-            {/* Per-task calendar button - hide if already added */}
+            {/* Per-task calendar button - hide if already added, touch optimized */}
             {showCalendarButton && !isLocked && !completed && !isAddedToCalendar && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleAddToCalendar}
-                className="h-6 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5"
+                className="h-9 px-3 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
                 title={getCalendarButtonLabel()}
               >
-                <CalendarPlus className="w-3 h-3 mr-1" />
+                <CalendarPlus className="w-4 h-4 mr-1.5" />
                 <span className="hidden sm:inline">{isAppleDevice() ? 'Add to Apple Calendar' : 'Add to Calendar'}</span>
               </Button>
             )}

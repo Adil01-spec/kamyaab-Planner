@@ -328,6 +328,42 @@
   .click-feedback:active {
     @apply scale-[0.98];
   }
+  
+  /* Touch-optimized utilities */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  .touch-target-lg {
+    @apply min-h-[48px] min-w-[48px];
+  }
+  
+  .touch-spacing {
+    @apply py-3 px-4;
+  }
+  
+  /* Improved tap feedback for touch devices */
+  .tap-highlight {
+    -webkit-tap-highlight-color: hsl(var(--primary) / 0.1);
+    @apply transition-all duration-150 active:bg-primary/5;
+  }
+  
+  /* Remove default tap highlight on mobile */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Touch-friendly button press */
+  .touch-press {
+    @apply transition-all duration-100 active:scale-[0.97] active:opacity-90;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Larger touch checkbox container */
+  .touch-checkbox {
+    @apply p-2 -m-2 rounded-lg active:bg-primary/10;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @keyframes slideUp {
