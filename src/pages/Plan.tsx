@@ -374,31 +374,31 @@ const Plan = () => {
 
   return (
     <div className="min-h-screen gradient-subtle">
-      {/* Header */}
+      {/* Header - Touch optimized */}
       <header className="glass sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
-                <Rocket className="w-4 h-4 text-primary-foreground" />
+              <div className="w-9 h-9 rounded-lg gradient-kaamyab flex items-center justify-center">
+                <Rocket className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-foreground">Kaamyab</span>
+              <span className="font-semibold text-foreground hidden sm:block">Kaamyab</span>
             </div>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => navigate('/home')}
-              className="btn-press text-muted-foreground hover:text-foreground"
+              className="touch-press text-muted-foreground hover:text-foreground min-h-[44px] px-3"
             >
-              <Home className="w-4 h-4 mr-1" />
+              <Home className="w-5 h-5 sm:mr-1" />
               <span className="hidden sm:inline">Home</span>
             </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {saving && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Saving...
+                <span className="hidden sm:inline">Saving...</span>
               </span>
             )}
             <ThemeToggle />
@@ -407,9 +407,9 @@ const Plan = () => {
                 {profile.fullName.split(' ')[0]}
               </span>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="btn-press">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="touch-press min-h-[44px] px-3">
+              <LogOut className="w-5 h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </div>
@@ -656,20 +656,20 @@ const Plan = () => {
                         <div className="mt-4 pt-3 border-t border-border/50">
                           <Button
                             variant="outline"
-                            size="sm"
+                            size="default"
                             onClick={() => syncWeek(weekIndex)}
                             disabled={!canSync || isSyncingThisWeek}
-                            className="w-full sm:w-auto btn-press glass border-primary/30 hover:bg-primary/5 disabled:opacity-50"
+                            className="w-full sm:w-auto touch-press glass border-primary/30 hover:bg-primary/5 disabled:opacity-50 min-h-[48px]"
                             title={disabledReason || undefined}
                           >
                             {isSyncingThisWeek ? (
                               <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                 Adding to Calendar...
                               </>
                             ) : (
                               <>
-                                <CalendarPlus className="w-4 h-4 mr-2" />
+                                <CalendarPlus className="w-5 h-5 mr-2" />
                                 {isAppleDevice() ? 'Add to Apple Calendar' : 'Add This Week to Calendar'}
                               </>
                             )}
@@ -755,22 +755,22 @@ const Plan = () => {
               </Card>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+            {/* Action Buttons - Touch optimized */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4">
               <Button 
                 variant="outline" 
                 onClick={() => setShowDeleteDialog(true)}
-                className="btn-press glass border-border/50 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30"
+                className="touch-press glass border-border/50 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 min-h-[48px]"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="w-5 h-5 mr-2" />
                 Delete this plan
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/plan/new')}
-                className="btn-press glass border-primary/30 hover:bg-primary/5"
+                className="touch-press glass border-primary/30 hover:bg-primary/5 min-h-[48px]"
               >
-                <Sparkles className="w-4 h-4 mr-2" />
+                <Sparkles className="w-5 h-5 mr-2" />
                 Generate New Plan
               </Button>
             </div>
