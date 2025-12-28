@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
@@ -669,7 +670,7 @@ const Plan = () => {
                             ) : (
                               <>
                                 <CalendarPlus className="w-4 h-4 mr-2" />
-                                Add This Week to Calendar
+                                {isAppleDevice() ? 'Add to Apple Calendar' : 'Add This Week to Calendar'}
                               </>
                             )}
                           </Button>
