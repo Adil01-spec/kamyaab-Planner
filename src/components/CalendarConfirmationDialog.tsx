@@ -22,15 +22,22 @@ export function CalendarConfirmationDialog({
   onRemindLater,
 }: CalendarConfirmationDialogProps) {
   const handleConfirm = () => {
+    console.log('CONFIRM YES CLICKED - CalendarConfirmationDialog');
     hapticSuccess();
     playCalendarConfirmSound();
     onConfirm();
   };
   
   const handleDeny = () => {
+    console.log('CONFIRM NO CLICKED - CalendarConfirmationDialog');
     hapticWarning();
     playCalendarRetrySound();
     onDeny();
+  };
+  
+  const handleRemindLater = () => {
+    console.log('REMIND LATER CLICKED - CalendarConfirmationDialog');
+    onRemindLater();
   };
   
   return (
@@ -68,7 +75,7 @@ export function CalendarConfirmationDialog({
           </Button>
           <Button
             variant="ghost"
-            onClick={onRemindLater}
+            onClick={handleRemindLater}
             className="w-full text-muted-foreground"
           >
             <Clock className="w-4 h-4 mr-2" />
