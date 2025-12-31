@@ -8,7 +8,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
-import { CalendarConfirmationDialog } from '@/components/CalendarConfirmationDialog';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import { cn } from '@/lib/utils';
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
-import { usePendingCalendarConfirmation } from '@/hooks/useCalendarStatus';
 import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
@@ -370,52 +368,11 @@ const Plan = () => {
     planCreatedAt: planCreatedAt || undefined,
   });
   
-  // Calendar confirmation hook - detect when user returns to app
-  const {
-    pendingTask,
-    showConfirmation,
-    setShowConfirmation,
-    handleConfirm: baseConfirmCalendarTask,
-    handleDeny: baseDenyCalendarTask,
-    handleDismiss: dismissCalendarConfirmation,
-    refreshKey,
-    triggerRefresh,
-  } = usePendingCalendarConfirmation();
-  
-  // Wrapped handlers that trigger calendar refresh and show toasts
-  const confirmCalendarTask = () => {
-    console.log('PLAN.TSX - confirmCalendarTask called', { pendingTask });
-    const result = baseConfirmCalendarTask();
-    console.log('PLAN.TSX - baseConfirmCalendarTask result:', result);
-    triggerRefresh();
-    
-    if (!result.hasValidDate) {
-      toast({
-        title: "Date missing",
-        description: "We couldn't detect the date. Please add again.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Task confirmed",
-        description: `Calendar event confirmed!`,
-      });
-    }
-  };
-  
-  const denyCalendarTask = () => {
-    console.log('PLAN.TSX - denyCalendarTask called', { pendingTask });
-    baseDenyCalendarTask();
-    triggerRefresh();
-  };
-  
-  // Get task title for confirmation dialog
-  const getPendingTaskTitle = (): string | undefined => {
-    if (!pendingTask || !plan) return undefined;
-    const week = plan.weeks.find(w => w.week === pendingTask.weekNumber);
-    if (!week) return undefined;
-    return week.tasks[pendingTask.taskIndex]?.title;
-  };
+  // Calendar refresh key - triggered when tasks are marked as scheduled
+  const [refreshKey, setRefreshKey] = useState(0);
+  const triggerCalendarRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
 
   if (loading) {
     return (
@@ -709,6 +666,7 @@ const Plan = () => {
                             taskIndex={taskIndex}
                             showCalendarButton={isActiveWeek && !isWeekComplete}
                             planCreatedAt={planCreatedAt || undefined}
+                            onCalendarStatusChange={triggerCalendarRefresh}
                           />
                         ))}
                       </div>
@@ -846,16 +804,6 @@ const Plan = () => {
         onOpenChange={setShowDeleteDialog}
         onConfirm={handleDeletePlan}
         isDeleting={isDeleting}
-      />
-      
-      {/* Calendar Confirmation Dialog */}
-      <CalendarConfirmationDialog
-        open={showConfirmation}
-        onOpenChange={setShowConfirmation}
-        taskTitle={getPendingTaskTitle()}
-        onConfirm={confirmCalendarTask}
-        onDeny={denyCalendarTask}
-        onRemindLater={dismissCalendarConfirmation}
       />
     </div>
   );
