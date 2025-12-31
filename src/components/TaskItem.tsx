@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, isAppleDevice, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
+import { createSingleTaskCalendarEvent, isAppleDevice, isAndroidDevice, getPlanStartDate, calculateTaskEventDate, getCalendarButtonLabel } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { playCalendarConfirmSound } from '@/lib/celebrationSound';
@@ -490,7 +490,7 @@ export function TaskItem({
                           disabled={!selectedDate}
                         >
                           <CalendarPlus className="w-4 h-4 mr-1.5" />
-                          {isAppleDevice() ? 'Add to Apple' : 'Add to Calendar'}
+                          {getCalendarButtonLabel()}
                         </Button>
                       </div>
                     </div>
