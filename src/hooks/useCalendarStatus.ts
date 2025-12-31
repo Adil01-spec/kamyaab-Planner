@@ -276,8 +276,10 @@ export function usePendingCalendarConfirmation() {
   
   // Handle user confirmation
   const handleConfirm = useCallback((): { hasValidDate: boolean } => {
+    console.log('usePendingCalendarConfirmation - handleConfirm called', { pendingTask });
     if (pendingTask) {
       const result = confirmTaskCalendarAdded(pendingTask.weekNumber, pendingTask.taskIndex);
+      console.log('usePendingCalendarConfirmation - confirmTaskCalendarAdded result:', result);
       setShowConfirmation(false);
       
       // Check if there are more pending tasks
@@ -294,13 +296,16 @@ export function usePendingCalendarConfirmation() {
       
       return result;
     }
+    console.log('usePendingCalendarConfirmation - no pendingTask!');
     return { hasValidDate: false };
   }, [pendingTask]);
   
   // Handle user denial
   const handleDeny = useCallback(() => {
+    console.log('usePendingCalendarConfirmation - handleDeny called', { pendingTask });
     if (pendingTask) {
       resetTaskCalendarStatus(pendingTask.weekNumber, pendingTask.taskIndex);
+      console.log('usePendingCalendarConfirmation - resetTaskCalendarStatus done');
       setShowConfirmation(false);
       
       // Check if there are more pending tasks

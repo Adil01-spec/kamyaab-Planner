@@ -384,7 +384,9 @@ const Plan = () => {
   
   // Wrapped handlers that trigger calendar refresh and show toasts
   const confirmCalendarTask = () => {
+    console.log('PLAN.TSX - confirmCalendarTask called', { pendingTask });
     const result = baseConfirmCalendarTask();
+    console.log('PLAN.TSX - baseConfirmCalendarTask result:', result);
     triggerRefresh();
     
     if (!result.hasValidDate) {
@@ -402,6 +404,7 @@ const Plan = () => {
   };
   
   const denyCalendarTask = () => {
+    console.log('PLAN.TSX - denyCalendarTask called', { pendingTask });
     baseDenyCalendarTask();
     triggerRefresh();
   };
