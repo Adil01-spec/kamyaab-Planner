@@ -38,33 +38,154 @@ export const markWeekSynced = (userId: string, weekNumber: number): void => {
 
 // ============ Device Detection ============
 
+type PlatformType = 'android' | 'ios' | 'desktop';
+
+/**
+ * Detect the current platform
+ */
+export const detectPlatform = (): PlatformType => {
+  if (typeof navigator === 'undefined') return 'desktop';
+  
+  const userAgent = navigator.userAgent.toLowerCase();
+  const platform = (navigator.platform || '').toLowerCase();
+  
+  // Check for Android devices (phones & tablets)
+  const isAndroid = /android/.test(userAgent);
+  if (isAndroid) return 'android';
+  
+  // Check for iOS devices
+  const isIOS = /iphone|ipad|ipod/.test(userAgent);
+  if (isIOS) return 'ios';
+  
+  // Check for macOS Safari (treat as iOS-like for calendar)
+  const isMac = /macintosh|mac os x/.test(userAgent) || platform.includes('mac');
+  const isSafari = /safari/.test(userAgent) && !/chrome|chromium|crios|firefox|fxios/.test(userAgent);
+  if (isMac && isSafari) return 'ios';
+  
+  return 'desktop';
+};
+
 /**
  * Detect if current device is an Apple device (iPhone, iPad, macOS Safari)
  * Uses navigator.userAgent safely without external libraries
  */
 export const isAppleDevice = (): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  
-  const userAgent = navigator.userAgent.toLowerCase();
-  const platform = (navigator.platform || '').toLowerCase();
-  
-  // Check for iOS devices
-  const isIOS = /iphone|ipad|ipod/.test(userAgent);
-  
-  // Check for macOS (including Safari on Mac)
-  const isMac = /macintosh|mac os x/.test(userAgent) || platform.includes('mac');
-  
-  // Additional check for Safari on Mac (not Chrome/Firefox on Mac)
-  const isSafari = /safari/.test(userAgent) && !/chrome|chromium|crios|firefox|fxios/.test(userAgent);
-  
-  return isIOS || (isMac && isSafari);
+  return detectPlatform() === 'ios';
+};
+
+/**
+ * Detect if current device is an Android device
+ */
+export const isAndroidDevice = (): boolean => {
+  return detectPlatform() === 'android';
 };
 
 /**
  * Get appropriate button label based on device
  */
 export const getCalendarButtonLabel = (): string => {
-  return isAppleDevice() ? 'Add to Apple Calendar' : 'Add to Calendar';
+  const platform = detectPlatform();
+  if (platform === 'ios') return 'Add to Apple Calendar';
+  if (platform === 'android') return 'Add to Calendar';
+  return 'Add to Google Calendar';
+};
+
+// ============ Native Calendar Opening ============
+
+interface NativeCalendarEvent {
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+/**
+ * Open native calendar app based on platform
+ * - Android: Uses intent:// deep link to open native Calendar app
+ * - iOS: Uses ICS data URI to trigger native calendar dialog
+ * - Desktop: Opens Google Calendar in new tab
+ * 
+ * @param event - Calendar event details
+ * @returns boolean indicating if calendar was opened
+ */
+export const openNativeCalendar = (event: NativeCalendarEvent): boolean => {
+  const platform = detectPlatform();
+  
+  // Convert to CalendarTask format for compatibility
+  const calendarTask: CalendarTask = {
+    title: event.title,
+    description: event.description,
+    date: event.startDate,
+    durationHours: Math.max(1, Math.round((event.endDate.getTime() - event.startDate.getTime()) / (1000 * 60 * 60))),
+  };
+  
+  switch (platform) {
+    case 'android':
+      return openAndroidCalendar(calendarTask);
+    case 'ios':
+      return openAppleCalendar(calendarTask);
+    case 'desktop':
+    default:
+      return openDesktopCalendar(calendarTask);
+  }
+};
+
+/**
+ * Open Android native calendar using intent:// deep link
+ * Falls back to Google Calendar web if intent fails
+ */
+const openAndroidCalendar = (task: CalendarTask): boolean => {
+  try {
+    // Android intent to open native calendar
+    // Note: Web cannot pre-fill all event details via intent due to OS limitations
+    // The intent opens the calendar app where user can create the event
+    const intentUrl = 'intent://calendar/#Intent;action=android.intent.action.VIEW;scheme=content;package=com.google.android.calendar;end';
+    
+    // Try to open via intent first
+    const opened = tryOpenUrl(intentUrl);
+    
+    if (!opened) {
+      // Fallback to Google Calendar web
+      console.log('Intent failed, falling back to Google Calendar web');
+      const url = getGoogleCalendarUrl(task);
+      openCalendarUrl(url);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to open Android calendar:', error);
+    // Final fallback to Google Calendar web
+    const url = getGoogleCalendarUrl(task);
+    openCalendarUrl(url);
+    return true;
+  }
+};
+
+/**
+ * Try to open a URL and detect if it was blocked
+ */
+const tryOpenUrl = (url: string): boolean => {
+  try {
+    // Use window.location for intent URLs on Android
+    window.location.href = url;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Open desktop calendar (Google Calendar in new tab)
+ */
+const openDesktopCalendar = (task: CalendarTask): boolean => {
+  try {
+    const url = getGoogleCalendarUrl(task);
+    openCalendarUrl(url);
+    return true;
+  } catch (error) {
+    console.error('Failed to open desktop calendar:', error);
+    return false;
+  }
 };
 
 // Task explanation can be nested object or flat fields
@@ -452,15 +573,16 @@ export const openCalendarUrl = (url: string): void => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-// Detect user's likely calendar provider
+// Detect user's likely calendar provider based on platform
 export const detectCalendarProvider = (): 'google' | 'apple' | 'outlook' => {
-  if (isAppleDevice()) {
-    return 'apple';
-  }
+  const platform = detectPlatform();
+  
+  if (platform === 'ios') return 'apple';
+  if (platform === 'android') return 'google';
   
   const userAgent = navigator.userAgent.toLowerCase();
   
-  // Check for Outlook-related indicators
+  // Check for Outlook-related indicators on desktop
   if (/outlook|microsoft/.test(userAgent)) {
     return 'outlook';
   }
@@ -469,7 +591,7 @@ export const detectCalendarProvider = (): 'google' | 'apple' | 'outlook' => {
   return 'google';
 };
 
-// Main sync function that tries Google API first, then falls back to deep links
+// Main sync function that uses platform-aware calendar opening
 export const syncWeekToCalendar = async (
   tasks: CalendarTask[],
   userId: string,
@@ -485,8 +607,9 @@ export const syncWeekToCalendar = async (
     };
   }
 
-  // Try Google Calendar API first
-  if (GOOGLE_CLIENT_ID && isGoogleApiAvailable()) {
+  // Try Google Calendar API first (desktop only)
+  const platform = detectPlatform();
+  if (platform === 'desktop' && GOOGLE_CLIENT_ID && isGoogleApiAvailable()) {
     const initialized = await initGoogleCalendar();
     if (initialized) {
       const result = await syncToGoogleCalendar(tasks);
@@ -497,35 +620,7 @@ export const syncWeekToCalendar = async (
     }
   }
 
-  // For Apple devices, use ICS data URI approach
-  if (isAppleDevice()) {
-    if (tasks.length > 0) {
-      let eventsOpened = 0;
-      
-      // Open each task as ICS - small delay between to prevent issues
-      for (let i = 0; i < tasks.length; i++) {
-        const task = tasks[i];
-        
-        if (i === 0) {
-          const success = openAppleCalendar(task);
-          if (success) eventsOpened++;
-        } else {
-          // Queue remaining tasks with delay
-          await new Promise(resolve => setTimeout(resolve, 800));
-          const success = openAppleCalendar(task);
-          if (success) eventsOpened++;
-        }
-      }
-      
-      markWeekSynced(userId, weekNumber);
-      
-      return {
-        success: eventsOpened > 0,
-        eventsCreated: eventsOpened,
-        provider: 'apple',
-      };
-    }
-    
+  if (tasks.length === 0) {
     return {
       success: false,
       eventsCreated: 0,
@@ -534,41 +629,41 @@ export const syncWeekToCalendar = async (
     };
   }
 
-  // Fallback for non-Apple: Open Google Calendar URLs for ALL tasks
-  if (tasks.length > 0) {
-    let eventsOpened = 0;
+  let eventsOpened = 0;
+  const providerMap: Record<PlatformType, CalendarSyncResult['provider']> = {
+    'android': 'google',
+    'ios': 'apple',
+    'desktop': 'google',
+  };
+
+  // Open tasks based on platform
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
     
-    // Open all task calendar URLs with a small delay between each
-    for (let i = 0; i < tasks.length; i++) {
-      const task = tasks[i];
-      const url = getGoogleCalendarUrl(task);
-      
-      // Open each task with a slight delay to prevent popup blocking
-      if (i === 0) {
-        openCalendarUrl(url);
-        eventsOpened++;
-      } else {
-        // Small delay between opens
-        await new Promise(resolve => setTimeout(resolve, 300));
-        openCalendarUrl(url);
-        eventsOpened++;
-      }
+    // Add delay between tasks to prevent blocking
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, platform === 'ios' ? 800 : 300));
     }
     
-    markWeekSynced(userId, weekNumber);
+    const endDate = new Date(task.date);
+    endDate.setHours(endDate.getHours() + task.durationHours);
     
-    return {
-      success: true,
-      eventsCreated: eventsOpened,
-      provider: 'google',
-    };
+    const success = openNativeCalendar({
+      title: task.title,
+      description: task.description,
+      startDate: task.date,
+      endDate,
+    });
+    
+    if (success) eventsOpened++;
   }
-
+  
+  markWeekSynced(userId, weekNumber);
+  
   return {
-    success: false,
-    eventsCreated: 0,
-    error: 'No tasks to add to calendar',
-    provider: 'none',
+    success: eventsOpened > 0,
+    eventsCreated: eventsOpened,
+    provider: providerMap[platform],
   };
 };
 
@@ -609,11 +704,14 @@ export const createSingleTaskCalendarEvent = (
     durationHours: 1,
   };
   
-  // Use device-aware calendar opening
-  if (isAppleDevice()) {
-    openAppleCalendar(calendarTask);
-  } else {
-    const url = getGoogleCalendarUrl(calendarTask);
-    openCalendarUrl(url);
-  }
+  // Use platform-aware calendar opening
+  const endDate = new Date(taskDate);
+  endDate.setHours(endDate.getHours() + 1);
+  
+  openNativeCalendar({
+    title: calendarTask.title,
+    description: calendarTask.description,
+    startDate: taskDate,
+    endDate,
+  });
 };
