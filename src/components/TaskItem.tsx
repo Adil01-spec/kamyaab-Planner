@@ -6,31 +6,30 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck, RefreshCw } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createSingleTaskCalendarEvent, isAppleDevice, getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { playCalendarConfirmSound, playCalendarRetrySound } from '@/lib/celebrationSound';
-import { hapticSuccess, hapticWarning } from '@/lib/hapticFeedback';
+import { playCalendarConfirmSound } from '@/lib/celebrationSound';
+import { hapticSuccess } from '@/lib/hapticFeedback';
 import { 
   useTaskCalendarStatus, 
   getTaskCalendarStatus, 
-  setTaskPendingConfirmation,
-  confirmTaskCalendarAdded,
-  resetTaskCalendarStatus,
-  type CalendarStatus 
+  markTaskAsScheduled,
 } from '@/hooks/useCalendarStatus';
 
-// Legacy export for backward compatibility with useCalendarSync
+// Legacy export for backward compatibility
 export const isTaskAddedToCalendar = (weekNumber: number, taskIndex: number): boolean => {
   const status = getTaskCalendarStatus(weekNumber, taskIndex);
-  return status.status === 'added';
+  return status.status === 'scheduled';
 };
 
 export const markWeekTasksAsCalendarAdded = (weekNumber: number, taskCount: number) => {
   for (let i = 0; i < taskCount; i++) {
-    confirmTaskCalendarAdded(weekNumber, i);
+    const suggestedDate = new Date();
+    suggestedDate.setHours(9, 0, 0, 0);
+    markTaskAsScheduled(weekNumber, i, suggestedDate);
   }
 };
 
@@ -54,6 +53,7 @@ interface TaskItemProps {
   taskIndex?: number;
   showCalendarButton?: boolean;
   planCreatedAt?: string;
+  onCalendarStatusChange?: () => void;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -119,18 +119,21 @@ export function TaskItem({
   taskIndex,
   showCalendarButton = false,
   planCreatedAt,
+  onCalendarStatusChange,
 }: TaskItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedHour, setSelectedHour] = useState<string>('9');
+  const [calendarOpened, setCalendarOpened] = useState(false); // Track if user has opened calendar
   
-  // Use the new calendar status hook
+  // Use the simplified calendar status hook
   const { 
     status: calendarStatus, 
-    setPending, 
-    confirmAdded, 
-    reset: resetCalendarStatus 
+    scheduledAt,
+    markScheduled, 
+    reset: resetCalendarStatus,
+    refresh: refreshCalendarStatus,
   } = useTaskCalendarStatus(weekNumber, taskIndex);
   
   // Calculate the scheduled date for preview
@@ -140,14 +143,14 @@ export function TaskItem({
     return calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
   };
   
-  const scheduledDate = getScheduledDate();
+  const suggestedDate = getScheduledDate();
   
   // Initialize selected date when popover opens
   useEffect(() => {
-    if (calendarPopoverOpen && scheduledDate && !selectedDate) {
-      setSelectedDate(scheduledDate);
+    if (calendarPopoverOpen && suggestedDate && !selectedDate) {
+      setSelectedDate(suggestedDate);
     }
-  }, [calendarPopoverOpen, scheduledDate, selectedDate]);
+  }, [calendarPopoverOpen, suggestedDate, selectedDate]);
   
   const details = getExplanationDetails({
     title, priority, estimatedHours, completed, onToggle,
@@ -164,7 +167,8 @@ export function TaskItem({
     onToggle();
   };
 
-  const handleAddToCalendar = (customDate?: Date) => {
+  // Opens external calendar ONLY - does NOT update any state
+  const handleOpenCalendar = (customDate?: Date) => {
     if (weekNumber !== undefined && taskIndex !== undefined) {
       const taskInput = {
         title,
@@ -179,68 +183,71 @@ export function TaskItem({
       const planStartDate = getPlanStartDate(planCreatedAt);
       createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate, customDate);
       
-      // Determine the date to store for this calendar intent
-      const dateToStore = customDate || (scheduledDate ? new Date(scheduledDate) : undefined);
-      if (dateToStore && !customDate) {
-        // If using scheduled date without custom time, default to 9 AM
-        dateToStore.setHours(9, 0, 0, 0);
-      }
-      
-      // Set to pending confirmation with the draft date - DO NOT mark as added yet
-      setPending(dateToStore);
+      // Track that calendar was opened (for showing inline actions)
+      setCalendarOpened(true);
       setCalendarPopoverOpen(false);
       
-      const dateToShow = customDate || scheduledDate;
+      const dateToShow = customDate || suggestedDate;
       toast({
         title: "Calendar opened",
         description: dateToShow 
-          ? `Add "${title}" for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}. We'll confirm when you return.`
-          : `Add "${title}" to your calendar. We'll confirm when you return.`,
+          ? `Add "${title}" for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}.`
+          : `Add "${title}" to your calendar.`,
       });
     }
   };
   
-  // Handle inline confirmation (user confirms from task card)
-  const handleInlineConfirm = (e: React.MouseEvent) => {
+  // User explicitly confirms they added to calendar
+  const handleMarkAsScheduled = (e: React.MouseEvent) => {
     e.stopPropagation();
-    hapticSuccess();
-    playCalendarConfirmSound();
-    const result = confirmAdded();
     
-    if (!result.hasValidDate) {
-      // No valid date stored - show error and reset
+    // Use the selected date or suggested date
+    const dateToUse = selectedDate || suggestedDate;
+    if (!dateToUse) {
       toast({
-        title: "Date missing",
-        description: "We couldn't detect the date. Please add again.",
+        title: "No date selected",
+        description: "Please select a date first.",
         variant: "destructive",
       });
-      resetCalendarStatus();
-    } else {
-      toast({
-        title: "Task confirmed",
-        description: `"${title}" has been confirmed in your calendar.`,
-      });
+      return;
     }
+    
+    // Create date with selected hour
+    const scheduledDate = new Date(dateToUse);
+    scheduledDate.setHours(parseInt(selectedHour), 0, 0, 0);
+    
+    hapticSuccess();
+    playCalendarConfirmSound();
+    markScheduled(scheduledDate);
+    setCalendarOpened(false);
+    
+    toast({
+      title: "Marked as scheduled",
+      description: `"${title}" scheduled for ${format(scheduledDate, 'EEEE, MMM d')} at ${format(scheduledDate, 'h:mm a')}.`,
+    });
+    
+    // Notify parent to refresh weekly calendar
+    onCalendarStatusChange?.();
   };
   
-  // Handle inline retry (user wants to add again)
-  const handleInlineRetry = (e: React.MouseEvent) => {
+  // User wants to add again
+  const handleAddAgain = (e: React.MouseEvent) => {
     e.stopPropagation();
-    hapticWarning();
-    playCalendarRetrySound();
     resetCalendarStatus();
+    setCalendarOpened(false);
+    onCalendarStatusChange?.();
   };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    handleAddToCalendar();
+    handleOpenCalendar();
   };
 
   const handleCustomDateAdd = () => {
     if (selectedDate) {
       const dateWithTime = new Date(selectedDate);
       dateWithTime.setHours(parseInt(selectedHour), 0, 0, 0);
-      handleAddToCalendar(dateWithTime);
+      handleOpenCalendar(dateWithTime);
     }
   };
 
@@ -252,6 +259,11 @@ export function TaskItem({
       label: format(new Date().setHours(hour, 0), 'h:mm a'),
     };
   });
+  
+  // Determine what UI to show
+  const showScheduledBadge = calendarStatus === 'scheduled' && scheduledAt;
+  const showInlineActions = calendarOpened && calendarStatus === 'not_added' && !completed;
+  const showCalendarButtons = showCalendarButton && !isLocked && !completed && calendarStatus === 'not_added' && !calendarOpened && suggestedDate;
 
   return (
     <div
@@ -354,44 +366,54 @@ export function TaskItem({
               </Collapsible>
             )}
             
-            {/* Calendar status indicator - show based on status */}
-            {calendarStatus === 'added' && scheduledDate && (
-              <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-md">
-                <CalendarCheck className="w-3.5 h-3.5" />
-                <span>{format(scheduledDate, 'EEE, MMM d')}</span>
-              </span>
-            )}
-            
-            {/* Pending confirmation inline UI */}
-            {calendarStatus === 'pending_confirmation' && !completed && (
+            {/* Scheduled badge - shows when task is confirmed scheduled */}
+            {showScheduledBadge && (
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded-md">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Waiting for confirmation</span>
+                <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-md">
+                  <CalendarCheck className="w-3.5 h-3.5" />
+                  <span>{format(new Date(scheduledAt!), 'EEE, MMM d')}</span>
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleInlineConfirm}
-                  className="h-8 px-2 text-xs text-primary hover:bg-primary/5 min-h-[32px]"
-                  title="Confirm added to calendar"
+                  onClick={handleAddAgain}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted/50"
+                  title="Remove and add again"
                 >
-                  <CalendarCheck className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleInlineRetry}
-                  className="h-8 px-2 text-xs text-muted-foreground hover:bg-muted/50 min-h-[32px]"
-                  title="Add again"
-                >
-                  <RefreshCw className="w-4 h-4" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </Button>
               </div>
             )}
             
-            {/* Per-task calendar button with date picker popover - only show for not_added status */}
-            {showCalendarButton && !isLocked && !completed && calendarStatus === 'not_added' && scheduledDate && (
+            {/* Inline actions - shown after user opens calendar */}
+            {showInlineActions && (
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleMarkAsScheduled}
+                  className="h-8 px-3 text-xs gradient-kaamyab hover:opacity-90"
+                >
+                  <CalendarCheck className="w-4 h-4 mr-1.5" />
+                  Mark as scheduled
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenCalendar();
+                  }}
+                  className="h-8 px-2 text-xs"
+                  title="Open calendar again"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            
+            {/* Calendar buttons - only show when not_added and not opened yet */}
+            {showCalendarButtons && (
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {/* Quick add with suggested date */}
                 <Button
@@ -399,10 +421,10 @@ export function TaskItem({
                   size="sm"
                   onClick={handleQuickAdd}
                   className="h-9 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px] hidden sm:flex"
-                  title={`Quick add for ${format(scheduledDate, 'EEEE, MMMM d')} at 9:00 AM`}
+                  title={`Quick add for ${format(suggestedDate!, 'EEEE, MMMM d')} at 9:00 AM`}
                 >
                   <CalendarPlus className="w-4 h-4 mr-1" />
-                  {format(scheduledDate, 'MMM d')}
+                  {format(suggestedDate!, 'MMM d')}
                 </Button>
                 
                 {/* Custom date picker popover */}

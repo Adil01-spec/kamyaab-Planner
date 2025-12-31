@@ -5,7 +5,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Calendar, CheckCircle2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfWeek, addDays, isSameDay, isToday, parseISO } from 'date-fns';
-import { getConfirmedCalendarTasks } from '@/hooks/useCalendarStatus';
+import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 
 interface Task {
   title: string;
@@ -58,10 +58,10 @@ export function WeeklyCalendarView({ weeks, planCreatedAt, activeWeekIndex, refr
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
   
-  // Get ONLY confirmed calendar tasks with valid scheduledAt dates
-  // This is the SINGLE SOURCE OF TRUTH - tasks MUST be confirmed to appear here
+  // Get ONLY scheduled tasks (user explicitly confirmed)
+  // This is the SINGLE SOURCE OF TRUTH - tasks MUST have status=scheduled to appear here
   const scheduledTasks = useMemo(() => {
-    const confirmedTasks = getConfirmedCalendarTasks();
+    const confirmedTasks = getScheduledCalendarTasks();
     const tasks: ScheduledTask[] = [];
     
     confirmedTasks.forEach(({ weekNumber, taskIndex, scheduledAt }) => {
