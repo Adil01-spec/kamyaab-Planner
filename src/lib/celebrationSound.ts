@@ -1,4 +1,94 @@
 /**
+ * Plays a subtle, calm completion sound - a soft "pop" with warmth
+ * Designed for task completion without being intrusive or gamified
+ */
+export function playTaskCompleteSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Soft pop with a gentle high tone
+    const popOsc = audioContext.createOscillator();
+    const popGain = audioContext.createGain();
+    
+    popOsc.connect(popGain);
+    popGain.connect(audioContext.destination);
+    
+    // Soft sine wave for a gentle "pop"
+    popOsc.type = 'sine';
+    popOsc.frequency.setValueAtTime(880, startTime); // A5
+    popOsc.frequency.exponentialRampToValueAtTime(440, startTime + 0.08);
+    
+    popGain.gain.setValueAtTime(0, startTime);
+    popGain.gain.linearRampToValueAtTime(0.15, startTime + 0.01);
+    popGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+    
+    popOsc.start(startTime);
+    popOsc.stop(startTime + 0.15);
+    
+    // Subtle harmonic shimmer for warmth
+    const shimmerOsc = audioContext.createOscillator();
+    const shimmerGain = audioContext.createGain();
+    
+    shimmerOsc.connect(shimmerGain);
+    shimmerGain.connect(audioContext.destination);
+    
+    shimmerOsc.type = 'sine';
+    shimmerOsc.frequency.setValueAtTime(1318.51, startTime + 0.02); // E6
+    
+    shimmerGain.gain.setValueAtTime(0, startTime + 0.02);
+    shimmerGain.gain.linearRampToValueAtTime(0.06, startTime + 0.04);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+    
+    shimmerOsc.start(startTime + 0.02);
+    shimmerOsc.stop(startTime + 0.25);
+    
+    setTimeout(() => audioContext.close(), 400);
+  } catch (error) {
+    console.debug('Audio playback not available:', error);
+  }
+}
+
+/**
+ * Plays a calming "day complete" sound - gentle wind-down chime
+ */
+export function playDayCompleteSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const startTime = audioContext.currentTime;
+    
+    // Descending calm chord - signals "rest now"
+    const notes = [
+      { freq: 783.99, delay: 0, volume: 0.12 },    // G5
+      { freq: 659.25, delay: 0.08, volume: 0.1 },  // E5
+      { freq: 523.25, delay: 0.16, volume: 0.1 },  // C5
+    ];
+    
+    notes.forEach(note => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(note.freq, startTime + note.delay);
+      
+      gain.gain.setValueAtTime(0, startTime + note.delay);
+      gain.gain.linearRampToValueAtTime(note.volume, startTime + note.delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + note.delay + 0.4);
+      
+      osc.start(startTime + note.delay);
+      osc.stop(startTime + note.delay + 0.5);
+    });
+    
+    setTimeout(() => audioContext.close(), 800);
+  } catch (error) {
+    console.debug('Audio playback not available:', error);
+  }
+}
+
+/**
  * Generates a celebratory chime sound using Web Audio API
  * No external dependencies or API keys required
  */

@@ -10,6 +10,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
 import { 
   Loader2, 
   Calendar,
@@ -128,15 +129,25 @@ const Today = () => {
   const secondaryTasks = incompleteTasks.slice(1);
   const completedTasks = todaysTasks.filter(t => t.task.completed);
 
-  // Show momentum feedback when completing a task
+  // Show momentum feedback and play sound when completing a task
   useEffect(() => {
-    if (completedCount > previousCompletedCount.current) {
+    if (completedCount > previousCompletedCount.current && previousCompletedCount.current >= 0) {
       setShowMomentum(true);
+      
+      // Play appropriate sound
+      if (completedCount === todaysTasks.length && todaysTasks.length > 0) {
+        // All tasks completed - play calm day-complete sound
+        playDayCompleteSound();
+      } else if (completedCount > 0) {
+        // Individual task completed - play subtle pop
+        playTaskCompleteSound();
+      }
+      
       const timer = setTimeout(() => setShowMomentum(false), 4000);
       return () => clearTimeout(timer);
     }
     previousCompletedCount.current = completedCount;
-  }, [completedCount]);
+  }, [completedCount, todaysTasks.length]);
 
   // Complete a task
   const handleCompleteTask = useCallback(async (weekIndex: number, taskIndex: number) => {
