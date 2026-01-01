@@ -26,6 +26,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BottomNav } from '@/components/BottomNav';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface Task {
   title: string;
@@ -74,6 +75,9 @@ const Home = () => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
+  
+  // Swipe navigation
+  const swipeHandlers = useSwipeNavigation({ currentRoute: '/home' });
 
   // Check for reduced motion preference
   useEffect(() => {
@@ -388,6 +392,7 @@ const Home = () => {
     <div 
       className="min-h-screen bg-background transition-colors relative overflow-hidden pb-20 sm:pb-0" 
       style={{ transitionDuration: 'var(--color-transition)' }}
+      {...swipeHandlers.handlers}
     >
       {/* Two-tone dynamic ambient background with breathing */}
       <div 
