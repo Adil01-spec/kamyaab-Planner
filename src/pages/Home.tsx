@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { BottomNav } from '@/components/BottomNav';
 
 interface Task {
   title: string;
@@ -384,7 +385,7 @@ const Home = () => {
 
   return (
     <div 
-      className="min-h-screen bg-background transition-colors relative overflow-hidden" 
+      className="min-h-screen bg-background transition-colors relative overflow-hidden pb-20 sm:pb-0" 
       style={{ transitionDuration: 'var(--color-transition)' }}
     >
       {/* Two-tone dynamic ambient background with breathing */}
@@ -656,6 +657,8 @@ const Home = () => {
           </section>
         )}
       </div>
+      
+      <BottomNav />
     </div>
   );
 };

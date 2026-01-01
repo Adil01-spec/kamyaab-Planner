@@ -364,6 +364,11 @@
     @apply p-2 -m-2 rounded-lg active:bg-primary/10;
     -webkit-tap-highlight-color: transparent;
   }
+  
+  /* Safe area for bottom nav on iOS */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
 }
 
 @keyframes slideUp {

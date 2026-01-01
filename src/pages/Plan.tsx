@@ -22,6 +22,7 @@ import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { BottomNav } from '@/components/BottomNav';
 
 interface TaskExplanation {
   how: string;
@@ -383,7 +384,7 @@ const Plan = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-subtle">
+    <div className="min-h-screen gradient-subtle pb-20 sm:pb-0">
       {/* Header - Touch optimized */}
       <header className="glass sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
@@ -805,6 +806,8 @@ const Plan = () => {
         onConfirm={handleDeletePlan}
         isDeleting={isDeleting}
       />
+      
+      <BottomNav />
     </div>
   );
 };
