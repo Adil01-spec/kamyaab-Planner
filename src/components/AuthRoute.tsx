@@ -24,7 +24,7 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
   // If user is logged in, redirect based on profile status
   if (user) {
     if (profile) {
-      return <Navigate to="/home" replace />;
+      return <Navigate to="/today" replace />;
     }
     return <Navigate to="/onboarding" replace />;
   }
