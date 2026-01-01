@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { TodayTaskCard } from '@/components/TodayTaskCard';
+import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
 import { 
@@ -151,7 +152,7 @@ const Today = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 sm:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-10 glass border-b border-border/30">
         <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-between">
@@ -282,6 +283,8 @@ const Today = () => {
           )}
         </AnimatePresence>
       </main>
+      
+      <BottomNav />
     </div>
   );
 };
