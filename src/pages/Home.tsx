@@ -13,7 +13,8 @@ import {
   ArrowRight, 
   Flame,
   Clock,
-  Check
+  Check,
+  Sun
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -641,7 +642,17 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* Primary CTA */}
+              {/* Go to Today's Focus CTA */}
+              <Button
+                variant="default"
+                className="w-full h-10 text-sm font-medium mb-2"
+                onClick={() => navigate('/today')}
+              >
+                <Sun className="mr-2 w-4 h-4" />
+                Go to Today's Focus
+              </Button>
+
+              {/* Secondary CTA */}
               <Button
                 variant="ghost"
                 className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
@@ -650,7 +661,7 @@ const Home = () => {
                 }}
                 onClick={() => navigate('/plan')}
               >
-                Continue My Plan
+                View Full Plan
                 <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
               </Button>
             </div>
