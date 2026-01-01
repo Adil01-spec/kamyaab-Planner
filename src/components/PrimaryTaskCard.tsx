@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
-  Check, 
+  Play, 
   ChevronDown, 
   Clock, 
   Target,
   Lightbulb,
+  Check,
   Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,7 +27,7 @@ interface Task {
   explanation?: TaskExplanation;
 }
 
-interface TodayTaskCardProps {
+interface PrimaryTaskCardProps {
   task: Task;
   weekNumber: number;
   weekFocus: string;
@@ -45,20 +46,24 @@ const getTimeHint = (hours: number): string => {
 // Format explanation "how" into bullet points
 const formatHowToBullets = (how: string): string[] => {
   if (!how) return [];
+  
+  // Split by newlines, periods, or numbered items
   const lines = how
     .split(/(?:\n|(?<=\.)\s+(?=[A-Z])|(?:^\d+\.\s*))/gm)
     .map(line => line.trim())
     .filter(line => line.length > 0 && line.length < 100);
+  
+  // Take first 4 actionable items
   return lines.slice(0, 4);
 };
 
-export function TodayTaskCard({ 
+export function PrimaryTaskCard({ 
   task, 
   weekNumber, 
   weekFocus,
   onComplete,
   isCompleting = false
-}: TodayTaskCardProps) {
+}: PrimaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const howBullets = formatHowToBullets(task.explanation?.how || '');
@@ -66,39 +71,54 @@ export function TodayTaskCard({
   return (
     <motion.div
       layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
       className={cn(
-        "rounded-2xl glass-card border border-border/30 overflow-hidden transition-all duration-200",
-        task.completed && "opacity-60"
+        "rounded-3xl overflow-hidden transition-all duration-300",
+        "bg-gradient-to-br from-card via-card to-card/80",
+        "border-2 border-primary/20 shadow-lg shadow-primary/5",
+        task.completed && "opacity-60 border-border/30"
       )}
     >
-      {/* Main Task Content */}
-      <div className="p-5">
-        {/* Week indicator + Time hint */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+      {/* Accent top bar */}
+      <div className="h-1 gradient-kaamyab" />
+
+      {/* Main Content */}
+      <div className="p-6 sm:p-8">
+        {/* Header with context */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Week {weekNumber}</span>
             <span>•</span>
-            <span className="truncate max-w-[120px]">{weekFocus}</span>
+            <span className="truncate max-w-[150px]">{weekFocus}</span>
           </div>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground/60 bg-muted/40 px-2 py-0.5 rounded-full">
+          
+          {/* Time hint */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
             <Clock className="w-3 h-3" />
-            {getTimeHint(task.estimated_hours)}
-          </span>
+            <span>{getTimeHint(task.estimated_hours)}</span>
+          </div>
         </div>
 
-        {/* Task Title */}
-        <h3 className={cn(
-          "text-lg font-semibold text-foreground mb-4 leading-tight",
+        {/* Primary label */}
+        <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
+          Start with this
+        </p>
+
+        {/* Task Title - Large and prominent */}
+        <h2 className={cn(
+          "text-xl sm:text-2xl font-bold text-foreground mb-6 leading-tight",
           task.completed && "line-through text-muted-foreground"
         )}>
           {task.title}
-        </h3>
+        </h2>
 
-        {/* Complete Button */}
+        {/* Primary Action Button */}
         <AnimatePresence mode="wait">
           {!task.completed ? (
             <motion.div
-              key="complete-btn"
+              key="action"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -106,14 +126,15 @@ export function TodayTaskCard({
               <Button
                 onClick={onComplete}
                 disabled={isCompleting}
-                className="w-full gradient-kaamyab hover:opacity-90 touch-press h-12 text-base font-medium"
+                size="lg"
+                className="w-full gradient-kaamyab hover:opacity-90 touch-press h-14 text-base font-semibold rounded-xl"
               >
                 {isCompleting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    <Check className="w-5 h-5 mr-2" />
-                    Complete Task
+                    <Play className="w-5 h-5 mr-2 fill-current" />
+                    Start this task
                   </>
                 )}
               </Button>
@@ -123,10 +144,10 @@ export function TodayTaskCard({
               key="completed"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center justify-center gap-2 py-3 text-primary"
+              className="flex items-center justify-center gap-2 py-4 text-primary bg-primary/5 rounded-xl"
             >
               <Check className="w-5 h-5" />
-              <span className="font-medium">Completed</span>
+              <span className="font-semibold">Completed</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -138,8 +159,8 @@ export function TodayTaskCard({
           <CollapsibleTrigger asChild>
             <button
               className={cn(
-                "w-full flex items-center justify-between px-5 py-3 text-sm",
-                "border-t border-border/20 bg-muted/30 hover:bg-muted/50 transition-colors",
+                "w-full flex items-center justify-between px-6 sm:px-8 py-4 text-sm",
+                "border-t border-border/20 bg-muted/20 hover:bg-muted/40 transition-colors",
                 "text-foreground/80 font-medium"
               )}
             >
@@ -148,7 +169,7 @@ export function TodayTaskCard({
                 How to approach this
               </span>
               <ChevronDown className={cn(
-                "w-4 h-4 transition-transform duration-200",
+                "w-4 h-4 transition-transform duration-200 text-muted-foreground",
                 isExpanded && "rotate-180"
               )} />
             </button>
@@ -158,11 +179,11 @@ export function TodayTaskCard({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="px-5 py-4 space-y-4 border-t border-border/10 bg-muted/20"
+              className="px-6 sm:px-8 py-5 space-y-4 border-t border-border/10 bg-muted/10"
             >
-              {/* Bullet steps */}
+              {/* Bullet steps - actionable format */}
               {howBullets.length > 0 && (
-                <ul className="space-y-2">
+                <ul className="space-y-2.5">
                   {howBullets.map((bullet, idx) => (
                     <li key={idx} className="flex items-start gap-2.5 text-sm text-foreground/80">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center shrink-0 mt-0.5">
@@ -176,11 +197,13 @@ export function TodayTaskCard({
 
               {/* Why this matters */}
               {task.explanation?.why && (
-                <div className="flex items-start gap-2 pt-3 border-t border-border/10">
-                  <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {task.explanation.why}
-                  </p>
+                <div className="pt-3 border-t border-border/10">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {task.explanation.why}
+                    </p>
+                  </div>
                 </div>
               )}
             </motion.div>

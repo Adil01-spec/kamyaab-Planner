@@ -1,20 +1,23 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { TodayTaskCard } from '@/components/TodayTaskCard';
+import { PrimaryTaskCard } from '@/components/PrimaryTaskCard';
+import { SecondaryTaskCard } from '@/components/SecondaryTaskCard';
+import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { 
   Loader2, 
-  PartyPopper, 
   Calendar,
   Rocket,
   ChevronRight,
-  Home
+  Home,
+  Moon,
+  Coffee
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -52,6 +55,8 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
+  const [showMomentum, setShowMomentum] = useState(false);
+  const previousCompletedCount = useRef(0);
 
   // Swipe navigation
   const swipeHandlers = useSwipeNavigation({ currentRoute: '/today' });
@@ -114,7 +119,24 @@ const Today = () => {
 
   // Get today's tasks using the selector
   const todaysTasks: TodayTask[] = planData ? getTodaysTasks(planData) : [];
-  const allCompleted = todaysTasks.length > 0 && todaysTasks.every(t => t.task.completed);
+  const completedCount = todaysTasks.filter(t => t.task.completed).length;
+  const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
+  
+  // Get the first incomplete task as primary
+  const incompleteTasks = todaysTasks.filter(t => !t.task.completed);
+  const primaryTask = incompleteTasks[0];
+  const secondaryTasks = incompleteTasks.slice(1);
+  const completedTasks = todaysTasks.filter(t => t.task.completed);
+
+  // Show momentum feedback when completing a task
+  useEffect(() => {
+    if (completedCount > previousCompletedCount.current) {
+      setShowMomentum(true);
+      const timer = setTimeout(() => setShowMomentum(false), 4000);
+      return () => clearTimeout(timer);
+    }
+    previousCompletedCount.current = completedCount;
+  }, [completedCount]);
 
   // Complete a task
   const handleCompleteTask = useCallback(async (weekIndex: number, taskIndex: number) => {
@@ -198,10 +220,10 @@ const Today = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-5 py-8">
+      <main className="max-w-lg mx-auto px-5 py-6 sm:py-8">
         {/* Greeting Section */}
         <motion.div 
-          className="mb-8"
+          className="mb-6"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -211,26 +233,57 @@ const Today = () => {
           <p className="text-sm text-muted-foreground">{todayFormatted}</p>
         </motion.div>
 
-        {/* Tasks or Completion State */}
+        {/* Momentum Feedback */}
+        <MomentumFeedback 
+          completedCount={completedCount}
+          totalCount={todaysTasks.length}
+          show={showMomentum}
+        />
+
+        {/* Task Display */}
         <AnimatePresence mode="wait">
           {allCompleted ? (
+            /* Completion State - Day is done */
             <motion.div
               key="completed"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center py-16 text-center"
+              className="flex flex-col items-center justify-center py-12 text-center"
             >
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <PartyPopper className="w-10 h-10 text-primary" />
+                <Moon className="w-10 h-10 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                You're clear today 🎉
+                You're done for today.
               </h2>
-              <p className="text-muted-foreground text-sm max-w-xs mb-6">
-                Great work! All tasks for today are complete. Check back tomorrow for more.
+              <p className="text-muted-foreground text-sm max-w-xs mb-8">
+                All tasks complete. Rest up — tomorrow brings new focus.
               </p>
+              
+              {/* Completed tasks summary - collapsed */}
+              {completedTasks.length > 0 && (
+                <div className="w-full text-left mb-6">
+                  <p className="text-xs text-muted-foreground/60 uppercase tracking-wider mb-3 text-center">
+                    Completed today
+                  </p>
+                  <div className="space-y-2">
+                    {completedTasks.map((item) => (
+                      <div 
+                        key={`${item.weekIndex}-${item.taskIndex}`}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-muted/30 text-muted-foreground"
+                      >
+                        <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                          <span className="w-2 h-2 rounded-full bg-primary" />
+                        </span>
+                        <span className="text-sm line-through">{item.task.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/plan')}
@@ -241,19 +294,20 @@ const Today = () => {
               </Button>
             </motion.div>
           ) : todaysTasks.length === 0 ? (
+            /* No Tasks State */
             <motion.div
               key="empty"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center py-16 text-center"
+              className="flex flex-col items-center justify-center py-12 text-center"
             >
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <PartyPopper className="w-10 h-10 text-primary" />
+                <Coffee className="w-10 h-10 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                You're all caught up! 🎉
+                You're all caught up
               </h2>
               <p className="text-muted-foreground text-sm max-w-xs mb-6">
                 No pending tasks right now. Check your full plan to see what's next.
@@ -268,35 +322,60 @@ const Today = () => {
               </Button>
             </motion.div>
           ) : (
+            /* Active Tasks */
             <motion.div
               key="tasks"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="space-y-4"
+              className="space-y-5"
             >
-              {todaysTasks.map((item, index) => (
-                <motion.div
-                  key={`${item.weekIndex}-${item.taskIndex}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  <TodayTaskCard
-                    task={item.task}
-                    weekNumber={item.weekIndex + 1}
-                    weekFocus={item.weekFocus}
-                    onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
-                    isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
-                  />
-                </motion.div>
-              ))}
-              
-              {/* Subtle indicator */}
-              <p className="text-center text-xs text-muted-foreground/60 pt-4">
-                {todaysTasks.length} of 3 tasks shown • Focus on one at a time
-              </p>
+              {/* Primary Task - First incomplete task gets emphasis */}
+              {primaryTask && (
+                <PrimaryTaskCard
+                  task={primaryTask.task}
+                  weekNumber={primaryTask.weekIndex + 1}
+                  weekFocus={primaryTask.weekFocus}
+                  onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
+                  isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
+                />
+              )}
+
+              {/* Secondary Tasks - Smaller, less prominent */}
+              {secondaryTasks.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">
+                    Also on your plate
+                  </p>
+                  {secondaryTasks.map((item, index) => (
+                    <motion.div
+                      key={`${item.weekIndex}-${item.taskIndex}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 + index * 0.05 }}
+                    >
+                      <SecondaryTaskCard
+                        task={item.task}
+                        weekNumber={item.weekIndex + 1}
+                        weekFocus={item.weekFocus}
+                        onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                        isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                        taskNumber={index + 2}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* Completed Tasks - Subtle list */}
+              {completedTasks.length > 0 && (
+                <div className="pt-4 border-t border-border/10">
+                  <p className="text-xs text-muted-foreground/50 mb-2">
+                    ✓ {completedTasks.length} done today
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
