@@ -131,46 +131,73 @@ export const openNativeCalendar = (event: NativeCalendarEvent): boolean => {
 };
 
 /**
- * Open Android native calendar using intent:// deep link
- * Falls back to Google Calendar web if intent fails
+ * Build Android Calendar Intent URL with pre-filled event data
+ * Uses the standard Android intent format that works with Chrome and other browsers
+ * 
+ * @param title - Event title
+ * @param description - Event description
+ * @param startDate - Event start date
+ * @param endDate - Event end date
+ * @returns Intent URL string
  */
-const openAndroidCalendar = (task: CalendarTask): boolean => {
-  try {
-    // Android intent to open native calendar
-    // Note: Web cannot pre-fill all event details via intent due to OS limitations
-    // The intent opens the calendar app where user can create the event
-    const intentUrl = 'intent://calendar/#Intent;action=android.intent.action.VIEW;scheme=content;package=com.google.android.calendar;end';
-    
-    // Try to open via intent first
-    const opened = tryOpenUrl(intentUrl);
-    
-    if (!opened) {
-      // Fallback to Google Calendar web
-      console.log('Intent failed, falling back to Google Calendar web');
-      const url = getGoogleCalendarUrl(task);
-      openCalendarUrl(url);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Failed to open Android calendar:', error);
-    // Final fallback to Google Calendar web
-    const url = getGoogleCalendarUrl(task);
-    openCalendarUrl(url);
-    return true;
-  }
+const buildAndroidCalendarIntent = (
+  title: string,
+  description: string,
+  startDate: Date,
+  endDate: Date
+): string => {
+  // Convert to milliseconds since epoch (required format for Android Calendar intents)
+  const beginTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  
+  // Build the intent URL with all event parameters
+  // This format opens the native Android Calendar app with pre-filled data
+  const intentUrl = 
+    `intent://calendar/#Intent;` +
+    `action=android.intent.action.INSERT;` +
+    `type=vnd.android.cursor.item/event;` +
+    `S.title=${encodeURIComponent(title)};` +
+    `S.description=${encodeURIComponent(description)};` +
+    `S.beginTime=${beginTime};` +
+    `S.endTime=${endTime};` +
+    `end`;
+  
+  return intentUrl;
 };
 
 /**
- * Try to open a URL and detect if it was blocked
+ * Open Android native calendar using intent:// deep link
+ * Pre-fills event data so user only needs to confirm and save
  */
-const tryOpenUrl = (url: string): boolean => {
+const openAndroidCalendar = (task: CalendarTask): boolean => {
   try {
-    // Use window.location for intent URLs on Android
-    window.location.href = url;
+    const endDate = new Date(task.date);
+    endDate.setHours(endDate.getHours() + task.durationHours);
+    
+    // Build the Android calendar intent with all event data
+    const intentUrl = buildAndroidCalendarIntent(
+      task.title,
+      task.description || '',
+      task.date,
+      endDate
+    );
+    
+    console.log('Opening Android calendar with intent:', intentUrl.substring(0, 100) + '...');
+    
+    // Use window.location.href to trigger the intent
+    // This opens the native Calendar app or app chooser on Android
+    window.location.href = intentUrl;
+    
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    console.error('Failed to open Android calendar with intent:', error);
+    
+    // Fallback: Try Google Calendar web URL as last resort
+    // This is less ideal but ensures the user can still add the event
+    console.log('Falling back to Google Calendar web');
+    const url = getGoogleCalendarUrl(task);
+    openCalendarUrl(url);
+    return true;
   }
 };
 
