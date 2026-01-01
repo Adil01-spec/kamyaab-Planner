@@ -14,8 +14,8 @@ const Index = () => {
       } else if (!profile) {
         navigate('/onboarding', { replace: true });
       } else {
-        // User has profile - go to home (which will redirect to /plan/new if no plans)
-        navigate('/home', { replace: true });
+        // User has profile - go to Today view (primary daily execution screen)
+        navigate('/today', { replace: true });
       }
     }
   }, [user, profile, loading, navigate]);
