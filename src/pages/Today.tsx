@@ -7,12 +7,14 @@ import { TodayTaskCard } from '@/components/TodayTaskCard';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { 
   Loader2, 
   PartyPopper, 
   Calendar,
   Rocket,
-  ChevronRight
+  ChevronRight,
+  Home
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -50,6 +52,9 @@ const Today = () => {
   const [loading, setLoading] = useState(true);
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
+
+  // Swipe navigation
+  const swipeHandlers = useSwipeNavigation({ currentRoute: '/today' });
 
   // Get current date formatted
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
@@ -152,7 +157,10 @@ const Today = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 sm:pb-0">
+    <div 
+      className="min-h-screen bg-background pb-20 sm:pb-0"
+      {...swipeHandlers.handlers}
+    >
       {/* Header */}
       <header className="sticky top-0 z-10 glass border-b border-border/30">
         <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-between">
@@ -164,6 +172,16 @@ const Today = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Home button - visible on desktop */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/home')}
+              className="hidden sm:flex text-muted-foreground hover:text-foreground h-9 px-3"
+            >
+              <Home className="w-4 h-4 mr-1.5" />
+              Home
+            </Button>
             <ThemeToggle />
             <Button 
               variant="ghost" 

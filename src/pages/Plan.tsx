@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { BottomNav } from '@/components/BottomNav';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface TaskExplanation {
   how: string;
@@ -375,6 +376,9 @@ const Plan = () => {
     setRefreshKey(k => k + 1);
   }, []);
 
+  // Swipe navigation
+  const swipeHandlers = useSwipeNavigation({ currentRoute: '/plan' });
+
   if (loading) {
     return (
       <div className="min-h-screen gradient-subtle flex items-center justify-center">
@@ -384,7 +388,10 @@ const Plan = () => {
   }
 
   return (
-    <div className="min-h-screen gradient-subtle pb-20 sm:pb-0">
+    <div 
+      className="min-h-screen gradient-subtle pb-20 sm:pb-0"
+      {...swipeHandlers.handlers}
+    >
       {/* Header - Touch optimized */}
       <header className="glass sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
