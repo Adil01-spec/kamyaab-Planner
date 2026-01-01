@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
+import Today from "./pages/Today";
 import PlanNew from "./pages/PlanNew";
 import Plan from "./pages/Plan";
 import PlanReset from "./pages/PlanReset";
@@ -49,6 +50,15 @@ const App = () => (
               element={
                 <ProtectedRoute requireProfile>
                   <Home />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Today View - primary daily execution view */}
+            <Route 
+              path="/today" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <Today />
                 </ProtectedRoute>
               } 
             />
