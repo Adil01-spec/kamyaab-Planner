@@ -30,6 +30,7 @@ import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileSettings';
 import { MobileSettingsDialog } from '@/components/MobileSettingsDialog';
 import TaskQuickActions from '@/components/TaskQuickActions';
+import { CursorExplosionButton } from '@/components/CursorExplosionButton';
 
 interface Task {
   title: string;
@@ -699,28 +700,25 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* Go to Today's Focus CTA */}
-              <Button
+              {/* Go to Today's Focus CTA - with cursor explosion effect */}
+              <CursorExplosionButton
                 variant="default"
                 className="w-full h-10 text-sm font-medium mb-2"
                 onClick={() => navigate('/today')}
               >
                 <Sun className="mr-2 w-4 h-4" />
                 Go to Today's Focus
-              </Button>
+              </CursorExplosionButton>
 
-              {/* Secondary CTA */}
-              <Button
+              {/* Secondary CTA - with cursor explosion effect */}
+              <CursorExplosionButton
                 variant="ghost"
                 className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-                style={{
-                  transitionDuration: 'var(--color-transition)'
-                }}
                 onClick={() => navigate('/plan')}
               >
                 View Full Plan
                 <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
-              </Button>
+              </CursorExplosionButton>
             </div>
           </section>
         )}
