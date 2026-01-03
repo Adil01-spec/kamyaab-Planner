@@ -414,12 +414,9 @@ const Home = () => {
       <div 
         className="fixed inset-0 pointer-events-none"
         style={{
-          background: mobileSettings.parallaxEffects ? `
-            radial-gradient(ellipse ${70 + breathePhase * 12}% ${60 + breathePhase * 12}% at ${bgPosition.x1 + parallax.x * 0.4}% ${bgPosition.y1 + parallax.y * 0.4}%, hsl(var(--dynamic-bg-1) / ${0.45 + breathePhase * 0.12}), transparent 70%),
-            radial-gradient(ellipse ${60 + breathePhase * 12}% ${70 + breathePhase * 12}% at ${bgPosition.x2 - parallax.x * 0.3}% ${bgPosition.y2 - parallax.y * 0.3}%, hsl(var(--dynamic-bg-2) / ${0.38 + breathePhase * 0.10}), transparent 70%)
-          ` : `
-            radial-gradient(ellipse 70% 60% at 25% 20%, hsl(var(--dynamic-bg-1) / 0.45), transparent 70%),
-            radial-gradient(ellipse 60% 70% at 75% 80%, hsl(var(--dynamic-bg-2) / 0.38), transparent 70%)
+          background: `
+            radial-gradient(ellipse ${70 + breathePhase * 12}% ${60 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x1 + parallax.x * 0.4 : 25 + breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y1 + parallax.y * 0.4 : 20 + breathePhase * 6}%, hsl(var(--dynamic-bg-1) / ${0.42 + breathePhase * 0.14}), transparent 70%),
+            radial-gradient(ellipse ${60 + breathePhase * 12}% ${70 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x2 - parallax.x * 0.3 : 75 - breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y2 - parallax.y * 0.3 : 80 - breathePhase * 6}%, hsl(var(--dynamic-bg-2) / ${0.36 + breathePhase * 0.12}), transparent 70%)
           `,
           transition: 'background 0.15s ease-out',
           transform: mobileSettings.parallaxEffects ? `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` : undefined
