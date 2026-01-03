@@ -471,20 +471,24 @@ const Auth = () => {
         </motion.p>
       </motion.div>
       
-      {/* Full-cover background illustration with parallax */}
-      <motion.div
-        initial={{ opacity: 0, scale: 1.1 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
-        className="absolute inset-0 pointer-events-none"
-        style={{ x: imageX, y: imageY }}
-      >
-        <img 
-          src={currentImage} 
-          alt="Decorative illustration"
-          className="w-full h-full object-cover"
-        />
-      </motion.div>
+      {/* Full-cover background illustration with crossfade */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={view === 'signup' ? 'rocket' : 'mountain'}
+          initial={{ opacity: 0, scale: 1.05 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          className="absolute inset-0 pointer-events-none"
+          style={{ x: imageX, y: imageY }}
+        >
+          <img 
+            src={currentImage} 
+            alt="Decorative illustration"
+            className="w-full h-full object-cover"
+          />
+        </motion.div>
+      </AnimatePresence>
       
       {/* Overlay gradient for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-background/30 pointer-events-none" />
