@@ -14,7 +14,8 @@ import {
   Flame,
   Clock,
   Check,
-  Sun
+  Sun,
+  Settings
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -26,6 +27,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileSettings';
+import { MobileSettingsDialog } from '@/components/MobileSettingsDialog';
 
 interface Task {
   title: string;
@@ -72,11 +75,23 @@ const Home = () => {
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [breathePhase, setBreathePhase] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
   
-  // Swipe navigation
-  const swipeHandlers = useSwipeNavigation({ currentRoute: '/home' });
+  // Mobile settings
+  const { settings: mobileSettings, isMobile, toggleSetting, resetToDefaults } = useMobileSettings();
+  
+  // Keep cache in sync
+  useEffect(() => {
+    updateMobileSettingsCache(mobileSettings);
+  }, [mobileSettings]);
+  
+  // Swipe navigation - respects mobile settings
+  const swipeHandlers = useSwipeNavigation({ 
+    currentRoute: '/home',
+    enabled: mobileSettings.swipeNavigation 
+  });
 
   // Check for reduced motion preference
   useEffect(() => {
@@ -98,9 +113,9 @@ const Home = () => {
     applyDynamicAccent(isDark);
   }, [theme]);
 
-  // Breathing animation loop (reduced for accessibility)
+  // Breathing animation loop (respects settings and accessibility)
   useEffect(() => {
-    if (prefersReducedMotion) {
+    if (prefersReducedMotion || !mobileSettings.breathingAnimation) {
       setBreathePhase(0.5); // Static middle state
       return;
     }
@@ -119,11 +134,11 @@ const Home = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, mobileSettings.breathingAnimation]);
 
   // Unified position handler for mouse, touch, and device orientation
   const updatePosition = useCallback((clientX: number, clientY: number) => {
-    if (prefersReducedMotion) return; // Skip motion updates
+    if (prefersReducedMotion || !mobileSettings.parallaxEffects) return; // Skip motion updates
     
     const x = clientX / window.innerWidth;
     const y = clientY / window.innerHeight;
@@ -142,7 +157,7 @@ const Home = () => {
       x: (x - 0.5) * 16,
       y: (y - 0.5) * 12,
     });
-  }, [breathePhase, prefersReducedMotion]);
+  }, [breathePhase, prefersReducedMotion, mobileSettings.parallaxEffects]);
 
   // Track mouse movement
   useEffect(() => {
@@ -180,7 +195,7 @@ const Home = () => {
 
   // Device orientation tracking for mobile tilt
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || !mobileSettings.deviceMotion) return;
     
     const handleOrientation = (e: DeviceOrientationEvent) => {
       // gamma: left/right tilt (-90 to 90)
@@ -240,7 +255,7 @@ const Home = () => {
         return () => window.removeEventListener('deviceorientation', handleOrientation);
       }
     }
-  }, [breathePhase, prefersReducedMotion]);
+  }, [breathePhase, prefersReducedMotion, mobileSettings.deviceMotion]);
 
   const progress = calculatePlanProgress(planData);
 
@@ -441,6 +456,18 @@ const Home = () => {
                     <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
                   </div>
                   <DropdownMenuSeparator className="bg-border/30" />
+                  {isMobile && (
+                    <>
+                      <DropdownMenuItem 
+                        onClick={() => setSettingsOpen(true)} 
+                        className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Mobile Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-border/30" />
+                    </>
+                  )}
                   <DropdownMenuItem 
                     onClick={handleLogout} 
                     className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
@@ -672,6 +699,15 @@ const Home = () => {
           </section>
         )}
       </div>
+      
+      {/* Mobile Settings Dialog */}
+      <MobileSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={mobileSettings}
+        onToggle={toggleSetting}
+        onReset={resetToDefaults}
+      />
     </div>
   );
 };

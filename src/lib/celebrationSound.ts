@@ -1,8 +1,16 @@
+import { getMobileSettings } from '@/hooks/useMobileSettings';
+
+const isEnabled = (): boolean => {
+  return getMobileSettings().audioFeedback;
+};
+
 /**
  * Plays a subtle, calm completion sound - a soft "pop" with warmth
  * Designed for task completion without being intrusive or gamified
  */
 export function playTaskCompleteSound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const startTime = audioContext.currentTime;
@@ -53,6 +61,8 @@ export function playTaskCompleteSound() {
  * Plays a calming "day complete" sound - gentle wind-down chime
  */
 export function playDayCompleteSound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const startTime = audioContext.currentTime;
@@ -93,6 +103,8 @@ export function playDayCompleteSound() {
  * No external dependencies or API keys required
  */
 export function playCelebrationSound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     
@@ -148,6 +160,8 @@ export function playCelebrationSound() {
  * Generates a grand fanfare sound for completing the entire plan
  */
 export function playGrandCelebrationSound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const startTime = audioContext.currentTime;
@@ -234,6 +248,8 @@ function playNote(
  * Two-note ascending chime - soft and friendly
  */
 export function playCalendarConfirmSound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const startTime = audioContext.currentTime;
@@ -256,6 +272,8 @@ export function playCalendarConfirmSound() {
  * Descending tone - gentle, non-judgmental
  */
 export function playCalendarRetrySound() {
+  if (!isEnabled()) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const startTime = audioContext.currentTime;
