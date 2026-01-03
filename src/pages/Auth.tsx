@@ -413,15 +413,8 @@ const Auth = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden bg-background">
-      {/* Mobile: Show form only */}
-      <div className="lg:hidden flex-1 flex items-center justify-center py-12">
-        <AnimatePresence mode="wait">
-          <FormContent />
-        </AnimatePresence>
-      </div>
-
-      {/* Desktop: Split screen with animated panel swap */}
+    <div className="min-h-screen flex overflow-hidden bg-background">
+      {/* Desktop only: Split screen with animated panel swap */}
       <div className="hidden lg:flex flex-1 relative">
         <AnimatePresence mode="wait">
           {isLoginView ? (
