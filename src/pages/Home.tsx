@@ -28,7 +28,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileSettings';
+import { useDesktopSettings, updateDesktopSettingsCache } from '@/hooks/useDesktopSettings';
 import { MobileSettingsDialog } from '@/components/MobileSettingsDialog';
+import { DesktopSettingsDialog } from '@/components/DesktopSettingsDialog';
 import TaskQuickActions from '@/components/TaskQuickActions';
 import { CursorExplosionButton } from '@/components/CursorExplosionButton';
 
@@ -78,6 +80,7 @@ const Home = () => {
   const [breathePhase, setBreathePhase] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
   const [hoveredTaskKey, setHoveredTaskKey] = useState<string | null>(null);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
@@ -85,10 +88,17 @@ const Home = () => {
   // Mobile settings
   const { settings: mobileSettings, isMobile, toggleSetting, updateSettings, resetToDefaults } = useMobileSettings();
   
-  // Keep cache in sync
+  // Desktop settings
+  const { settings: desktopSettings, isDesktop, toggleSetting: toggleDesktopSetting, resetToDefaults: resetDesktopDefaults } = useDesktopSettings();
+  
+  // Keep caches in sync
   useEffect(() => {
     updateMobileSettingsCache(mobileSettings);
   }, [mobileSettings]);
+  
+  useEffect(() => {
+    updateDesktopSettingsCache(desktopSettings);
+  }, [desktopSettings]);
   
   // Swipe navigation - respects mobile settings
   const swipeHandlers = useSwipeNavigation({ 
@@ -117,15 +127,18 @@ const Home = () => {
   }, [theme]);
 
   // Breathing animation loop (respects settings and accessibility)
+  // Uses mobile settings on mobile, desktop settings on desktop
+  const breathingEnabled = isMobile ? mobileSettings.breathingAnimation : desktopSettings.breathingAnimation;
+  
   useEffect(() => {
-    if (prefersReducedMotion || !mobileSettings.breathingAnimation) {
+    if (prefersReducedMotion || !breathingEnabled) {
       setBreathePhase(0.5); // Static middle state
       return;
     }
     
-    // Speed: slow = 12s, medium = 8s, fast = 4s cycle
+    // Speed: slow = 12s, medium = 8s, fast = 4s cycle (mobile only has speed setting)
     const speedMap = { slow: 6, medium: 4, fast: 2 };
-    const divisor = speedMap[mobileSettings.breathingSpeed] || 4;
+    const divisor = isMobile ? (speedMap[mobileSettings.breathingSpeed] || 4) : 4;
     
     let startTime = Date.now();
     
@@ -140,11 +153,14 @@ const Home = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [prefersReducedMotion, mobileSettings.breathingAnimation, mobileSettings.breathingSpeed]);
+  }, [prefersReducedMotion, breathingEnabled, isMobile, mobileSettings.breathingSpeed]);
 
   // Unified position handler for mouse, touch, and device orientation
+  // Respects both mobile and desktop parallax settings
+  const parallaxEnabled = isMobile ? mobileSettings.parallaxEffects : desktopSettings.parallaxEffects;
+  
   const updatePosition = useCallback((clientX: number, clientY: number) => {
-    if (prefersReducedMotion || !mobileSettings.parallaxEffects) return; // Skip motion updates
+    if (prefersReducedMotion || !parallaxEnabled) return; // Skip motion updates
     
     const x = clientX / window.innerWidth;
     const y = clientY / window.innerHeight;
@@ -163,7 +179,7 @@ const Home = () => {
       x: (x - 0.5) * 16,
       y: (y - 0.5) * 12,
     });
-  }, [breathePhase, prefersReducedMotion, mobileSettings.parallaxEffects]);
+  }, [breathePhase, prefersReducedMotion, parallaxEnabled]);
 
   // Track mouse movement
   useEffect(() => {
@@ -480,6 +496,18 @@ const Home = () => {
                       <DropdownMenuSeparator className="bg-border/30" />
                     </>
                   )}
+                  {isDesktop && (
+                    <>
+                      <DropdownMenuItem 
+                        onClick={() => setDesktopSettingsOpen(true)} 
+                        className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Desktop Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-border/30" />
+                    </>
+                  )}
                   <DropdownMenuItem 
                     onClick={handleLogout} 
                     className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
@@ -732,6 +760,15 @@ const Home = () => {
         onToggle={toggleSetting}
         onUpdateSettings={updateSettings}
         onReset={resetToDefaults}
+      />
+      
+      {/* Desktop Settings Dialog */}
+      <DesktopSettingsDialog
+        open={desktopSettingsOpen}
+        onOpenChange={setDesktopSettingsOpen}
+        settings={desktopSettings}
+        onToggle={toggleDesktopSetting}
+        onReset={resetDesktopDefaults}
       />
     </div>
   );

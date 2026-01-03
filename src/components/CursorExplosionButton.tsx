@@ -2,21 +2,29 @@ import { useState, useMemo, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MousePointer } from "lucide-react";
 import { Button, ButtonProps } from "@/components/ui/button";
+import { getDesktopSettings } from "@/hooks/useDesktopSettings";
 
 interface CursorExplosionButtonProps extends ButtonProps {
   children: ReactNode;
+  /** Force disable the cursor effect (for when settings context isn't available) */
+  disableEffect?: boolean;
 }
 
 /**
  * Button with flying cursor explosion effect on hover
  * Cursors fly out in concentric circles and rotate around the button
+ * Respects desktop performance settings
  */
 export function CursorExplosionButton({ 
   children, 
   className,
+  disableEffect = false,
   ...props 
 }: CursorExplosionButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Check if cursor effects are enabled
+  const effectsEnabled = !disableEffect && getDesktopSettings().cursorEffects;
 
   // Generate cursor positions in concentric circles
   const cursors = useMemo(() => {
@@ -70,9 +78,9 @@ export function CursorExplosionButton({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Flying Cursors Effect */}
+      {/* Flying Cursors Effect - respects settings */}
       <AnimatePresence>
-        {isHovered && (
+        {isHovered && effectsEnabled && (
           <motion.div
             className="absolute pointer-events-none z-50"
             style={{ 
@@ -144,9 +152,9 @@ export function CursorExplosionButton({
         )}
       </AnimatePresence>
 
-      {/* Pulsing glow ring on hover */}
+      {/* Pulsing glow ring on hover - respects settings */}
       <AnimatePresence>
-        {isHovered && (
+        {isHovered && effectsEnabled && (
           <motion.div
             className="absolute inset-0 rounded-md pointer-events-none"
             initial={{ opacity: 0 }}
