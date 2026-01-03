@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import plantVaseImage from '@/assets/auth-plant-vase.png';
+import deskSceneImage from '@/assets/auth-desk-scene.png';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
@@ -375,6 +377,11 @@ const Auth = () => {
   const decorY = useTransform(smoothMouseY, [-0.5, 0.5], [20, -20]);
   const glowX = useTransform(smoothMouseX, [-0.5, 0.5], [-30, 30]);
   const glowY = useTransform(smoothMouseY, [-0.5, 0.5], [-25, 25]);
+  const imageX = useTransform(smoothMouseX, [-0.5, 0.5], [12, -12]);
+  const imageY = useTransform(smoothMouseY, [-0.5, 0.5], [8, -8]);
+  
+  // Select image based on view
+  const currentImage = view === 'signup' ? plantVaseImage : deskSceneImage;
   
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -464,16 +471,23 @@ const Auth = () => {
         </motion.p>
       </motion.div>
       
-      {/* Decorative gradient at bottom */}
+      {/* Decorative illustration with parallax */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.3, duration: 0.6 }}
-        className="absolute bottom-0 left-0 right-0 h-1/2 pointer-events-none"
-        style={{ x: bgX, y: useTransform(smoothMouseY, [-0.5, 0.5], [5, -5]) }}
+        initial={{ opacity: 0, y: 40, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.4, duration: 0.7, ease: "easeOut" }}
+        className="absolute bottom-0 left-0 right-0 pointer-events-none flex justify-center"
+        style={{ x: imageX, y: imageY }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-transparent" />
+        <img 
+          src={currentImage} 
+          alt="Decorative illustration"
+          className={`object-contain ${view === 'signup' ? 'h-[45vh] max-h-[400px]' : 'h-[35vh] max-h-[280px] w-auto max-w-[90%]'}`}
+        />
       </motion.div>
+      
+      {/* Gradient overlay at bottom for smooth blend */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-muted/40 via-muted/20 to-transparent pointer-events-none" />
     </motion.div>
   );
 
