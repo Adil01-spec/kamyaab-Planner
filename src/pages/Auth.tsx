@@ -7,25 +7,25 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import plantVaseImage from '@/assets/auth-plant-vase.png';
-import deskSceneImage from '@/assets/auth-desk-scene.png';
+import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
+import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
 const quotes = {
   login: {
-    text: "The future belongs to those who",
-    highlight: "believe",
-    rest: "in the",
-    highlight2: "beauty of their dreams",
-    author: "Eleanor Roosevelt"
+    text: "Every champion was once",
+    highlight: "a contender",
+    rest: "who refused to",
+    highlight2: "give up",
+    author: "Rocky Balboa"
   },
   signup: {
-    text: "The only way to",
-    highlight: "do great work",
-    rest: "is to",
-    highlight2: "love what you do",
-    author: "Steve Jobs"
+    text: "The only limit to our",
+    highlight: "realization of tomorrow",
+    rest: "is our",
+    highlight2: "doubts of today",
+    author: "Franklin D. Roosevelt"
   }
 };
 
@@ -381,7 +381,7 @@ const Auth = () => {
   const imageY = useTransform(smoothMouseY, [-0.5, 0.5], [8, -8]);
   
   // Select image based on view
-  const currentImage = view === 'signup' ? plantVaseImage : deskSceneImage;
+  const currentImage = view === 'signup' ? rocketLaunchImage : mountainTriumphImage;
   
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -471,23 +471,23 @@ const Auth = () => {
         </motion.p>
       </motion.div>
       
-      {/* Decorative illustration with parallax */}
+      {/* Full-cover background illustration with parallax */}
       <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.4, duration: 0.7, ease: "easeOut" }}
-        className="absolute bottom-0 left-0 right-0 pointer-events-none flex justify-center"
+        initial={{ opacity: 0, scale: 1.1 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2, duration: 0.8, ease: "easeOut" }}
+        className="absolute inset-0 pointer-events-none"
         style={{ x: imageX, y: imageY }}
       >
         <img 
           src={currentImage} 
           alt="Decorative illustration"
-          className={`object-contain ${view === 'signup' ? 'h-[45vh] max-h-[400px]' : 'h-[35vh] max-h-[280px] w-auto max-w-[90%]'}`}
+          className="w-full h-full object-cover"
         />
       </motion.div>
       
-      {/* Gradient overlay at bottom for smooth blend */}
-      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-muted/40 via-muted/20 to-transparent pointer-events-none" />
+      {/* Overlay gradient for text readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-background/30 pointer-events-none" />
     </motion.div>
   );
 
