@@ -497,14 +497,7 @@ const Auth = () => {
 
   // Mobile Form Component
   const MobileFormContent = () => (
-    <motion.div
-      key={view}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="w-full"
-    >
+    <div className="w-full">
       {view === 'forgot-password' ? (
         <>
           <button
@@ -662,7 +655,7 @@ const Auth = () => {
           </Button>
         </>
       )}
-    </motion.div>
+    </div>
   );
 
   return (
@@ -734,9 +727,7 @@ const Auth = () => {
             </div>
             
             {/* Form Content */}
-            <AnimatePresence mode="wait">
-              <MobileFormContent />
-            </AnimatePresence>
+            <MobileFormContent />
           </motion.div>
           
           {/* Switch View Footer */}
