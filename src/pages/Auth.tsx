@@ -500,26 +500,28 @@ const Auth = () => {
 
   // Mobile Welcome Screen with 3D Character
   const MobileWelcomeScreen = () => (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100/50 dark:from-slate-900 dark:via-background dark:to-slate-800/30 relative overflow-hidden">
-      {/* 3D Character */}
-      <div className="flex-1 flex items-center justify-center pt-16 pb-8">
-        <img 
-          src={character3DImage} 
-          alt="Welcome character"
-          className="w-72 h-auto max-h-[50vh] object-contain drop-shadow-2xl"
-        />
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 relative overflow-hidden">
+      {/* 3D Character in light card */}
+      <div className="flex-1 flex items-center justify-center px-6 pt-12 pb-6">
+        <div className="bg-gradient-to-b from-stone-100 to-stone-200 rounded-2xl p-6 shadow-2xl w-full max-w-sm aspect-square flex items-center justify-center">
+          <img 
+            src={character3DImage} 
+            alt="Welcome character"
+            className="w-full h-full object-contain"
+          />
+        </div>
       </div>
       
       {/* Bottom Controls */}
-      <div className="px-6 pb-10 space-y-6">
+      <div className="px-6 pb-10 space-y-5">
         {/* Sign In / Register Toggle */}
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-3">
           <Button
             onClick={() => {
               setView('login');
               setMobileScreen('form');
             }}
-            className="flex-1 max-w-[140px] h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            className="flex-1 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg"
           >
             Sign In
           </Button>
@@ -528,8 +530,7 @@ const Auth = () => {
               setView('signup');
               setMobileScreen('form');
             }}
-            variant="outline"
-            className="flex-1 max-w-[140px] h-12 rounded-full border-2 font-semibold"
+            className="flex-1 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-semibold text-base border border-slate-700"
           >
             Register
           </Button>
@@ -538,7 +539,7 @@ const Auth = () => {
         {/* Skip Option */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center justify-center gap-1 text-primary font-medium mx-auto hover:underline"
+          className="flex items-center justify-center gap-1 text-emerald-400 font-medium mx-auto hover:text-emerald-300"
         >
           Skip <ChevronRight className="w-4 h-4" />
         </button>
