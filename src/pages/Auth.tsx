@@ -495,168 +495,7 @@ const Auth = () => {
     </motion.div>
   );
 
-  // Mobile Form Component
-  const MobileFormContent = () => (
-    <div className="w-full">
-      {view === 'forgot-password' ? (
-        <>
-          <button
-            type="button"
-            onClick={() => switchView('login')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Back to login</span>
-          </button>
-          
-          <form onSubmit={handleForgotPassword} className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-              <Input
-                type="email"
-                placeholder="Your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
-                disabled={loading}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                'Send Reset Link'
-              )}
-            </Button>
-          </form>
-        </>
-      ) : (
-        <>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-              <Input
-                type="email"
-                placeholder="Your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
-                disabled={loading}
-              />
-            </div>
-
-            <div className="relative">
-              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-
-            {view === 'signup' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="relative"
-              >
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-                <Input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </motion.div>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                view === 'login' ? 'Log In' : 'Create Account'
-              )}
-            </Button>
-
-            {view === 'login' && (
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => switchView('forgot-password')}
-                  className="text-sm text-primary font-medium hover:underline"
-                  disabled={loading}
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-foreground/10" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-4 text-sm text-muted-foreground backdrop-blur-sm">or continue with</span>
-            </div>
-          </div>
-
-          {/* Google Login */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-13 text-base font-medium rounded-xl border border-foreground/10 backdrop-blur-md bg-foreground/5 hover:bg-foreground/10 transition-all"
-            onClick={handleGoogleSignIn}
-            disabled={loading || googleLoading}
-          >
-            {googleLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Google
-              </>
-            )}
-          </Button>
-        </>
-      )}
-    </div>
-  );
+  // Mobile form content is now inlined in the JSX to prevent re-renders on typing
 
   return (
     <div className="min-h-screen flex overflow-hidden bg-background">
@@ -726,8 +565,161 @@ const Auth = () => {
               </p>
             </div>
             
-            {/* Form Content */}
-            <MobileFormContent />
+            {/* Form Content - Inlined to prevent re-renders */}
+            <div className="w-full">
+              {view === 'forgot-password' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => switchView('login')}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="text-sm">Back to login</span>
+                  </button>
+                  
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                      <Input
+                        type="email"
+                        placeholder="Your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        'Send Reset Link'
+                      )}
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                      <Input
+                        type="email"
+                        placeholder="Your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
+                        disabled={loading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+
+                    {view === 'signup' && (
+                      <div className="relative">
+                        <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                        <Input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="Confirm Password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    )}
+
+                    <Button 
+                      type="submit" 
+                      className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        view === 'login' ? 'Log In' : 'Create Account'
+                      )}
+                    </Button>
+
+                    {view === 'login' && (
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={() => switchView('forgot-password')}
+                          className="text-sm text-primary font-medium hover:underline"
+                          disabled={loading}
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    )}
+                  </form>
+
+                  {/* Divider */}
+                  <div className="relative my-5">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-foreground/10" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="px-4 text-sm text-muted-foreground backdrop-blur-sm">or continue with</span>
+                    </div>
+                  </div>
+
+                  {/* Google Login */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-13 text-base font-medium rounded-xl border border-foreground/10 backdrop-blur-md bg-foreground/5 hover:bg-foreground/10 transition-all"
+                    onClick={handleGoogleSignIn}
+                    disabled={loading || googleLoading}
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Google
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
           </motion.div>
           
           {/* Switch View Footer */}
