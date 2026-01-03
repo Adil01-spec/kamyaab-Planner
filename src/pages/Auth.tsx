@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft, KeyRound } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
@@ -358,7 +358,38 @@ const Auth = () => {
     </motion.div>
   );
 
-  // Quote Panel component
+  // Parallax mouse tracking
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  
+  const springConfig = { damping: 25, stiffness: 150 };
+  const smoothMouseX = useSpring(mouseX, springConfig);
+  const smoothMouseY = useSpring(mouseY, springConfig);
+  
+  // Transform values for parallax layers
+  const quoteX = useTransform(smoothMouseX, [-0.5, 0.5], [15, -15]);
+  const quoteY = useTransform(smoothMouseY, [-0.5, 0.5], [10, -10]);
+  const bgX = useTransform(smoothMouseX, [-0.5, 0.5], [-20, 20]);
+  const bgY = useTransform(smoothMouseY, [-0.5, 0.5], [-15, 15]);
+  const decorX = useTransform(smoothMouseX, [-0.5, 0.5], [25, -25]);
+  const decorY = useTransform(smoothMouseY, [-0.5, 0.5], [20, -20]);
+  const glowX = useTransform(smoothMouseX, [-0.5, 0.5], [-30, 30]);
+  const glowY = useTransform(smoothMouseY, [-0.5, 0.5], [-25, 25]);
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(x);
+    mouseY.set(y);
+  };
+  
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
+  // Quote Panel component with parallax
   const QuotePanel = () => (
     <motion.div
       key={view === 'signup' ? 'signup-quote' : 'login-quote'}
@@ -367,17 +398,50 @@ const Auth = () => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
       className="h-full flex flex-col justify-center items-center p-8 lg:p-16 relative overflow-hidden"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-muted/30 via-transparent to-muted/20" />
+      {/* Background gradient overlay with parallax */}
+      <motion.div 
+        className="absolute inset-0 bg-gradient-to-br from-muted/30 via-transparent to-muted/20"
+        style={{ x: bgX, y: bgY }}
+      />
       
-      {/* Decorative quote mark */}
-      <div className="absolute top-12 left-12 text-muted-foreground/10 text-[150px] font-serif leading-none select-none">
+      {/* Floating glow orb with parallax */}
+      <motion.div
+        className="absolute w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none"
+        style={{ 
+          x: glowX, 
+          y: glowY,
+          top: '20%',
+          right: '10%'
+        }}
+      />
+      
+      {/* Secondary glow */}
+      <motion.div
+        className="absolute w-64 h-64 rounded-full bg-accent/10 blur-2xl pointer-events-none"
+        style={{ 
+          x: useTransform(smoothMouseX, [-0.5, 0.5], [20, -20]), 
+          y: useTransform(smoothMouseY, [-0.5, 0.5], [15, -15]),
+          bottom: '15%',
+          left: '5%'
+        }}
+      />
+      
+      {/* Decorative quote mark with parallax */}
+      <motion.div 
+        className="absolute top-12 left-12 text-muted-foreground/10 text-[150px] font-serif leading-none select-none"
+        style={{ x: decorX, y: decorY }}
+      >
         "
-      </div>
+      </motion.div>
       
-      {/* Quote content */}
-      <div className="relative z-10 max-w-lg text-center lg:text-left">
+      {/* Quote content with parallax */}
+      <motion.div 
+        className="relative z-10 max-w-lg text-center lg:text-left"
+        style={{ x: quoteX, y: quoteY }}
+      >
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -398,14 +462,15 @@ const Auth = () => {
         >
           – {currentQuote.author}
         </motion.p>
-      </div>
+      </motion.div>
       
-      {/* Decorative elements */}
+      {/* Decorative gradient at bottom */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
         className="absolute bottom-0 left-0 right-0 h-1/2 pointer-events-none"
+        style={{ x: bgX, y: useTransform(smoothMouseY, [-0.5, 0.5], [5, -5]) }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-transparent" />
       </motion.div>
