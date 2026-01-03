@@ -7,6 +7,7 @@ export interface MobileSettings {
   breathingAnimation: boolean;
   deviceMotion: boolean;
   swipeNavigation: boolean;
+  performanceMode: boolean;
 }
 
 // Default settings optimized for low-end devices
@@ -17,7 +18,16 @@ const DEFAULT_SETTINGS: MobileSettings = {
   breathingAnimation: false,  // Continuous animation - off by default
   deviceMotion: false,        // Sensor polling - off by default
   swipeNavigation: true,      // Low resource - keep on
+  performanceMode: true,      // On by default for low-end optimization
 };
+
+// GPU-intensive features that performance mode disables
+const GPU_INTENSIVE_KEYS: (keyof MobileSettings)[] = [
+  'audioFeedback',
+  'parallaxEffects',
+  'breathingAnimation',
+  'deviceMotion',
+];
 
 const STORAGE_KEY = 'mobile-settings';
 
@@ -66,7 +76,31 @@ export function useMobileSettings() {
   }, []);
 
   const toggleSetting = useCallback((key: keyof MobileSettings) => {
-    updateSettings({ [key]: !settings[key] });
+    if (key === 'performanceMode') {
+      // Toggle performance mode and update GPU-intensive features accordingly
+      const newPerformanceMode = !settings.performanceMode;
+      const updates: Partial<MobileSettings> = { performanceMode: newPerformanceMode };
+      
+      if (newPerformanceMode) {
+        // Turning ON performance mode = disable all GPU-intensive features
+        GPU_INTENSIVE_KEYS.forEach(k => {
+          updates[k] = false;
+        });
+      }
+      // Turning OFF performance mode doesn't auto-enable features (user controls individually)
+      
+      updateSettings(updates);
+    } else {
+      // If enabling a GPU-intensive feature, disable performance mode
+      const isGpuIntensive = GPU_INTENSIVE_KEYS.includes(key);
+      const turningOn = !settings[key];
+      
+      if (isGpuIntensive && turningOn) {
+        updateSettings({ [key]: true, performanceMode: false });
+      } else {
+        updateSettings({ [key]: !settings[key] });
+      }
+    }
   }, [settings, updateSettings]);
 
   const resetToDefaults = useCallback(() => {
