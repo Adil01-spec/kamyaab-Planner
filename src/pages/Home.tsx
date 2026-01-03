@@ -82,7 +82,7 @@ const Home = () => {
   const animationRef = useRef<number>();
   
   // Mobile settings
-  const { settings: mobileSettings, isMobile, toggleSetting, resetToDefaults } = useMobileSettings();
+  const { settings: mobileSettings, isMobile, toggleSetting, updateSettings, resetToDefaults } = useMobileSettings();
   
   // Keep cache in sync
   useEffect(() => {
@@ -122,12 +122,15 @@ const Home = () => {
       return;
     }
     
+    // Speed: slow = 12s, medium = 8s, fast = 4s cycle
+    const speedMap = { slow: 6, medium: 4, fast: 2 };
+    const divisor = speedMap[mobileSettings.breathingSpeed] || 4;
+    
     let startTime = Date.now();
     
     const animate = () => {
       const elapsed = (Date.now() - startTime) / 1000;
-      // Slow breathing: 8 second cycle
-      const phase = Math.sin(elapsed * Math.PI / 4) * 0.5 + 0.5;
+      const phase = Math.sin(elapsed * Math.PI / divisor) * 0.5 + 0.5;
       setBreathePhase(phase);
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -136,7 +139,7 @@ const Home = () => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [prefersReducedMotion, mobileSettings.breathingAnimation]);
+  }, [prefersReducedMotion, mobileSettings.breathingAnimation, mobileSettings.breathingSpeed]);
 
   // Unified position handler for mouse, touch, and device orientation
   const updatePosition = useCallback((clientX: number, clientY: number) => {
@@ -729,6 +732,7 @@ const Home = () => {
         onOpenChange={setSettingsOpen}
         settings={mobileSettings}
         onToggle={toggleSetting}
+        onUpdateSettings={updateSettings}
         onReset={resetToDefaults}
       />
     </div>

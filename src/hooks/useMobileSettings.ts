@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
+export type BreathingSpeed = 'slow' | 'medium' | 'fast';
+
 export interface MobileSettings {
   hapticFeedback: boolean;
   audioFeedback: boolean;
   parallaxEffects: boolean;
   breathingAnimation: boolean;
+  breathingSpeed: BreathingSpeed;
   deviceMotion: boolean;
   swipeNavigation: boolean;
   performanceMode: boolean;
@@ -16,13 +19,16 @@ const DEFAULT_SETTINGS: MobileSettings = {
   audioFeedback: false,       // Audio can lag on low-end - off by default
   parallaxEffects: false,     // GPU intensive - off by default
   breathingAnimation: false,  // Continuous animation - off by default
+  breathingSpeed: 'medium',   // Default to medium speed
   deviceMotion: false,        // Sensor polling - off by default
   swipeNavigation: true,      // Low resource - keep on
   performanceMode: true,      // On by default for low-end optimization
 };
 
-// GPU-intensive features that performance mode disables
-const GPU_INTENSIVE_KEYS: (keyof MobileSettings)[] = [
+// GPU-intensive boolean features that performance mode disables
+type BooleanSettingKey = 'hapticFeedback' | 'audioFeedback' | 'parallaxEffects' | 'breathingAnimation' | 'deviceMotion' | 'swipeNavigation' | 'performanceMode';
+
+const GPU_INTENSIVE_KEYS: BooleanSettingKey[] = [
   'audioFeedback',
   'parallaxEffects',
   'breathingAnimation',
@@ -76,6 +82,9 @@ export function useMobileSettings() {
   }, []);
 
   const toggleSetting = useCallback((key: keyof MobileSettings) => {
+    // Only allow toggling boolean settings
+    if (key === 'breathingSpeed') return;
+    
     if (key === 'performanceMode') {
       // Toggle performance mode and update GPU-intensive features accordingly
       const newPerformanceMode = !settings.performanceMode;
@@ -93,12 +102,13 @@ export function useMobileSettings() {
     } else {
       // If enabling a GPU-intensive feature, disable performance mode
       const isGpuIntensive = GPU_INTENSIVE_KEYS.includes(key);
-      const turningOn = !settings[key];
+      const currentValue = settings[key];
+      const turningOn = typeof currentValue === 'boolean' && !currentValue;
       
       if (isGpuIntensive && turningOn) {
         updateSettings({ [key]: true, performanceMode: false });
-      } else {
-        updateSettings({ [key]: !settings[key] });
+      } else if (typeof currentValue === 'boolean') {
+        updateSettings({ [key]: !currentValue });
       }
     }
   }, [settings, updateSettings]);
