@@ -433,7 +433,7 @@ const Home = () => {
                 {getGreeting()}
               </p>
               <h2 className="text-base font-medium text-foreground/90">
-                {planData?.project_title || profile?.fullName || 'Your Workspace'}
+                {profile?.fullName || 'Your Workspace'}
               </h2>
             </div>
             
