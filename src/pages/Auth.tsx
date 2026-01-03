@@ -515,25 +515,23 @@ const Auth = () => {
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back to login</span>
           </button>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Reset Password</h1>
-          <p className="text-sm text-muted-foreground mb-6">Enter your email and we'll send you a reset link</p>
           
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Input
                 type="email"
                 placeholder="Your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-12 text-base rounded-xl border-2 border-border/50 focus:border-primary/50 transition-colors bg-background"
+                className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
                 disabled={loading}
               />
             </div>
 
             <Button 
               type="submit" 
-              className="w-full h-12 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all"
+              className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               disabled={loading}
             >
               {loading ? (
@@ -548,31 +546,31 @@ const Auth = () => {
         <>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Input
                 type="email"
                 placeholder="Your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-12 h-12 text-base rounded-xl border-2 border-border/50 focus:border-primary/50 transition-colors bg-background"
+                className="pl-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
                 disabled={loading}
               />
             </div>
 
             <div className="relative">
-              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-12 pr-12 h-12 text-base rounded-xl border-2 border-border/50 focus:border-primary/50 transition-colors bg-background"
+                className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -585,19 +583,19 @@ const Auth = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="relative"
               >
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
                 <Input
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-12 pr-12 h-12 text-base rounded-xl border-2 border-border/50 focus:border-primary/50 transition-colors bg-background"
+                  className="pl-12 pr-12 h-13 text-base rounded-xl border border-foreground/10 focus:border-primary/50 transition-colors backdrop-blur-md bg-foreground/5"
                   disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -606,7 +604,7 @@ const Auth = () => {
 
             <Button 
               type="submit" 
-              className="w-full h-12 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all"
+              className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               disabled={loading}
             >
               {loading ? (
@@ -633,10 +631,10 @@ const Auth = () => {
           {/* Divider */}
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50" />
+              <div className="w-full border-t border-foreground/10" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-background px-4 text-sm text-muted-foreground">or continue with</span>
+              <span className="px-4 text-sm text-muted-foreground backdrop-blur-sm">or continue with</span>
             </div>
           </div>
 
@@ -644,7 +642,7 @@ const Auth = () => {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-12 text-base font-medium rounded-xl border-2 hover:bg-accent/50 transition-all"
+            className="w-full h-13 text-base font-medium rounded-xl border border-foreground/10 backdrop-blur-md bg-foreground/5 hover:bg-foreground/10 transition-all"
             onClick={handleGoogleSignIn}
             disabled={loading || googleLoading}
           >
@@ -669,87 +667,87 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex overflow-hidden bg-background">
-      {/* Mobile Layout */}
-      <div className="flex lg:hidden flex-col w-full min-h-screen">
-        {/* Hero Section with Illustration */}
-        <div className="relative h-[35vh] min-h-[220px] overflow-hidden">
-          {/* Background Illustration with Crossfade */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={view === 'signup' ? 'rocket-mobile' : 'mountain-mobile'}
-              initial={{ opacity: 0, scale: 1.1 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="absolute inset-0"
-            >
-              <img 
-                src={currentImage} 
-                alt="Decorative illustration"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-          </AnimatePresence>
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
-          
-          {/* Floating Quote Badge */}
+      {/* Mobile Layout - Full Page Background */}
+      <div className="flex lg:hidden flex-col w-full min-h-screen relative">
+        {/* Full-page Background Illustration with Crossfade */}
+        <AnimatePresence mode="wait">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="absolute bottom-6 left-4 right-4"
+            key={view === 'signup' ? 'rocket-mobile' : 'mountain-mobile'}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="absolute inset-0"
           >
-            <div className="glass-card rounded-2xl p-4 backdrop-blur-xl">
-              <p className="text-sm font-medium text-foreground leading-relaxed">
+            <img 
+              src={currentImage} 
+              alt="Decorative illustration"
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+        </AnimatePresence>
+        
+        {/* Gradient Overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95 pointer-events-none" />
+        
+        {/* Content Container */}
+        <div className="relative z-10 flex-1 flex flex-col px-5 pt-8 pb-6 safe-area-bottom">
+          {/* Quote Card at Top */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="mb-auto"
+          >
+            <div className="backdrop-blur-xl bg-foreground/5 border border-foreground/10 rounded-2xl p-5 shadow-lg">
+              <p className="text-base font-medium text-foreground leading-relaxed">
                 "{currentQuote.text} <span className="text-primary font-bold">{currentQuote.highlight}</span> {currentQuote.rest} <span className="text-primary font-bold">{currentQuote.highlight2}</span>."
               </p>
-              <p className="text-xs text-muted-foreground mt-2">– {currentQuote.author}</p>
+              <p className="text-sm text-muted-foreground mt-3">– {currentQuote.author}</p>
             </div>
           </motion.div>
-        </div>
-        
-        {/* Form Section */}
-        <div className="flex-1 flex flex-col px-6 pt-6 pb-8 safe-area-bottom">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-6"
-          >
-            <AnimatePresence mode="wait">
-              <motion.h1
-                key={view}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.3 }}
-                className="text-2xl font-bold text-foreground"
-              >
-                {view === 'login' ? 'Welcome Back' : view === 'signup' ? 'Create Account' : 'Reset Password'}
-              </motion.h1>
-            </AnimatePresence>
-            <p className="text-sm text-muted-foreground mt-1">
-              {view === 'login' ? 'Sign in to continue your journey' : view === 'signup' ? 'Start your journey with us' : 'We\'ll help you get back in'}
-            </p>
-          </motion.div>
           
-          {/* Form */}
-          <AnimatePresence mode="wait">
-            <MobileFormContent />
-          </AnimatePresence>
+          {/* Form Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="backdrop-blur-xl bg-foreground/5 border border-foreground/10 rounded-3xl p-6 shadow-2xl mt-6"
+          >
+            {/* Header */}
+            <div className="mb-5">
+              <AnimatePresence mode="wait">
+                <motion.h1
+                  key={view}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-2xl font-bold text-foreground"
+                >
+                  {view === 'login' ? 'Welcome Back' : view === 'signup' ? 'Create Account' : 'Reset Password'}
+                </motion.h1>
+              </AnimatePresence>
+              <p className="text-sm text-muted-foreground mt-1">
+                {view === 'login' ? 'Sign in to continue your journey' : view === 'signup' ? 'Start your journey with us' : 'We\'ll help you get back in'}
+              </p>
+            </div>
+            
+            {/* Form Content */}
+            <AnimatePresence mode="wait">
+              <MobileFormContent />
+            </AnimatePresence>
+          </motion.div>
           
           {/* Switch View Footer */}
           {view !== 'forgot-password' && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-auto pt-6 text-center"
+              transition={{ delay: 0.5 }}
+              className="pt-5 text-center"
             >
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-foreground/80">
                 {view === 'login' ? "Don't have an account?" : 'Already have an account?'}
                 <button
                   type="button"
