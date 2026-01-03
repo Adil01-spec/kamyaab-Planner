@@ -9,7 +9,7 @@ import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound, ChevronRight } from 'l
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
-import character3DImage from '@/assets/auth-3d-character.png';
+import floatingCharacterImage from '@/assets/auth-floating-character.png';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 type MobileScreen = 'welcome' | 'form';
@@ -498,30 +498,31 @@ const Auth = () => {
     </motion.div>
   );
 
-  // Mobile Welcome Screen with 3D Character
+  // Mobile Welcome Screen with 3D Character (Screen 2 in design)
   const MobileWelcomeScreen = () => (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 relative overflow-hidden">
-      {/* 3D Character in light card */}
-      <div className="flex-1 flex items-center justify-center px-6 pt-12 pb-6">
-        <div className="bg-gradient-to-b from-stone-100 to-stone-200 rounded-2xl p-6 shadow-2xl w-full max-w-sm aspect-square flex items-center justify-center">
-          <img 
-            src={character3DImage} 
-            alt="Welcome character"
-            className="w-full h-full object-contain"
-          />
-        </div>
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      {/* Light blue/lavender gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-200/60 via-indigo-100/40 to-white" />
+      
+      {/* 3D Character - takes most of the screen */}
+      <div className="flex-1 flex items-end justify-center relative z-10 px-4">
+        <img 
+          src={floatingCharacterImage} 
+          alt="Welcome character"
+          className="w-full max-w-md h-auto object-contain"
+        />
       </div>
       
       {/* Bottom Controls */}
-      <div className="px-6 pb-10 space-y-5">
+      <div className="relative z-10 px-8 pb-12 pt-4 bg-gradient-to-t from-white via-white/80 to-transparent">
         {/* Sign In / Register Toggle */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 justify-center">
           <Button
             onClick={() => {
               setView('login');
               setMobileScreen('form');
             }}
-            className="flex-1 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-base shadow-lg"
+            className="px-8 h-12 rounded-full bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm shadow-md"
           >
             Sign In
           </Button>
@@ -530,196 +531,193 @@ const Auth = () => {
               setView('signup');
               setMobileScreen('form');
             }}
-            className="flex-1 h-14 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-semibold text-base border border-slate-700"
+            variant="outline"
+            className="px-8 h-12 rounded-full border-2 border-blue-200 bg-white hover:bg-blue-50 text-foreground font-semibold text-sm"
           >
             Register
           </Button>
         </div>
-        
-        {/* Skip Option */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center justify-center gap-1 text-emerald-400 font-medium mx-auto hover:text-emerald-300"
-        >
-          Skip <ChevronRight className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
 
-  // Mobile Form Screen
+  // Mobile Form Screen (Screen 1 in design - Login/Signup form)
   const MobileFormScreen = () => (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100/50 dark:from-slate-900 dark:via-background dark:to-slate-800/30 px-6 py-8">
-      {/* Back Button */}
-      <button
-        onClick={() => setMobileScreen('welcome')}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span>Back</span>
-      </button>
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      {/* Light blue/purple gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-100/50 via-indigo-50/30 to-blue-100/40" />
       
-      {/* Title */}
-      <h1 className="text-2xl font-bold text-foreground mb-8">
-        {view === 'login' ? 'Sign In' : view === 'signup' ? 'Create Account' : 'Reset Password'}
-      </h1>
-      
-      {view === 'forgot-password' ? (
-        <form onSubmit={handleForgotPassword} className="space-y-4 flex-1">
-          <div className="relative">
-            <Input
-              type="email"
-              placeholder="Enter Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-14 text-base rounded-xl border border-border/50 bg-background pr-10"
-              disabled={loading}
-            />
-            <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full h-14 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90"
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
-          </Button>
-          
-          <button
-            type="button"
-            onClick={() => setView('login')}
-            className="text-center w-full text-primary font-medium"
-          >
-            Back to Sign In
-          </button>
-        </form>
-      ) : (
-        <>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Input */}
+      {/* Content */}
+      <div className="relative z-10 flex-1 flex flex-col px-6 pt-8 pb-10">
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-foreground mb-8">
+          {view === 'login' ? 'Sign In to recharge Direct' : view === 'signup' ? 'Create Account' : 'Reset Password'}
+        </h1>
+        
+        {view === 'forgot-password' ? (
+          <form onSubmit={handleForgotPassword} className="space-y-4 flex-1">
             <div className="relative">
               <Input
                 type="email"
                 placeholder="Enter Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-14 text-base rounded-xl border border-border/50 bg-background pr-10"
+                className="h-14 text-base rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm"
                 disabled={loading}
               />
-              <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             </div>
             
-            {/* Password Input */}
-            <div className="relative">
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-14 text-base rounded-xl border border-border/50 bg-background pr-10"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+            <Button 
+              type="submit" 
+              className="w-full h-14 text-base font-semibold rounded-2xl bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+            </Button>
             
-            {/* Confirm Password for Signup */}
-            {view === 'signup' && (
+            <button
+              type="button"
+              onClick={() => setView('login')}
+              className="text-center w-full text-blue-500 font-medium"
+            >
+              Back to Sign In
+            </button>
+          </form>
+        ) : (
+          <div className="flex-1 flex flex-col">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email Input */}
               <div className="relative">
                 <Input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-14 text-base rounded-xl border border-border/50 bg-background pr-10"
+                  type="email"
+                  placeholder="Enter Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-14 text-base rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm pr-10"
                   disabled={loading}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setEmail('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M15 9l-6 6M9 9l6 6" />
+                  </svg>
                 </button>
               </div>
-            )}
-            
-            {/* Forgot Password Link */}
-            {view === 'login' && (
-              <div className="text-right">
+              
+              {/* Password Input */}
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-14 text-base rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm pr-10"
+                  disabled={loading}
+                />
                 <button
                   type="button"
-                  onClick={() => setView('forgot-password')}
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  Recover Password ?
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-            )}
+              
+              {/* Confirm Password for Signup */}
+              {view === 'signup' && (
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-14 text-base rounded-lg border border-gray-200 bg-white/80 backdrop-blur-sm pr-10"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              )}
+              
+              {/* Forgot Password Link */}
+              {view === 'login' && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setView('forgot-password')}
+                    className="text-sm text-gray-400 hover:text-gray-600"
+                  >
+                    Recover Password ?
+                  </button>
+                </div>
+              )}
+              
+              {/* Submit Button */}
+              <Button 
+                type="submit" 
+                className="w-full h-14 text-base font-semibold rounded-2xl bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'login' ? 'Sign In' : 'Sign Up')}
+              </Button>
+            </form>
             
-            {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full h-14 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'login' ? 'Sign In' : 'Sign Up')}
-            </Button>
-          </form>
-          
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50" />
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-gradient-to-b from-blue-100/50 to-blue-100/40 px-4 text-sm text-gray-400">Or continue with</span>
+              </div>
             </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white dark:bg-background px-4 text-sm text-muted-foreground">Or continue with</span>
+            
+            {/* Social Login Button - Google Only */}
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-20 h-14 rounded-xl border-2 border-blue-100 bg-white hover:bg-blue-50"
+                onClick={handleGoogleSignIn}
+                disabled={loading || googleLoading}
+              >
+                {googleLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <svg className="w-6 h-6" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                )}
+              </Button>
             </div>
+            
+            {/* Switch View Link */}
+            <p className="text-center mt-auto pt-8 text-gray-500">
+              {view === 'login' ? "if you don't an account" : 'Already have an account?'}
+              <br />
+              <button
+                type="button"
+                onClick={() => setView(view === 'login' ? 'signup' : 'login')}
+                className="text-blue-500 font-semibold hover:underline"
+              >
+                {view === 'login' ? 'you can Register here!' : 'Sign In here!'}
+              </button>
+            </p>
           </div>
-          
-          {/* Social Login Button - Google Only */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-14 rounded-xl border-2 flex items-center justify-center gap-3"
-            onClick={handleGoogleSignIn}
-            disabled={loading || googleLoading}
-          >
-            {googleLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="font-medium">Continue with Google</span>
-              </>
-            )}
-          </Button>
-          
-          {/* Switch View Link */}
-          <p className="text-center mt-8 text-muted-foreground">
-            {view === 'login' ? "if you don't an account" : 'Already have an account?'}
-            <br />
-            <button
-              type="button"
-              onClick={() => setView(view === 'login' ? 'signup' : 'login')}
-              className="text-primary font-semibold hover:underline"
-            >
-              {view === 'login' ? 'you can Register here!' : 'Sign In here!'}
-            </button>
-          </p>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 
