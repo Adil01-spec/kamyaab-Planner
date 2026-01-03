@@ -435,6 +435,11 @@ const Home = () => {
               <h2 className="text-base font-medium text-foreground/90">
                 {profile?.fullName || 'Your Workspace'}
               </h2>
+              {planData?.project_title && (
+                <p className="text-xs text-muted-foreground/70 font-normal">
+                  {planData.project_title}
+                </p>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
