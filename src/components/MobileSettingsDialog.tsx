@@ -18,18 +18,21 @@ import {
   RotateCcw,
   Zap
 } from "lucide-react";
-import type { MobileSettings } from "@/hooks/useMobileSettings";
+import type { MobileSettings, BreathingSpeed } from "@/hooks/useMobileSettings";
 
 interface MobileSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: MobileSettings;
   onToggle: (key: keyof MobileSettings) => void;
+  onUpdateSettings: (updates: Partial<MobileSettings>) => void;
   onReset: () => void;
 }
 
+type BooleanSettingKey = Exclude<keyof MobileSettings, 'breathingSpeed'>;
+
 const settingsConfig: {
-  key: keyof MobileSettings;
+  key: BooleanSettingKey;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -79,11 +82,18 @@ const settingsConfig: {
   },
 ];
 
+const breathingSpeedLabels: Record<BreathingSpeed, string> = {
+  slow: 'Slow',
+  medium: 'Medium', 
+  fast: 'Fast',
+};
+
 export function MobileSettingsDialog({
   open,
   onOpenChange,
   settings,
   onToggle,
+  onUpdateSettings,
   onReset,
 }: MobileSettingsDialogProps) {
   return (
@@ -172,7 +182,33 @@ export function MobileSettingsDialog({
                 onCheckedChange={() => onToggle(key)}
               />
             </div>
-          ))}
+            ))}
+
+          {/* Breathing Speed Selector */}
+          {settings.breathingAnimation && (
+            <div className="p-3 rounded-lg border border-border/10 bg-background/50">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium text-foreground/90">
+                  Breathing Speed
+                </Label>
+              </div>
+              <div className="flex gap-2">
+                {(['slow', 'medium', 'fast'] as BreathingSpeed[]).map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => onUpdateSettings({ breathingSpeed: speed })}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
+                      settings.breathingSpeed === speed
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    {breathingSpeedLabels[speed]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-border/10">
