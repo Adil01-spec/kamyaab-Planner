@@ -408,15 +408,16 @@ const Home = () => {
       style={{ transitionDuration: 'var(--color-transition)' }}
       {...swipeHandlers.handlers}
     >
-      {/* Two-tone dynamic ambient background with breathing */}
+      {/* Two-tone dynamic ambient background with breathing + device motion parallax */}
       <div 
         className="fixed inset-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse ${55 + breathePhase * 10}% ${45 + breathePhase * 10}% at ${bgPosition.x1}% ${bgPosition.y1}%, hsl(var(--dynamic-bg-1) / ${0.35 + breathePhase * 0.1}), transparent 70%),
-            radial-gradient(ellipse ${45 + breathePhase * 10}% ${55 + breathePhase * 10}% at ${bgPosition.x2}% ${bgPosition.y2}%, hsl(var(--dynamic-bg-2) / ${0.3 + breathePhase * 0.1}), transparent 70%)
+            radial-gradient(ellipse ${65 + breathePhase * 8}% ${55 + breathePhase * 8}% at ${bgPosition.x1 + parallax.x * 0.3}% ${bgPosition.y1 + parallax.y * 0.3}%, hsl(var(--dynamic-bg-1) / ${0.18 + breathePhase * 0.06}), transparent 75%),
+            radial-gradient(ellipse ${55 + breathePhase * 8}% ${65 + breathePhase * 8}% at ${bgPosition.x2 - parallax.x * 0.2}% ${bgPosition.y2 - parallax.y * 0.2}%, hsl(var(--dynamic-bg-2) / ${0.15 + breathePhase * 0.05}), transparent 75%)
           `,
-          transition: 'background 0.15s ease-out'
+          transition: 'background 0.1s ease-out',
+          transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`
         }}
       />
 
