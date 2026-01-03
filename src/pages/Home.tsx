@@ -29,6 +29,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileSettings';
 import { MobileSettingsDialog } from '@/components/MobileSettingsDialog';
+import TaskQuickActions from '@/components/TaskQuickActions';
 
 interface Task {
   title: string;
@@ -76,6 +77,7 @@ const Home = () => {
   const [breathePhase, setBreathePhase] = useState(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hoveredTaskKey, setHoveredTaskKey] = useState<string | null>(null);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
   
@@ -412,12 +414,15 @@ const Home = () => {
       <div 
         className="fixed inset-0 pointer-events-none"
         style={{
-          background: `
-            radial-gradient(ellipse ${65 + breathePhase * 8}% ${55 + breathePhase * 8}% at ${bgPosition.x1 + parallax.x * 0.3}% ${bgPosition.y1 + parallax.y * 0.3}%, hsl(var(--dynamic-bg-1) / ${0.18 + breathePhase * 0.06}), transparent 75%),
-            radial-gradient(ellipse ${55 + breathePhase * 8}% ${65 + breathePhase * 8}% at ${bgPosition.x2 - parallax.x * 0.2}% ${bgPosition.y2 - parallax.y * 0.2}%, hsl(var(--dynamic-bg-2) / ${0.15 + breathePhase * 0.05}), transparent 75%)
+          background: mobileSettings.parallaxEffects ? `
+            radial-gradient(ellipse ${70 + breathePhase * 12}% ${60 + breathePhase * 12}% at ${bgPosition.x1 + parallax.x * 0.4}% ${bgPosition.y1 + parallax.y * 0.4}%, hsl(var(--dynamic-bg-1) / ${0.45 + breathePhase * 0.12}), transparent 70%),
+            radial-gradient(ellipse ${60 + breathePhase * 12}% ${70 + breathePhase * 12}% at ${bgPosition.x2 - parallax.x * 0.3}% ${bgPosition.y2 - parallax.y * 0.3}%, hsl(var(--dynamic-bg-2) / ${0.38 + breathePhase * 0.10}), transparent 70%)
+          ` : `
+            radial-gradient(ellipse 70% 60% at 25% 20%, hsl(var(--dynamic-bg-1) / 0.45), transparent 70%),
+            radial-gradient(ellipse 60% 70% at 75% 80%, hsl(var(--dynamic-bg-2) / 0.38), transparent 70%)
           `,
-          transition: 'background 0.1s ease-out',
-          transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`
+          transition: 'background 0.15s ease-out',
+          transform: mobileSettings.parallaxEffects ? `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` : undefined
         }}
       />
 
@@ -533,54 +538,69 @@ const Home = () => {
                 }}
               />
 
-              {todaysTasks.map(({ task, weekIndex, taskIndex }) => (
-                <div
-                  key={`${weekIndex}-${taskIndex}`}
-                  onClick={() => toggleTask(weekIndex, taskIndex)}
-                  className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
-                  style={{
-                    boxShadow: 'inset 0 0 0 1px transparent',
-                    transition: 'box-shadow 0.25s ease, background 0.25s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
-                    e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <div className="pt-0.5">
-                    <Checkbox
-                      checked={task.completed || false}
-                      onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
-                      style={{
-                        '--tw-bg-opacity': task.completed ? '1' : '0',
-                        backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
-                        borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
-                      } as React.CSSProperties}
+              {todaysTasks.map(({ task, weekIndex, taskIndex }) => {
+                const taskKey = `${weekIndex}-${taskIndex}`;
+                const isHovered = hoveredTaskKey === taskKey;
+                
+                return (
+                  <div
+                    key={taskKey}
+                    onClick={() => toggleTask(weekIndex, taskIndex)}
+                    onMouseEnter={(e) => {
+                      setHoveredTaskKey(taskKey);
+                      e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
+                      e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
+                    }}
+                    onMouseLeave={(e) => {
+                      setHoveredTaskKey(null);
+                      e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                    className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
+                    style={{
+                      boxShadow: 'inset 0 0 0 1px transparent',
+                      transition: 'box-shadow 0.25s ease, background 0.25s ease'
+                    }}
+                  >
+                    <div className="pt-0.5">
+                      <Checkbox
+                        checked={task.completed || false}
+                        onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
+                        style={{
+                          '--tw-bg-opacity': task.completed ? '1' : '0',
+                          backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                          borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                        } as React.CSSProperties}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
+                        task.completed 
+                          ? 'line-through text-muted-foreground/50' 
+                          : 'text-foreground/90'
+                      }`}>
+                        {task.title}
+                      </p>
+                      <div className="flex items-center gap-2.5 mt-1.5">
+                        <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {task.estimated_hours}h
+                        </span>
+                      </div>
+                    </div>
+                    <TaskQuickActions
+                      isVisible={isHovered}
+                      onEdit={() => navigate('/plan')}
+                      onDelete={() => {
+                        // Mark as complete to "remove" for today
+                        toggleTask(weekIndex, taskIndex);
+                      }}
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
-                      task.completed 
-                        ? 'line-through text-muted-foreground/50' 
-                        : 'text-foreground/90'
-                    }`}>
-                      {task.title}
-                    </p>
-                    <div className="flex items-center gap-2.5 mt-1.5">
-                      <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {task.estimated_hours}h
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Week indicator */}
               <p className="text-[11px] text-muted-foreground/40 pt-2 border-t border-border/10">
