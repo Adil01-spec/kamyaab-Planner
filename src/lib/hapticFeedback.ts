@@ -4,8 +4,14 @@
  * iOS Safari does not support the Vibration API
  */
 
+import { getMobileSettings } from '@/hooks/useMobileSettings';
+
 const canVibrate = (): boolean => {
   return 'vibrate' in navigator;
+};
+
+const isEnabled = (): boolean => {
+  return getMobileSettings().hapticFeedback;
 };
 
 /**
@@ -13,7 +19,7 @@ const canVibrate = (): boolean => {
  * Short, pleasant vibration
  */
 export function hapticSuccess(): void {
-  if (!canVibrate()) return;
+  if (!canVibrate() || !isEnabled()) return;
   
   try {
     // Double tap pattern: vibrate 15ms, pause 50ms, vibrate 15ms
@@ -28,7 +34,7 @@ export function hapticSuccess(): void {
  * Single gentle vibration
  */
 export function hapticLight(): void {
-  if (!canVibrate()) return;
+  if (!canVibrate() || !isEnabled()) return;
   
   try {
     navigator.vibrate(10);
@@ -42,7 +48,7 @@ export function hapticLight(): void {
  * Slightly stronger, single pulse
  */
 export function hapticWarning(): void {
-  if (!canVibrate()) return;
+  if (!canVibrate() || !isEnabled()) return;
   
   try {
     navigator.vibrate(25);
@@ -56,7 +62,7 @@ export function hapticWarning(): void {
  * Very light tap
  */
 export function hapticSelection(): void {
-  if (!canVibrate()) return;
+  if (!canVibrate() || !isEnabled()) return;
   
   try {
     navigator.vibrate(5);
