@@ -45,9 +45,9 @@
     --dynamic-accent-muted: 168 35% 75%;
     --dynamic-accent-fill: 168 40% 50%;
     
-    /* Two-tone dynamic backgrounds (set via JS) - very subtle */
-    --dynamic-bg-1: 32 60% 94%;
-    --dynamic-bg-2: 195 50% 92%;
+    /* Two-tone dynamic backgrounds (set via JS) - full color */
+    --dynamic-bg-1: 28 75% 88%;
+    --dynamic-bg-2: 200 65% 85%;
 
     /* Custom tokens */
     --kaamyab-green: 160 55% 38%;
@@ -121,9 +121,9 @@
     --dynamic-accent-muted: 168 25% 25%;
     --dynamic-accent-fill: 168 30% 45%;
     
-    /* Two-tone dynamic backgrounds (set via JS) - very subtle */
-    --dynamic-bg-1: 235 30% 11%;
-    --dynamic-bg-2: 185 25% 10%;
+    /* Two-tone dynamic backgrounds (set via JS) - full color */
+    --dynamic-bg-1: 235 40% 14%;
+    --dynamic-bg-2: 185 35% 12%;
     
     /* Dark mode glassmorphism - softer */
     --glass-bg: rgba(255, 255, 255, 0.04);

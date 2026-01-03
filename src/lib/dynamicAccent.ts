@@ -22,74 +22,74 @@ interface AccentPalette {
   };
 }
 
-// Two-tone palettes for each time of day - very subtle, understated colors
+// Two-tone palettes for each time of day - full, vibrant colors
 const palettes: Record<TimeOfDay, AccentPalette> = {
   morning: {
-    // Refreshing: Very subtle peach + sky hints
+    // Refreshing: Warm peach + cool sky blue
     light: {
-      accent: '168 45% 45%',
-      accentMuted: '168 35% 75%',
-      accentFill: '168 40% 50%',
-      bgGradient1: '32 50% 95%',   // Very subtle warm
-      bgGradient2: '195 40% 94%',  // Barely-there blue
+      accent: '168 55% 42%',
+      accentMuted: '168 40% 72%',
+      accentFill: '168 50% 48%',
+      bgGradient1: '28 75% 88%',   // Warm peach
+      bgGradient2: '200 65% 85%',  // Sky blue
     },
     dark: {
-      accent: '168 35% 55%',
-      accentMuted: '168 25% 25%',
-      accentFill: '168 30% 45%',
-      bgGradient1: '32 25% 11%',   // Deep subtle amber
-      bgGradient2: '195 20% 10%',  // Muted night
+      accent: '168 45% 52%',
+      accentMuted: '168 30% 28%',
+      accentFill: '168 38% 42%',
+      bgGradient1: '28 45% 18%',   // Deep amber
+      bgGradient2: '200 40% 14%',  // Deep blue
     },
   },
   afternoon: {
-    // Energetic but subtle: Hint of coral + mint
+    // Energetic: Coral + fresh mint
     light: {
-      accent: '175 40% 42%',
-      accentMuted: '175 30% 72%',
-      accentFill: '175 35% 48%',
-      bgGradient1: '15 45% 95%',   // Whisper of coral
-      bgGradient2: '155 35% 94%',  // Touch of mint
+      accent: '175 50% 40%',
+      accentMuted: '175 38% 70%',
+      accentFill: '175 45% 46%',
+      bgGradient1: '12 70% 86%',   // Coral
+      bgGradient2: '155 55% 84%',  // Mint
     },
     dark: {
-      accent: '175 32% 52%',
-      accentMuted: '175 22% 24%',
-      accentFill: '175 28% 42%',
-      bgGradient1: '15 20% 10%',   // Very subtle coral
-      bgGradient2: '155 18% 9%',   // Dark mint hint
+      accent: '175 42% 50%',
+      accentMuted: '175 28% 26%',
+      accentFill: '175 35% 40%',
+      bgGradient1: '12 40% 16%',   // Deep coral
+      bgGradient2: '155 35% 12%',  // Deep mint
     },
   },
   evening: {
-    // Warm but understated: Golden + lavender whispers
+    // Warm: Golden amber + soft lavender
     light: {
-      accent: '160 38% 40%',
-      accentMuted: '160 28% 70%',
-      accentFill: '160 33% 46%',
-      bgGradient1: '38 45% 94%',   // Subtle golden
-      bgGradient2: '275 30% 95%',  // Whisper lavender
+      accent: '160 48% 38%',
+      accentMuted: '160 35% 68%',
+      accentFill: '160 42% 44%',
+      bgGradient1: '38 70% 82%',   // Golden amber
+      bgGradient2: '270 50% 88%',  // Soft lavender
     },
     dark: {
-      accent: '160 30% 50%',
-      accentMuted: '160 20% 22%',
-      accentFill: '160 25% 40%',
-      bgGradient1: '38 25% 10%',   // Deep subtle amber
-      bgGradient2: '275 18% 9%',   // Muted purple hint
+      accent: '160 38% 48%',
+      accentMuted: '160 25% 24%',
+      accentFill: '160 32% 38%',
+      bgGradient1: '38 45% 16%',   // Deep amber
+      bgGradient2: '270 35% 14%',  // Deep purple
     },
   },
   night: {
-    // Calm: Very subtle indigo + teal
+    // Calm: Deep indigo + ocean teal
     light: {
-      accent: '155 32% 38%',
-      accentMuted: '155 22% 68%',
-      accentFill: '155 28% 44%',
-      bgGradient1: '235 35% 95%',  // Hint of indigo
-      bgGradient2: '185 30% 94%',  // Whisper teal
+      accent: '155 42% 36%',
+      accentMuted: '155 30% 66%',
+      accentFill: '155 36% 42%',
+      bgGradient1: '235 55% 88%',  // Soft indigo
+      bgGradient2: '185 50% 84%',  // Ocean teal
     },
     dark: {
-      accent: '155 25% 48%',
-      accentMuted: '155 18% 20%',
-      accentFill: '155 22% 38%',
-      bgGradient1: '235 25% 9%',   // Very deep indigo
-      bgGradient2: '185 20% 8%',   // Dark teal hint
+      accent: '155 32% 46%',
+      accentMuted: '155 22% 22%',
+      accentFill: '155 28% 36%',
+      bgGradient1: '235 40% 14%',  // Deep indigo
+      bgGradient2: '185 35% 12%',  // Deep teal
     },
   },
 };
