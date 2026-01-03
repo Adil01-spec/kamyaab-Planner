@@ -500,7 +500,7 @@ const Auth = () => {
 
   // Mobile Welcome Screen with 3D Character
   const MobileWelcomeScreen = () => (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-background to-blue-100/30 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100/50 dark:from-slate-900 dark:via-background dark:to-slate-800/30 relative overflow-hidden">
       {/* 3D Character */}
       <div className="flex-1 flex items-center justify-center pt-16 pb-8">
         <img 
@@ -548,7 +548,7 @@ const Auth = () => {
 
   // Mobile Form Screen
   const MobileFormScreen = () => (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-background to-blue-100/30 px-6 py-8">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100/50 dark:from-slate-900 dark:via-background dark:to-slate-800/30 px-6 py-8">
       {/* Back Button */}
       <button
         onClick={() => setMobileScreen('welcome')}
@@ -678,7 +678,7 @@ const Auth = () => {
               <div className="w-full border-t border-border/50" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-gradient-to-b from-blue-50/50 via-background to-background px-4 text-sm text-muted-foreground">Or continue with</span>
+              <span className="bg-white dark:bg-background px-4 text-sm text-muted-foreground">Or continue with</span>
             </div>
           </div>
           
