@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { BottomNav } from '@/components/BottomNav';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface Task {
@@ -673,8 +672,6 @@ const Home = () => {
           </section>
         )}
       </div>
-      
-      <BottomNav />
     </div>
   );
 };
