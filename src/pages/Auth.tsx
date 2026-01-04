@@ -167,8 +167,8 @@ const Auth = () => {
   const currentQuote = view === 'signup' ? quotes.signup : quotes.login;
   const isLoginView = view === 'login' || view === 'forgot-password';
 
-  // Form component
-  const FormContent = () => (
+  // Form content (kept as JSX element to avoid remounting on each keystroke)
+  const formContent = (
     <motion.div
       key={view}
       initial={{ opacity: 0, x: isLoginView ? -30 : 30 }}
@@ -396,8 +396,8 @@ const Auth = () => {
     mouseY.set(0);
   };
 
-  // Quote Panel component with parallax
-  const QuotePanel = () => (
+  // Quote panel (kept as JSX element to avoid remounting on each keystroke)
+  const quotePanel = (
     <motion.div
       key={view === 'signup' ? 'signup-quote' : 'login-quote'}
       initial={{ opacity: 0 }}
@@ -748,56 +748,54 @@ const Auth = () => {
 
       {/* Desktop Layout - Split screen with animated panel swap */}
       <div className="hidden lg:flex flex-1 relative">
-        <AnimatePresence mode="wait">
-          {isLoginView ? (
-            <>
-              {/* Login: Form Left, Quote Right */}
-              <motion.div
-                key="login-form-panel"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="w-1/2 flex items-center justify-center bg-background"
-              >
-                <FormContent />
-              </motion.div>
-              <motion.div
-                key="login-quote-panel"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="w-1/2 bg-muted/30"
-              >
-                <QuotePanel />
-              </motion.div>
-            </>
-          ) : (
-            <>
-              {/* Signup: Quote Left, Form Right */}
-              <motion.div
-                key="signup-quote-panel"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="w-1/2 bg-muted/30"
-              >
-                <QuotePanel />
-              </motion.div>
-              <motion.div
-                key="signup-form-panel"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="w-1/2 flex items-center justify-center bg-background"
-              >
-                <FormContent />
-              </motion.div>
-            </>
-          )}
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoginView
+            ? [
+                // Login: Form Left, Quote Right
+                <motion.div
+                  key="login-form-panel"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                  className="w-1/2 flex items-center justify-center bg-background"
+                >
+                  {formContent}
+                </motion.div>,
+                <motion.div
+                  key="login-quote-panel"
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                  className="w-1/2 bg-muted/30"
+                >
+                  {quotePanel}
+                </motion.div>,
+              ]
+            : [
+                // Signup: Quote Left, Form Right
+                <motion.div
+                  key="signup-quote-panel"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                  className="w-1/2 bg-muted/30"
+                >
+                  {quotePanel}
+                </motion.div>,
+                <motion.div
+                  key="signup-form-panel"
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                  className="w-1/2 flex items-center justify-center bg-background"
+                >
+                  {formContent}
+                </motion.div>,
+              ]}
         </AnimatePresence>
       </div>
     </div>
