@@ -8,7 +8,8 @@ import {
   Target,
   Lightbulb,
   Check,
-  Loader2
+  Loader2,
+  CalendarCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ interface PrimaryTaskCardProps {
   weekFocus: string;
   onComplete: () => void;
   isCompleting?: boolean;
+  isScheduled?: boolean;
 }
 
 // Convert hours to friendly time hint
@@ -62,7 +64,8 @@ export function PrimaryTaskCard({
   weekNumber, 
   weekFocus,
   onComplete,
-  isCompleting = false
+  isCompleting = false,
+  isScheduled = false
 }: PrimaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
@@ -94,10 +97,20 @@ export function PrimaryTaskCard({
             <span className="truncate max-w-[150px]">{weekFocus}</span>
           </div>
           
-          {/* Time hint */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
-            <Clock className="w-3 h-3" />
-            <span>{getTimeHint(task.estimated_hours)}</span>
+          <div className="flex items-center gap-2">
+            {/* Calendar scheduled indicator */}
+            {isScheduled && (
+              <div className="flex items-center gap-1 text-xs text-primary/70 bg-primary/5 px-2 py-0.5 rounded-full">
+                <CalendarCheck className="w-3 h-3" />
+                <span className="hidden sm:inline">Scheduled</span>
+              </div>
+            )}
+            
+            {/* Time hint */}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full">
+              <Clock className="w-3 h-3" />
+              <span>{getTimeHint(task.estimated_hours)}</span>
+            </div>
           </div>
         </div>
 
