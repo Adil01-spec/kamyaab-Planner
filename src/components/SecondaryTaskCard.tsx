@@ -7,7 +7,8 @@ import {
   Clock, 
   Target,
   Lightbulb,
-  Loader2
+  Loader2,
+  CalendarCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ interface SecondaryTaskCardProps {
   onComplete: () => void;
   isCompleting?: boolean;
   taskNumber: number;
+  isScheduled?: boolean;
 }
 
 // Convert hours to friendly time hint
@@ -59,7 +61,8 @@ export function SecondaryTaskCard({
   weekFocus,
   onComplete,
   isCompleting = false,
-  taskNumber
+  taskNumber,
+  isScheduled = false
 }: SecondaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
@@ -87,6 +90,11 @@ export function SecondaryTaskCard({
                 <Clock className="w-3 h-3" />
                 {getTimeHint(task.estimated_hours)}
               </span>
+              {isScheduled && (
+                <span className="flex items-center gap-1 text-xs text-primary/70">
+                  <CalendarCheck className="w-3 h-3" />
+                </span>
+              )}
             </div>
             
             {/* Task Title */}

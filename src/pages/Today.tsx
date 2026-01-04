@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PrimaryTaskCard } from '@/components/PrimaryTaskCard';
 import { SecondaryTaskCard } from '@/components/SecondaryTaskCard';
 import { MomentumFeedback } from '@/components/MomentumFeedback';
+import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
@@ -23,6 +24,7 @@ import {
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getTaskCalendarStatus } from '@/hooks/useCalendarStatus';
 
 interface PlanData {
   overview: string;
@@ -48,6 +50,24 @@ interface PlanData {
   is_open_ended?: boolean;
 }
 
+// Soft, non-repetitive motivational lines
+const motivationalLines = [
+  "Let's make progress — one step today.",
+  "Small wins build lasting momentum.",
+  "Focus on what matters most right now.",
+  "Progress over perfection, always.",
+  "Today is a fresh opportunity.",
+  "One task at a time. You've got this.",
+  "Steady progress leads to great things.",
+  "Show up. Start small. Keep going.",
+];
+
+// Get a consistent motivational line based on the day
+const getMotivationalLine = (): string => {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  return motivationalLines[dayOfYear % motivationalLines.length];
+};
+
 const Today = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -65,13 +85,19 @@ const Today = () => {
   // Get current date formatted
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
 
-  // Time-based greeting
-  const getGreeting = (): string => {
+  // Time-based greeting with user's name
+  const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+    let timeGreeting = 'Good evening';
+    if (hour < 12) timeGreeting = 'Good morning';
+    else if (hour < 17) timeGreeting = 'Good afternoon';
+    
+    const firstName = profile?.fullName?.split(' ')[0] || '';
+    return firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
+  }, [profile?.fullName]);
+
+  // Motivational line (consistent per day)
+  const motivationalLine = useMemo(() => getMotivationalLine(), []);
 
   // Fetch plan data
   useEffect(() => {
@@ -232,16 +258,33 @@ const Today = () => {
 
       {/* Main Content */}
       <main className="max-w-lg mx-auto px-5 py-6 sm:py-8">
-        {/* Greeting Section */}
+        {/* Greeting Section with Progress Ring */}
         <motion.div 
           className="mb-6"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <p className="text-sm text-muted-foreground mb-1">{getGreeting()}</p>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Today's Focus</h1>
-          <p className="text-sm text-muted-foreground">{todayFormatted}</p>
+          <div className="flex items-start justify-between gap-4">
+            {/* Text content */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
+                {greeting}
+              </h1>
+              <p className="text-sm text-muted-foreground mb-2">
+                {motivationalLine}
+              </p>
+              <p className="text-xs text-muted-foreground/70">{todayFormatted}</p>
+            </div>
+            
+            {/* Progress Ring - only show if there are tasks */}
+            {todaysTasks.length > 0 && (
+              <TodayProgressRing 
+                completed={completedCount} 
+                total={todaysTasks.length} 
+              />
+            )}
+          </div>
         </motion.div>
 
         {/* Momentum Feedback */}
@@ -350,6 +393,7 @@ const Today = () => {
                   weekFocus={primaryTask.weekFocus}
                   onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
                   isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
+                  isScheduled={getTaskCalendarStatus(primaryTask.weekIndex + 1, primaryTask.taskIndex).status === 'scheduled'}
                 />
               )}
 
@@ -373,6 +417,7 @@ const Today = () => {
                         onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
                         isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
                         taskNumber={index + 2}
+                        isScheduled={getTaskCalendarStatus(item.weekIndex + 1, item.taskIndex).status === 'scheduled'}
                       />
                     </motion.div>
                   ))}
