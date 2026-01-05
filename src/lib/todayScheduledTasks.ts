@@ -13,6 +13,7 @@ interface Task {
   estimated_hours: number;
   completed?: boolean;
   completed_at?: string;
+  scheduled_at?: string;
   explanation?: {
     how: string;
     why: string;

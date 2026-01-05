@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { requiresRedirectAuth, clearPartialSession } from '@/lib/browserDetection';
 
 interface UserProfile {
   id: string;
@@ -96,6 +97,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Handle token errors (common on iOS Safari after OAuth)
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('Token refresh failed, clearing session');
+          clearPartialSession();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        // Handle sign in errors
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -112,30 +133,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      // Handle stale/invalid refresh token by signing out
-      if (error && error.message?.includes('Refresh Token')) {
-        supabase.auth.signOut();
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Handle stale/invalid tokens
+        if (error) {
+          const isTokenError = error.message?.includes('Refresh Token') || 
+                               error.message?.includes('token') ||
+                               error.message?.includes('signature');
+          if (isTokenError) {
+            console.warn('Invalid session token, clearing');
+            clearPartialSession();
+            await supabase.auth.signOut();
+          }
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        
+        // Validate session has required tokens
+        if (session && (!session.access_token || !session.refresh_token)) {
+          console.warn('Incomplete session, clearing');
+          clearPartialSession();
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Session init error:', err);
+        clearPartialSession();
         setSession(null);
         setUser(null);
         setProfile(null);
         setLoading(false);
-        return;
       }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    }).catch(() => {
-      // Clear state on any session error
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-    });
+    };
+
+    initSession();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -161,15 +208,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/onboarding`,
-      },
-    });
-    return { error };
-  };
+  const signInWithGoogle = useCallback(async () => {
+    const redirectUrl = `${window.location.origin}/onboarding`;
+    
+    // Clear any partial/stale session before OAuth
+    clearPartialSession();
+    
+    try {
+      // Always use redirect flow - more reliable across all browsers
+      // Especially critical for iOS Safari which blocks popups
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: false, // Ensure we do a full redirect
+          queryParams: {
+            prompt: 'select_account', // Force account selection
+          },
+        },
+      });
+      
+      if (error) {
+        // Don't show raw token errors to user
+        if (error.message?.includes('token') || error.message?.includes('signature')) {
+          console.error('OAuth token error:', error);
+          clearPartialSession();
+          return { error: { message: 'Sign in failed. Please try again.' } };
+        }
+        return { error };
+      }
+      
+      return { error: null };
+    } catch (err) {
+      console.error('OAuth error:', err);
+      clearPartialSession();
+      return { error: { message: 'Sign in failed. Please try again.' } };
+    }
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut();
