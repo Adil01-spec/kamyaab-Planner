@@ -9,7 +9,7 @@ import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { getTodaysTasks, type TodayTask } from '@/lib/todayTaskSelector';
+import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
 import { 
@@ -19,12 +19,11 @@ import {
   ChevronRight,
   Home,
   Moon,
-  Coffee
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTaskCalendarStatus } from '@/hooks/useCalendarStatus';
 
 interface PlanData {
   overview: string;
@@ -144,8 +143,8 @@ const Today = () => {
     }
   }, [loading, hasNoPlan, navigate]);
 
-  // Get today's tasks using the selector
-  const todaysTasks: TodayTask[] = planData ? getTodaysTasks(planData) : [];
+  // Get tasks scheduled for today
+  const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];
   const completedCount = todaysTasks.filter(t => t.task.completed).length;
   const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
   
@@ -348,7 +347,7 @@ const Today = () => {
               </Button>
             </motion.div>
           ) : todaysTasks.length === 0 ? (
-            /* No Tasks State */
+            /* No Tasks Scheduled for Today */
             <motion.div
               key="empty"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -358,13 +357,13 @@ const Today = () => {
               className="flex flex-col items-center justify-center py-12 text-center"
             >
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <Coffee className="w-10 h-10 text-primary" />
+                <Sparkles className="w-10 h-10 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                You're all caught up
+                You're clear for today.
               </h2>
               <p className="text-muted-foreground text-sm max-w-xs mb-6">
-                No pending tasks right now. Check your full plan to see what's next.
+                Enjoy the momentum. Schedule tasks from your plan to see them here.
               </p>
               <Button 
                 variant="outline" 
@@ -393,7 +392,7 @@ const Today = () => {
                   weekFocus={primaryTask.weekFocus}
                   onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
                   isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
-                  isScheduled={getTaskCalendarStatus(primaryTask.weekIndex + 1, primaryTask.taskIndex).status === 'scheduled'}
+                  isScheduled={true}
                 />
               )}
 
@@ -417,7 +416,7 @@ const Today = () => {
                         onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
                         isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
                         taskNumber={index + 2}
-                        isScheduled={getTaskCalendarStatus(item.weekIndex + 1, item.taskIndex).status === 'scheduled'}
+                        isScheduled={true}
                       />
                     </motion.div>
                   ))}
