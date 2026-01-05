@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export type BreathingSpeed = 'slow' | 'medium' | 'fast';
+export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles';
 
 export interface MobileSettings {
   hapticFeedback: boolean;
@@ -12,6 +13,7 @@ export interface MobileSettings {
   swipeNavigation: boolean;
   performanceMode: boolean;
   dynamicBackground: boolean;
+  backgroundPattern: BackgroundPattern;
 }
 
 // Default settings optimized for low-end devices
@@ -25,6 +27,7 @@ const DEFAULT_SETTINGS: MobileSettings = {
   swipeNavigation: true,      // Low resource - keep on
   performanceMode: true,      // On by default for low-end optimization
   dynamicBackground: false,   // GPU intensive - off by default
+  backgroundPattern: 'orbs',  // Default pattern
 };
 
 // GPU-intensive boolean features that performance mode disables
@@ -84,10 +87,7 @@ export function useMobileSettings() {
     });
   }, []);
 
-  const toggleSetting = useCallback((key: keyof MobileSettings) => {
-    // Only allow toggling boolean settings
-    if (key === 'breathingSpeed') return;
-    
+  const toggleSetting = useCallback((key: BooleanSettingKey) => {
     if (key === 'performanceMode') {
       // Toggle performance mode and update GPU-intensive features accordingly
       const newPerformanceMode = !settings.performanceMode;
@@ -106,11 +106,11 @@ export function useMobileSettings() {
       // If enabling a GPU-intensive feature, disable performance mode
       const isGpuIntensive = GPU_INTENSIVE_KEYS.includes(key);
       const currentValue = settings[key];
-      const turningOn = typeof currentValue === 'boolean' && !currentValue;
+      const turningOn = !currentValue;
       
       if (isGpuIntensive && turningOn) {
         updateSettings({ [key]: true, performanceMode: false });
-      } else if (typeof currentValue === 'boolean') {
+      } else {
         updateSettings({ [key]: !currentValue });
       }
     }

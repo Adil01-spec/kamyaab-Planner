@@ -90,7 +90,7 @@ const Home = () => {
   const { settings: mobileSettings, isMobile, toggleSetting, updateSettings, resetToDefaults } = useMobileSettings();
   
   // Desktop settings
-  const { settings: desktopSettings, isDesktop, toggleSetting: toggleDesktopSetting, resetToDefaults: resetDesktopDefaults } = useDesktopSettings();
+  const { settings: desktopSettings, isDesktop, toggleSetting: toggleDesktopSetting, updateSettings: updateDesktopSettings, resetToDefaults: resetDesktopDefaults } = useDesktopSettings();
   
   // Keep caches in sync
   useEffect(() => {
@@ -425,8 +425,9 @@ const Home = () => {
     );
   }
 
-  // Determine if dynamic background should be enabled
+  // Determine if dynamic background should be enabled and which pattern to use
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
+  const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
 
   return (
     <div 
@@ -435,7 +436,7 @@ const Home = () => {
       {...swipeHandlers.handlers}
     >
       {/* Dynamic time-based background illustrations */}
-      <DynamicBackground enabled={dynamicBackgroundEnabled} />
+      <DynamicBackground enabled={dynamicBackgroundEnabled} pattern={backgroundPattern} />
 
       {/* Two-tone dynamic ambient background with breathing + device motion parallax */}
       {!dynamicBackgroundEnabled && (
@@ -777,6 +778,7 @@ const Home = () => {
         onOpenChange={setDesktopSettingsOpen}
         settings={desktopSettings}
         onToggle={toggleDesktopSetting}
+        onUpdateSettings={updateDesktopSettings}
         onReset={resetDesktopDefaults}
       />
     </div>

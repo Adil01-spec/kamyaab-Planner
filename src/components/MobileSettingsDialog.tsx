@@ -17,20 +17,24 @@ import {
   Hand,
   RotateCcw,
   Zap,
-  Palette
+  Palette,
+  Circle,
+  Hexagon,
+  Waves,
+  Sparkles
 } from "lucide-react";
-import type { MobileSettings, BreathingSpeed } from "@/hooks/useMobileSettings";
+import type { MobileSettings, BreathingSpeed, BackgroundPattern } from "@/hooks/useMobileSettings";
 
 interface MobileSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: MobileSettings;
-  onToggle: (key: keyof MobileSettings) => void;
+  onToggle: (key: 'hapticFeedback' | 'audioFeedback' | 'parallaxEffects' | 'breathingAnimation' | 'deviceMotion' | 'swipeNavigation' | 'performanceMode' | 'dynamicBackground') => void;
   onUpdateSettings: (updates: Partial<MobileSettings>) => void;
   onReset: () => void;
 }
 
-type BooleanSettingKey = Exclude<keyof MobileSettings, 'breathingSpeed'>;
+type BooleanSettingKey = 'hapticFeedback' | 'audioFeedback' | 'parallaxEffects' | 'breathingAnimation' | 'deviceMotion' | 'swipeNavigation' | 'dynamicBackground';
 
 const settingsConfig: {
   key: BooleanSettingKey;
@@ -95,6 +99,13 @@ const breathingSpeedLabels: Record<BreathingSpeed, string> = {
   medium: 'Medium', 
   fast: 'Fast',
 };
+
+const patternOptions: { value: BackgroundPattern; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'orbs', label: 'Orbs', icon: Circle },
+  { value: 'geometric', label: 'Geometric', icon: Hexagon },
+  { value: 'waves', label: 'Waves', icon: Waves },
+  { value: 'particles', label: 'Particles', icon: Sparkles },
+];
 
 export function MobileSettingsDialog({
   open,
@@ -190,7 +201,34 @@ export function MobileSettingsDialog({
                 onCheckedChange={() => onToggle(key)}
               />
             </div>
-            ))}
+          ))}
+
+          {/* Background Pattern Selector */}
+          {settings.dynamicBackground && (
+            <div className="p-3 rounded-lg border border-border/10 bg-background/50">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium text-foreground/90">
+                  Pattern Style
+                </Label>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {patternOptions.map(({ value, label, icon: PatternIcon }) => (
+                  <button
+                    key={value}
+                    onClick={() => onUpdateSettings({ backgroundPattern: value })}
+                    className={`flex flex-col items-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                      settings.backgroundPattern === value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <PatternIcon className="w-4 h-4" />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Breathing Speed Selector */}
           {settings.breathingAnimation && (

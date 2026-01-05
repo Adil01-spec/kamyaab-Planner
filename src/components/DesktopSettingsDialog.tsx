@@ -16,20 +16,26 @@ import {
   RotateCcw,
   Zap,
   Monitor,
-  Palette
+  Palette,
+  Circle,
+  Hexagon,
+  Waves
 } from "lucide-react";
-import type { DesktopSettings } from "@/hooks/useDesktopSettings";
+import type { DesktopSettings, BackgroundPattern } from "@/hooks/useDesktopSettings";
 
 interface DesktopSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: DesktopSettings;
-  onToggle: (key: keyof DesktopSettings) => void;
+  onToggle: (key: 'cursorEffects' | 'parallaxEffects' | 'breathingAnimation' | 'hoverAnimations' | 'performanceMode' | 'dynamicBackground') => void;
+  onUpdateSettings: (updates: Partial<DesktopSettings>) => void;
   onReset: () => void;
 }
 
+type BooleanSettingKey = 'cursorEffects' | 'parallaxEffects' | 'breathingAnimation' | 'hoverAnimations' | 'dynamicBackground';
+
 const settingsConfig: {
-  key: keyof DesktopSettings;
+  key: BooleanSettingKey;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -72,11 +78,19 @@ const settingsConfig: {
   },
 ];
 
+const patternOptions: { value: BackgroundPattern; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'orbs', label: 'Orbs', icon: Circle },
+  { value: 'geometric', label: 'Geometric', icon: Hexagon },
+  { value: 'waves', label: 'Waves', icon: Waves },
+  { value: 'particles', label: 'Particles', icon: Sparkles },
+];
+
 export function DesktopSettingsDialog({
   open,
   onOpenChange,
   settings,
   onToggle,
+  onUpdateSettings,
   onReset,
 }: DesktopSettingsDialogProps) {
   return (
@@ -169,6 +183,33 @@ export function DesktopSettingsDialog({
               />
             </div>
           ))}
+
+          {/* Background Pattern Selector */}
+          {settings.dynamicBackground && (
+            <div className="p-3 rounded-lg border border-border/10 bg-background/50">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium text-foreground/90">
+                  Pattern Style
+                </Label>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {patternOptions.map(({ value, label, icon: PatternIcon }) => (
+                  <button
+                    key={value}
+                    onClick={() => onUpdateSettings({ backgroundPattern: value })}
+                    className={`flex flex-col items-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                      settings.backgroundPattern === value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <PatternIcon className="w-4 h-4" />
+                    <span className="text-[10px]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-border/10">
