@@ -10,6 +10,7 @@ import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
+import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
 import { 
@@ -338,10 +339,7 @@ const Today = () => {
                     {completedTasks.map((item) => {
                       // Calculate duration using scheduledAt from the item and completed_at from the task
                       const duration = item.scheduledAt && item.task.completed_at
-                        ? (() => {
-                            const { formatTaskDuration } = require('@/lib/taskDuration');
-                            return formatTaskDuration(item.scheduledAt, item.task.completed_at);
-                          })()
+                        ? formatTaskDuration(item.scheduledAt, item.task.completed_at)
                         : null;
 
                       return (
