@@ -9,9 +9,12 @@ import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { DynamicBackground } from '@/components/DynamicBackground';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { useMobileSettings } from '@/hooks/useMobileSettings';
+import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
 import { 
   Loader2, 
@@ -80,6 +83,11 @@ const Today = () => {
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const [showMomentum, setShowMomentum] = useState(false);
   const previousCompletedCount = useRef(0);
+
+  // Settings for dynamic background
+  const { settings: mobileSettings, isMobile } = useMobileSettings();
+  const { settings: desktopSettings, isDesktop } = useDesktopSettings();
+  const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
 
   // Swipe navigation
   const swipeHandlers = useSwipeNavigation({ currentRoute: '/today' });
@@ -230,11 +238,14 @@ const Today = () => {
 
   return (
     <div 
-      className="min-h-screen bg-background pb-20 sm:pb-0"
+      className="min-h-screen bg-background pb-20 sm:pb-0 relative"
       {...swipeHandlers.handlers}
     >
+      {/* Dynamic time-based background illustrations */}
+      <DynamicBackground enabled={dynamicBackgroundEnabled} />
+      
       {/* Header */}
-      <header className="sticky top-0 z-10 glass border-b border-border/30">
+      <header className="sticky top-0 z-10 glass border-b border-border/30 relative">
         <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">

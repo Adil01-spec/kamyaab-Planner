@@ -16,7 +16,8 @@ import {
   Smartphone, 
   Hand,
   RotateCcw,
-  Zap
+  Zap,
+  Palette
 } from "lucide-react";
 import type { MobileSettings, BreathingSpeed } from "@/hooks/useMobileSettings";
 
@@ -38,6 +39,13 @@ const settingsConfig: {
   icon: React.ComponentType<{ className?: string }>;
   resourceIntensive: boolean;
 }[] = [
+  {
+    key: 'dynamicBackground',
+    label: 'Dynamic Background',
+    description: 'Time-based illustration patterns',
+    icon: Palette,
+    resourceIntensive: true,
+  },
   {
     key: 'hapticFeedback',
     label: 'Haptic Feedback',

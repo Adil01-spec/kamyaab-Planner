@@ -15,7 +15,8 @@ import {
   Sparkles,
   RotateCcw,
   Zap,
-  Monitor
+  Monitor,
+  Palette
 } from "lucide-react";
 import type { DesktopSettings } from "@/hooks/useDesktopSettings";
 
@@ -34,6 +35,13 @@ const settingsConfig: {
   icon: React.ComponentType<{ className?: string }>;
   resourceIntensive: boolean;
 }[] = [
+  {
+    key: 'dynamicBackground',
+    label: 'Dynamic Background',
+    description: 'Time-based illustration patterns',
+    icon: Palette,
+    resourceIntensive: true,
+  },
   {
     key: 'cursorEffects',
     label: 'Cursor Effects',

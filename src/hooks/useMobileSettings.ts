@@ -11,6 +11,7 @@ export interface MobileSettings {
   deviceMotion: boolean;
   swipeNavigation: boolean;
   performanceMode: boolean;
+  dynamicBackground: boolean;
 }
 
 // Default settings optimized for low-end devices
@@ -23,16 +24,18 @@ const DEFAULT_SETTINGS: MobileSettings = {
   deviceMotion: false,        // Sensor polling - off by default
   swipeNavigation: true,      // Low resource - keep on
   performanceMode: true,      // On by default for low-end optimization
+  dynamicBackground: false,   // GPU intensive - off by default
 };
 
 // GPU-intensive boolean features that performance mode disables
-type BooleanSettingKey = 'hapticFeedback' | 'audioFeedback' | 'parallaxEffects' | 'breathingAnimation' | 'deviceMotion' | 'swipeNavigation' | 'performanceMode';
+type BooleanSettingKey = 'hapticFeedback' | 'audioFeedback' | 'parallaxEffects' | 'breathingAnimation' | 'deviceMotion' | 'swipeNavigation' | 'performanceMode' | 'dynamicBackground';
 
 const GPU_INTENSIVE_KEYS: BooleanSettingKey[] = [
   'audioFeedback',
   'parallaxEffects',
   'breathingAnimation',
   'deviceMotion',
+  'dynamicBackground',
 ];
 
 const STORAGE_KEY = 'mobile-settings';

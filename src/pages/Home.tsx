@@ -31,6 +31,7 @@ import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileS
 import { useDesktopSettings, updateDesktopSettingsCache } from '@/hooks/useDesktopSettings';
 import { MobileSettingsDialog } from '@/components/MobileSettingsDialog';
 import { DesktopSettingsDialog } from '@/components/DesktopSettingsDialog';
+import { DynamicBackground } from '@/components/DynamicBackground';
 import TaskQuickActions from '@/components/TaskQuickActions';
 import { CursorExplosionButton } from '@/components/CursorExplosionButton';
 
@@ -424,24 +425,32 @@ const Home = () => {
     );
   }
 
+  // Determine if dynamic background should be enabled
+  const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
+
   return (
     <div 
       className="min-h-screen bg-background transition-colors relative overflow-hidden pb-20 sm:pb-0" 
       style={{ transitionDuration: 'var(--color-transition)' }}
       {...swipeHandlers.handlers}
     >
+      {/* Dynamic time-based background illustrations */}
+      <DynamicBackground enabled={dynamicBackgroundEnabled} />
+
       {/* Two-tone dynamic ambient background with breathing + device motion parallax */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          background: `
-            radial-gradient(ellipse ${70 + breathePhase * 12}% ${60 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x1 + parallax.x * 0.4 : 25 + breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y1 + parallax.y * 0.4 : 20 + breathePhase * 6}%, hsl(var(--dynamic-bg-1) / ${0.42 + breathePhase * 0.14}), transparent 70%),
-            radial-gradient(ellipse ${60 + breathePhase * 12}% ${70 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x2 - parallax.x * 0.3 : 75 - breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y2 - parallax.y * 0.3 : 80 - breathePhase * 6}%, hsl(var(--dynamic-bg-2) / ${0.36 + breathePhase * 0.12}), transparent 70%)
-          `,
-          transition: 'background 0.15s ease-out',
-          transform: mobileSettings.parallaxEffects ? `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` : undefined
-        }}
-      />
+      {!dynamicBackgroundEnabled && (
+        <div 
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            background: `
+              radial-gradient(ellipse ${70 + breathePhase * 12}% ${60 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x1 + parallax.x * 0.4 : 25 + breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y1 + parallax.y * 0.4 : 20 + breathePhase * 6}%, hsl(var(--dynamic-bg-1) / ${0.42 + breathePhase * 0.14}), transparent 70%),
+              radial-gradient(ellipse ${60 + breathePhase * 12}% ${70 + breathePhase * 12}% at ${mobileSettings.parallaxEffects ? bgPosition.x2 - parallax.x * 0.3 : 75 - breathePhase * 8}% ${mobileSettings.parallaxEffects ? bgPosition.y2 - parallax.y * 0.3 : 80 - breathePhase * 6}%, hsl(var(--dynamic-bg-2) / ${0.36 + breathePhase * 0.12}), transparent 70%)
+            `,
+            transition: 'background 0.15s ease-out',
+            transform: mobileSettings.parallaxEffects ? `translate3d(${parallax.x * 0.6}px, ${parallax.y * 0.6}px, 0)` : undefined
+          }}
+        />
+      )}
 
       <div className="container max-w-xl mx-auto px-5 py-8 relative z-10">
         
