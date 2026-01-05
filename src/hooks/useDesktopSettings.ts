@@ -6,6 +6,7 @@ export interface DesktopSettings {
   breathingAnimation: boolean;
   hoverAnimations: boolean;
   performanceMode: boolean;
+  dynamicBackground: boolean;
 }
 
 // Default settings - effects enabled by default on desktop
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: DesktopSettings = {
   breathingAnimation: true,
   hoverAnimations: true,
   performanceMode: false,
+  dynamicBackground: false, // Off by default (power intensive)
 };
 
 // GPU-intensive features that performance mode disables
@@ -23,6 +25,7 @@ const GPU_INTENSIVE_KEYS: (keyof DesktopSettings)[] = [
   'parallaxEffects',
   'breathingAnimation',
   'hoverAnimations',
+  'dynamicBackground',
 ];
 
 const STORAGE_KEY = 'desktop-settings';

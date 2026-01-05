@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { TaskItem } from '@/components/TaskItem';
 import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
+import { DynamicBackground } from '@/components/DynamicBackground';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,8 @@ import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { BottomNav } from '@/components/BottomNav';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { useMobileSettings } from '@/hooks/useMobileSettings';
+import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 
 interface TaskExplanation {
   how: string;
@@ -74,6 +77,11 @@ const Plan = () => {
   const [isExtending, setIsExtending] = useState(false);
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
+  
+  // Settings for dynamic background
+  const { settings: mobileSettings, isMobile } = useMobileSettings();
+  const { settings: desktopSettings, isDesktop } = useDesktopSettings();
+  const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
 
   // Trigger confetti celebration with sound
   const triggerCelebration = useCallback(() => {
@@ -389,11 +397,14 @@ const Plan = () => {
 
   return (
     <div 
-      className="min-h-screen gradient-subtle pb-20 sm:pb-0"
+      className="min-h-screen gradient-subtle pb-20 sm:pb-0 relative"
       {...swipeHandlers.handlers}
     >
+      {/* Dynamic time-based background illustrations */}
+      <DynamicBackground enabled={dynamicBackgroundEnabled} />
+      
       {/* Header - Touch optimized */}
-      <header className="glass sticky top-0 z-10">
+      <header className="glass sticky top-0 z-10 relative">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
