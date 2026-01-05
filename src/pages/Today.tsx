@@ -19,7 +19,8 @@ import {
   ChevronRight,
   Home,
   Moon,
-  Sparkles
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -37,6 +38,7 @@ interface PlanData {
       estimated_hours: number;
       completed?: boolean;
       completed_at?: string;
+      scheduled_at?: string;
       explanation?: {
         how: string;
         why: string;
@@ -184,9 +186,19 @@ const Today = () => {
     const updatedPlan = { ...planData };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
     
-    // Mark as completed with timestamp
+    // Find the scheduled time for this task
+    const scheduledTask = todaysTasks.find(
+      t => t.weekIndex === weekIndex && t.taskIndex === taskIndex
+    );
+    
+    // Mark as completed with timestamps
     task.completed = true;
     task.completed_at = new Date().toISOString();
+    
+    // Store scheduled_at for duration tracking
+    if (scheduledTask?.scheduledAt) {
+      (task as any).scheduled_at = scheduledTask.scheduledAt;
+    }
 
     setPlanData({ ...updatedPlan });
 
@@ -200,11 +212,12 @@ const Today = () => {
       // Revert on error
       task.completed = false;
       task.completed_at = undefined;
+      (task as any).scheduled_at = undefined;
       setPlanData({ ...planData });
     } finally {
       setCompletingTask(null);
     }
-  }, [planData, planId]);
+  }, [planData, planId, todaysTasks]);
 
   if (loading) {
     return (
@@ -322,17 +335,35 @@ const Today = () => {
                     Completed today
                   </p>
                   <div className="space-y-2">
-                    {completedTasks.map((item) => (
-                      <div 
-                        key={`${item.weekIndex}-${item.taskIndex}`}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-muted/30 text-muted-foreground"
-                      >
-                        <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
-                          <span className="w-2 h-2 rounded-full bg-primary" />
-                        </span>
-                        <span className="text-sm line-through">{item.task.title}</span>
-                      </div>
-                    ))}
+                    {completedTasks.map((item) => {
+                      // Calculate duration using scheduledAt from the item and completed_at from the task
+                      const duration = item.scheduledAt && item.task.completed_at
+                        ? (() => {
+                            const { formatTaskDuration } = require('@/lib/taskDuration');
+                            return formatTaskDuration(item.scheduledAt, item.task.completed_at);
+                          })()
+                        : null;
+
+                      return (
+                        <div 
+                          key={`${item.weekIndex}-${item.taskIndex}`}
+                          className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/30 text-muted-foreground"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                              <span className="w-2 h-2 rounded-full bg-primary" />
+                            </span>
+                            <span className="text-sm line-through truncate">{item.task.title}</span>
+                          </div>
+                          {duration && (
+                            <span className="text-xs text-muted-foreground/60 shrink-0 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {duration}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
