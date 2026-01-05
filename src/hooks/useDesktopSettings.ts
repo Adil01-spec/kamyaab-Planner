@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
+export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles';
+
 export interface DesktopSettings {
   cursorEffects: boolean;
   parallaxEffects: boolean;
@@ -7,7 +9,11 @@ export interface DesktopSettings {
   hoverAnimations: boolean;
   performanceMode: boolean;
   dynamicBackground: boolean;
+  backgroundPattern: BackgroundPattern;
 }
+
+// Boolean-only settings for toggle operations
+type BooleanSettingKey = Exclude<keyof DesktopSettings, 'backgroundPattern'>;
 
 // Default settings - effects enabled by default on desktop
 const DEFAULT_SETTINGS: DesktopSettings = {
@@ -17,10 +23,11 @@ const DEFAULT_SETTINGS: DesktopSettings = {
   hoverAnimations: true,
   performanceMode: false,
   dynamicBackground: false, // Off by default (power intensive)
+  backgroundPattern: 'orbs', // Default pattern
 };
 
 // GPU-intensive features that performance mode disables
-const GPU_INTENSIVE_KEYS: (keyof DesktopSettings)[] = [
+const GPU_INTENSIVE_KEYS: BooleanSettingKey[] = [
   'cursorEffects',
   'parallaxEffects',
   'breathingAnimation',
@@ -74,7 +81,7 @@ export function useDesktopSettings() {
     });
   }, []);
 
-  const toggleSetting = useCallback((key: keyof DesktopSettings) => {
+  const toggleSetting = useCallback((key: BooleanSettingKey) => {
     if (key === 'performanceMode') {
       // Toggle performance mode and update GPU-intensive features accordingly
       const newPerformanceMode = !settings.performanceMode;

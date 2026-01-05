@@ -82,6 +82,7 @@ const Plan = () => {
   const { settings: mobileSettings, isMobile } = useMobileSettings();
   const { settings: desktopSettings, isDesktop } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
+  const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
 
   // Trigger confetti celebration with sound
   const triggerCelebration = useCallback(() => {
@@ -401,7 +402,7 @@ const Plan = () => {
       {...swipeHandlers.handlers}
     >
       {/* Dynamic time-based background illustrations */}
-      <DynamicBackground enabled={dynamicBackgroundEnabled} />
+      <DynamicBackground enabled={dynamicBackgroundEnabled} pattern={backgroundPattern} />
       
       {/* Header - Touch optimized */}
       <header className="glass sticky top-0 z-10 relative">
