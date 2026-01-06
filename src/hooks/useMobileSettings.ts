@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export type BreathingSpeed = 'slow' | 'medium' | 'fast';
-export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles';
+export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles' | 'seasonal';
 
 export interface MobileSettings {
   hapticFeedback: boolean;

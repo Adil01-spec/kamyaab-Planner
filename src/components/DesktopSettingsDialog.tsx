@@ -19,7 +19,8 @@ import {
   Palette,
   Circle,
   Hexagon,
-  Waves
+  Waves,
+  Sun
 } from "lucide-react";
 import type { DesktopSettings, BackgroundPattern } from "@/hooks/useDesktopSettings";
 
@@ -83,6 +84,7 @@ const patternOptions: { value: BackgroundPattern; label: string; icon: React.Com
   { value: 'geometric', label: 'Geometric', icon: Hexagon },
   { value: 'waves', label: 'Waves', icon: Waves },
   { value: 'particles', label: 'Particles', icon: Sparkles },
+  { value: 'seasonal', label: 'Seasonal', icon: Sun },
 ];
 
 export function DesktopSettingsDialog({

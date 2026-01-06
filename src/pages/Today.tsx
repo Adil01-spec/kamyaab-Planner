@@ -89,6 +89,7 @@ const Today = () => {
   const { settings: desktopSettings, isDesktop } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
+  const parallaxEnabled = isMobile ? mobileSettings.parallaxEffects : desktopSettings.parallaxEffects;
 
   // Swipe navigation
   const swipeHandlers = useSwipeNavigation({ currentRoute: '/today' });
@@ -243,7 +244,12 @@ const Today = () => {
       {...swipeHandlers.handlers}
     >
       {/* Dynamic time-based background illustrations */}
-      <DynamicBackground enabled={dynamicBackgroundEnabled} pattern={backgroundPattern} />
+      <DynamicBackground 
+        enabled={dynamicBackgroundEnabled} 
+        pattern={backgroundPattern}
+        parallaxEnabled={parallaxEnabled}
+        deviceMotionEnabled={mobileSettings.deviceMotion}
+      />
       
       {/* Header */}
       <header className="sticky top-0 z-10 glass border-b border-border/30 relative">
