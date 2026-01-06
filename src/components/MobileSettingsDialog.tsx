@@ -21,7 +21,8 @@ import {
   Circle,
   Hexagon,
   Waves,
-  Sparkles
+  Sparkles,
+  Sun
 } from "lucide-react";
 import type { MobileSettings, BreathingSpeed, BackgroundPattern } from "@/hooks/useMobileSettings";
 
@@ -105,6 +106,7 @@ const patternOptions: { value: BackgroundPattern; label: string; icon: React.Com
   { value: 'geometric', label: 'Geometric', icon: Hexagon },
   { value: 'waves', label: 'Waves', icon: Waves },
   { value: 'particles', label: 'Particles', icon: Sparkles },
+  { value: 'seasonal', label: 'Seasonal', icon: Sun },
 ];
 
 export function MobileSettingsDialog({

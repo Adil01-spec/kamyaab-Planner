@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles';
+export type BackgroundPattern = 'orbs' | 'geometric' | 'waves' | 'particles' | 'seasonal';
 
 export interface DesktopSettings {
   cursorEffects: boolean;

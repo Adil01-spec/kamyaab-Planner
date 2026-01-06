@@ -436,7 +436,12 @@ const Home = () => {
       {...swipeHandlers.handlers}
     >
       {/* Dynamic time-based background illustrations */}
-      <DynamicBackground enabled={dynamicBackgroundEnabled} pattern={backgroundPattern} />
+      <DynamicBackground 
+        enabled={dynamicBackgroundEnabled} 
+        pattern={backgroundPattern}
+        parallaxEnabled={parallaxEnabled}
+        deviceMotionEnabled={mobileSettings.deviceMotion}
+      />
 
       {/* Two-tone dynamic ambient background with breathing + device motion parallax */}
       {!dynamicBackgroundEnabled && (
