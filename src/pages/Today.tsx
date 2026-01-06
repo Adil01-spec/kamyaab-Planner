@@ -8,8 +8,8 @@ import { SecondaryTaskCard } from '@/components/SecondaryTaskCard';
 import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { BottomNav } from '@/components/BottomNav';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { DynamicBackground } from '@/components/DynamicBackground';
+import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -21,7 +21,6 @@ import {
   Calendar,
   Rocket,
   ChevronRight,
-  Home,
   Moon,
   Sparkles,
   Clock
@@ -86,7 +85,7 @@ const Today = () => {
 
   // Settings for dynamic background
   const { settings: mobileSettings, isMobile } = useMobileSettings();
-  const { settings: desktopSettings, isDesktop } = useDesktopSettings();
+  const { settings: desktopSettings, isDesktop, toggleSetting, updateSettings, resetToDefaults } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
   const parallaxEnabled = isMobile ? mobileSettings.parallaxEffects : desktopSettings.parallaxEffects;
@@ -255,33 +254,29 @@ const Today = () => {
       <header className="sticky top-0 z-10 glass border-b border-border/30 relative">
         <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
+            {/* Desktop Hamburger Menu */}
+            <DesktopHamburgerMenu
+              settings={desktopSettings}
+              onToggle={toggleSetting}
+              onUpdateSettings={updateSettings}
+              onReset={resetToDefaults}
+            />
+            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center sm:hidden">
               <Rocket className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-foreground text-sm">Kaamyab</span>
+            <span className="font-semibold text-foreground text-sm sm:hidden">Kaamyab</span>
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Home button - visible on desktop */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/home')}
-              className="hidden sm:flex text-muted-foreground hover:text-foreground h-9 px-3"
-            >
-              <Home className="w-4 h-4 mr-1.5" />
-              Home
-            </Button>
-            <ThemeToggle />
+            {/* Full Plan button - mobile only */}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => navigate('/plan')}
-              className="text-muted-foreground hover:text-foreground h-9 px-3"
+              className="text-muted-foreground hover:text-foreground h-9 px-3 sm:hidden"
             >
               <Calendar className="w-4 h-4 mr-1.5" />
-              <span className="hidden sm:inline">Full Plan</span>
-              <ChevronRight className="w-4 h-4 sm:hidden" />
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
