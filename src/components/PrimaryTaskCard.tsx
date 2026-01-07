@@ -35,6 +35,7 @@ interface PrimaryTaskCardProps {
   onComplete: () => void;
   isCompleting?: boolean;
   isScheduled?: boolean;
+  fallbackExplanation?: string;
 }
 
 // Convert hours to friendly time hint
@@ -65,10 +66,13 @@ export function PrimaryTaskCard({
   weekFocus,
   onComplete,
   isCompleting = false,
-  isScheduled = false
+  isScheduled = false,
+  fallbackExplanation
 }: PrimaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
+  const hasFallback = !hasExplanation && fallbackExplanation;
+  const showHowSection = hasExplanation || hasFallback;
   const howBullets = formatHowToBullets(task.explanation?.how || '');
 
   return (
@@ -167,7 +171,7 @@ export function PrimaryTaskCard({
       </div>
 
       {/* Expandable "How to approach this" Section */}
-      {hasExplanation && (
+      {showHowSection && (
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <button
@@ -194,7 +198,7 @@ export function PrimaryTaskCard({
               animate={{ opacity: 1 }}
               className="px-6 sm:px-8 py-5 space-y-4 border-t border-border/10 bg-muted/10"
             >
-              {/* Bullet steps - actionable format */}
+              {/* Bullet steps - actionable format (from AI explanation) */}
               {howBullets.length > 0 && (
                 <ul className="space-y-2.5">
                   {howBullets.map((bullet, idx) => (
@@ -206,6 +210,13 @@ export function PrimaryTaskCard({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Fallback explanation when no AI explanation exists */}
+              {hasFallback && (
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {fallbackExplanation}
+                </p>
               )}
 
               {/* Why this matters */}
