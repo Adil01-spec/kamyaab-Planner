@@ -35,6 +35,7 @@ interface SecondaryTaskCardProps {
   isCompleting?: boolean;
   taskNumber: number;
   isScheduled?: boolean;
+  fallbackExplanation?: string;
 }
 
 // Convert hours to friendly time hint
@@ -62,10 +63,13 @@ export function SecondaryTaskCard({
   onComplete,
   isCompleting = false,
   taskNumber,
-  isScheduled = false
+  isScheduled = false,
+  fallbackExplanation
 }: SecondaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
+  const hasFallback = !hasExplanation && fallbackExplanation;
+  const showHowSection = hasExplanation || hasFallback;
   const howBullets = formatHowToBullets(task.explanation?.how || '');
 
   return (
@@ -147,7 +151,7 @@ export function SecondaryTaskCard({
       </div>
 
       {/* Expandable Section - Compact */}
-      {hasExplanation && (
+      {showHowSection && (
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <button
@@ -185,6 +189,13 @@ export function SecondaryTaskCard({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Fallback explanation when no AI explanation exists */}
+              {hasFallback && (
+                <p className="text-xs text-foreground/70 leading-relaxed">
+                  {fallbackExplanation}
+                </p>
               )}
 
               {task.explanation?.why && (

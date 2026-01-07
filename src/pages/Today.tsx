@@ -7,6 +7,7 @@ import { PrimaryTaskCard } from '@/components/PrimaryTaskCard';
 import { SecondaryTaskCard } from '@/components/SecondaryTaskCard';
 import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
+import { TodayFocusCard } from '@/components/TodayFocusCard';
 import { BottomNav } from '@/components/BottomNav';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
@@ -16,6 +17,8 @@ import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
+import { computeDailyContext, generateFallbackExplanation } from '@/lib/dailyContextEngine';
+import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { 
   Loader2, 
   Calendar,
@@ -160,10 +163,22 @@ const Today = () => {
   const completedCount = todaysTasks.filter(t => t.task.completed).length;
   const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
   
+  // Compute daily context using the context engine
+  const scheduledTasks = useMemo(() => getScheduledCalendarTasks(), []);
+  const dailyContext = useMemo(() => 
+    computeDailyContext(planData, todaysTasks.length, scheduledTasks),
+    [planData, todaysTasks.length, scheduledTasks]
+  );
+  
   // Get the first incomplete task as primary
   const incompleteTasks = todaysTasks.filter(t => !t.task.completed);
-  const primaryTask = incompleteTasks[0];
-  const secondaryTasks = incompleteTasks.slice(1);
+  
+  // Smart task highlighting: only focusCount tasks are emphasized
+  const focusedTasks = incompleteTasks.slice(0, dailyContext.focusCount);
+  const mutedTasks = incompleteTasks.slice(dailyContext.focusCount);
+  
+  const primaryTask = focusedTasks[0];
+  const secondaryTasks = focusedTasks.slice(1);
   const completedTasks = todaysTasks.filter(t => t.task.completed);
 
   // Show momentum feedback and play sound when completing a task
@@ -313,6 +328,11 @@ const Today = () => {
           </div>
         </motion.div>
 
+        {/* Today Focus Card - Context-aware summary */}
+        {todaysTasks.length > 0 && !allCompleted && (
+          <TodayFocusCard context={dailyContext} />
+        )}
+
         {/* Momentum Feedback */}
         <MomentumFeedback 
           completedCount={completedCount}
@@ -435,6 +455,7 @@ const Today = () => {
                   onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
                   isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
                   isScheduled={true}
+                  fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
                 />
               )}
 
@@ -459,8 +480,30 @@ const Today = () => {
                         isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
                         taskNumber={index + 2}
                         isScheduled={true}
+                        fallbackExplanation={generateFallbackExplanation(item.task.title)}
                       />
                     </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* Muted Tasks - Visible but de-emphasized */}
+              {mutedTasks.length > 0 && (
+                <div className="space-y-2 pt-4 opacity-50">
+                  <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+                    Later today
+                  </p>
+                  {mutedTasks.map((item) => (
+                    <div
+                      key={`muted-${item.weekIndex}-${item.taskIndex}`}
+                      className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/20 text-muted-foreground"
+                    >
+                      <span className="text-sm truncate">{item.task.title}</span>
+                      <span className="text-xs text-muted-foreground/50 flex items-center gap-1 shrink-0">
+                        <Clock className="w-3 h-3" />
+                        {item.task.estimated_hours <= 0.5 ? '~30m' : `~${item.task.estimated_hours}h`}
+                      </span>
+                    </div>
                   ))}
                 </div>
               )}
