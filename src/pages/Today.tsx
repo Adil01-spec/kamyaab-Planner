@@ -5,9 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { PrimaryTaskCard } from '@/components/PrimaryTaskCard';
 import { SecondaryTaskCard } from '@/components/SecondaryTaskCard';
+import { TodayTaskCard } from '@/components/TodayTaskCard';
 import { MomentumFeedback } from '@/components/MomentumFeedback';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { TodayFocusCard } from '@/components/TodayFocusCard';
+import { TodayContextPanel } from '@/components/TodayContextPanel';
+import { TodayTaskDetailsPanel } from '@/components/TodayTaskDetailsPanel';
+import { TodayReflectionStrip } from '@/components/TodayReflectionStrip';
 import { BottomNav } from '@/components/BottomNav';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
@@ -31,7 +35,7 @@ import {
 import { format } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import { cn } from '@/lib/utils';
 interface PlanData {
   overview: string;
   total_weeks: number;
@@ -84,6 +88,7 @@ const Today = () => {
   const [hasNoPlan, setHasNoPlan] = useState(false);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const [showMomentum, setShowMomentum] = useState(false);
+  const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
   const previousCompletedCount = useRef(0);
 
   // Settings for dynamic background
@@ -180,6 +185,25 @@ const Today = () => {
   const primaryTask = focusedTasks[0];
   const secondaryTasks = focusedTasks.slice(1);
   const completedTasks = todaysTasks.filter(t => t.task.completed);
+  
+  // Get selected task for details panel (desktop)
+  const selectedTask = useMemo(() => {
+    if (!selectedTaskKey) return null;
+    const found = todaysTasks.find(t => `${t.weekIndex}-${t.taskIndex}` === selectedTaskKey);
+    if (!found) return null;
+    return {
+      task: found.task,
+      weekNumber: found.weekIndex + 1,
+      weekFocus: found.weekFocus,
+    };
+  }, [selectedTaskKey, todaysTasks]);
+  
+  // Auto-select primary task on desktop if nothing selected
+  useEffect(() => {
+    if (primaryTask && !selectedTaskKey) {
+      setSelectedTaskKey(`${primaryTask.weekIndex}-${primaryTask.taskIndex}`);
+    }
+  }, [primaryTask, selectedTaskKey]);
 
   // Show momentum feedback and play sound when completing a task
   useEffect(() => {
@@ -267,7 +291,7 @@ const Today = () => {
       
       {/* Header */}
       <header className="sticky top-0 z-10 glass border-b border-border/30 relative">
-        <div className="max-w-lg mx-auto px-5 py-3 flex items-center justify-between">
+        <div className="max-w-[1280px] mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* Desktop Hamburger Menu */}
             <DesktopHamburgerMenu
@@ -276,19 +300,19 @@ const Today = () => {
               onUpdateSettings={updateSettings}
               onReset={resetToDefaults}
             />
-            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center sm:hidden">
+            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center lg:hidden">
               <Rocket className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-foreground text-sm sm:hidden">Kaamyab</span>
+            <span className="font-semibold text-foreground text-sm lg:hidden">Kaamyab</span>
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Full Plan button - mobile only */}
+            {/* Full Plan button - mobile/tablet only */}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => navigate('/plan')}
-              className="text-muted-foreground hover:text-foreground h-9 px-3 sm:hidden"
+              className="text-muted-foreground hover:text-foreground h-9 px-3 lg:hidden"
             >
               <Calendar className="w-4 h-4 mr-1.5" />
               <ChevronRight className="w-4 h-4" />
@@ -297,9 +321,9 @@ const Today = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-lg mx-auto px-5 py-6 sm:py-8">
-        {/* Greeting Section with Progress Ring */}
+      {/* Main Content - Responsive Layout */}
+      <main className="max-w-lg lg:max-w-[1280px] mx-auto px-5 py-6 sm:py-8">
+        {/* Greeting Section with Progress Ring - Full width on desktop */}
         <motion.div 
           className="mb-6"
           initial={{ opacity: 0, y: 10 }}
@@ -309,7 +333,7 @@ const Today = () => {
           <div className="flex items-start justify-between gap-4">
             {/* Text content */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1">
                 {greeting}
               </h1>
               <p className="text-sm text-muted-foreground mb-2">
@@ -328,10 +352,12 @@ const Today = () => {
           </div>
         </motion.div>
 
-        {/* Today Focus Card - Context-aware summary */}
-        {todaysTasks.length > 0 && !allCompleted && (
-          <TodayFocusCard context={dailyContext} />
-        )}
+        {/* Today Focus Card - Context-aware summary (mobile/tablet only) */}
+        <div className="lg:hidden">
+          {todaysTasks.length > 0 && !allCompleted && (
+            <TodayFocusCard context={dailyContext} />
+          )}
+        </div>
 
         {/* Momentum Feedback */}
         <MomentumFeedback 
@@ -340,185 +366,326 @@ const Today = () => {
           show={showMomentum}
         />
 
-        {/* Task Display */}
-        <AnimatePresence mode="wait">
-          {allCompleted ? (
-            /* Completion State - Day is done */
-            <motion.div
-              key="completed"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center py-12 text-center"
-            >
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <Moon className="w-10 h-10 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                You're done for today.
-              </h2>
-              <p className="text-muted-foreground text-sm max-w-xs mb-8">
-                All tasks complete. Rest up — tomorrow brings new focus.
-              </p>
-              
-              {/* Completed tasks summary - collapsed */}
-              {completedTasks.length > 0 && (
-                <div className="w-full text-left mb-6">
-                  <p className="text-xs text-muted-foreground/60 uppercase tracking-wider mb-3 text-center">
-                    Completed today
+        {/* Desktop 3-Column Layout */}
+        <div className="hidden lg:grid lg:grid-cols-[1fr_minmax(320px,400px)_280px] lg:gap-6">
+          {/* LEFT COLUMN - Focus Tasks */}
+          <div className="space-y-4">
+            <AnimatePresence mode="wait">
+              {allCompleted ? (
+                /* Desktop Completion State */
+                <motion.div
+                  key="completed-desktop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="rounded-2xl border border-border/30 bg-card/50 p-8 text-center"
+                >
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto">
+                    <Moon className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground mb-2">
+                    You're done for today.
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    All tasks complete. Rest up.
                   </p>
-                  <div className="space-y-2">
-                    {completedTasks.map((item) => {
-                      // Calculate duration using scheduledAt from the item and completed_at from the task
-                      const duration = item.scheduledAt && item.task.completed_at
-                        ? formatTaskDuration(item.scheduledAt, item.task.completed_at)
-                        : null;
-
-                      return (
+                  {completedTasks.length > 0 && (
+                    <div className="text-left mt-6 space-y-2">
+                      {completedTasks.map((item) => (
                         <div 
                           key={`${item.weekIndex}-${item.taskIndex}`}
-                          className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/30 text-muted-foreground"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/20 text-muted-foreground text-sm"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                              <span className="w-2 h-2 rounded-full bg-primary" />
-                            </span>
-                            <span className="text-sm line-through truncate">{item.task.title}</span>
-                          </div>
-                          {duration && (
-                            <span className="text-xs text-muted-foreground/60 shrink-0 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {duration}
-                            </span>
-                          )}
+                          <span className="w-3 h-3 rounded-full bg-primary/30 shrink-0" />
+                          <span className="line-through truncate">{item.task.title}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/plan')}
-                className="touch-press"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                View Full Plan
-              </Button>
-            </motion.div>
-          ) : todaysTasks.length === 0 ? (
-            /* No Tasks Scheduled for Today */
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center py-12 text-center"
-            >
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                <Sparkles className="w-10 h-10 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                You're clear for today.
-              </h2>
-              <p className="text-muted-foreground text-sm max-w-xs mb-6">
-                Enjoy the momentum. Schedule tasks from your plan to see them here.
-              </p>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/plan')}
-                className="touch-press"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                View Full Plan
-              </Button>
-            </motion.div>
-          ) : (
-            /* Active Tasks */
-            <motion.div
-              key="tasks"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-5"
-            >
-              {/* Primary Task - First incomplete task gets emphasis */}
-              {primaryTask && (
-                <PrimaryTaskCard
-                  task={primaryTask.task}
-                  weekNumber={primaryTask.weekIndex + 1}
-                  weekFocus={primaryTask.weekFocus}
-                  onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
-                  isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
-                  isScheduled={true}
-                  fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
-                />
-              )}
-
-              {/* Secondary Tasks - Smaller, less prominent */}
-              {secondaryTasks.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">
-                    Also on your plate
-                  </p>
-                  {secondaryTasks.map((item, index) => (
-                    <motion.div
-                      key={`${item.weekIndex}-${item.taskIndex}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.1 + index * 0.05 }}
-                    >
-                      <SecondaryTaskCard
-                        task={item.task}
-                        weekNumber={item.weekIndex + 1}
-                        weekFocus={item.weekFocus}
-                        onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
-                        isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
-                        taskNumber={index + 2}
-                        isScheduled={true}
-                        fallbackExplanation={generateFallbackExplanation(item.task.title)}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-
-              {/* Muted Tasks - Visible but de-emphasized */}
-              {mutedTasks.length > 0 && (
-                <div className="space-y-2 pt-4 opacity-50">
-                  <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                    Later today
-                  </p>
-                  {mutedTasks.map((item) => (
-                    <div
-                      key={`muted-${item.weekIndex}-${item.taskIndex}`}
-                      className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/20 text-muted-foreground"
-                    >
-                      <span className="text-sm truncate">{item.task.title}</span>
-                      <span className="text-xs text-muted-foreground/50 flex items-center gap-1 shrink-0">
-                        <Clock className="w-3 h-3" />
-                        {item.task.estimated_hours <= 0.5 ? '~30m' : `~${item.task.estimated_hours}h`}
-                      </span>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Completed Tasks - Subtle list */}
-              {completedTasks.length > 0 && (
-                <div className="pt-4 border-t border-border/10">
-                  <p className="text-xs text-muted-foreground/50 mb-2">
-                    ✓ {completedTasks.length} done today
+                  )}
+                </motion.div>
+              ) : todaysTasks.length === 0 ? (
+                /* Desktop Empty State */
+                <motion.div
+                  key="empty-desktop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="rounded-2xl border border-dashed border-border/40 bg-muted/10 p-8 text-center"
+                >
+                  <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 mx-auto">
+                    <Sparkles className="w-8 h-8 text-muted-foreground/50" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground mb-2">
+                    You've created breathing room today.
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Schedule tasks from your plan to see them here.
                   </p>
-                </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/plan')}
+                    size="sm"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    View Full Plan
+                  </Button>
+                </motion.div>
+              ) : (
+                /* Desktop Active Tasks */
+                <motion.div
+                  key="tasks-desktop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-3"
+                >
+                  {/* All focused tasks using TodayTaskCard */}
+                  {focusedTasks.map((item, index) => (
+                    <TodayTaskCard
+                      key={`${item.weekIndex}-${item.taskIndex}`}
+                      task={item.task}
+                      weekNumber={item.weekIndex + 1}
+                      weekFocus={item.weekFocus}
+                      onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                      isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                      isPrimary={index === 0}
+                      onSelect={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)}
+                      isSelected={selectedTaskKey === `${item.weekIndex}-${item.taskIndex}`}
+                      showExpandable={false}
+                      fallbackExplanation={generateFallbackExplanation(item.task.title)}
+                    />
+                  ))}
+                  
+                  {/* Muted Tasks */}
+                  {mutedTasks.length > 0 && (
+                    <div className="space-y-2 pt-4 opacity-60">
+                      <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+                        Later today
+                      </p>
+                      {mutedTasks.map((item) => (
+                        <div
+                          key={`muted-${item.weekIndex}-${item.taskIndex}`}
+                          onClick={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)}
+                          className={cn(
+                            "flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/20 text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors",
+                            selectedTaskKey === `${item.weekIndex}-${item.taskIndex}` && "ring-1 ring-primary/30"
+                          )}
+                        >
+                          <span className="text-sm truncate">{item.task.title}</span>
+                          <span className="text-xs text-muted-foreground/50 flex items-center gap-1 shrink-0">
+                            <Clock className="w-3 h-3" />
+                            {item.task.estimated_hours <= 0.5 ? '~30m' : `~${item.task.estimated_hours}h`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Completed summary */}
+                  {completedTasks.length > 0 && (
+                    <div className="pt-4 border-t border-border/10">
+                      <p className="text-xs text-muted-foreground/50 mb-2">
+                        ✓ {completedTasks.length} done today
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+          </div>
+          
+          {/* CENTER COLUMN - Task Details */}
+          <TodayTaskDetailsPanel 
+            selectedTask={selectedTask} 
+            dayType={dailyContext.dayType}
+          />
+          
+          {/* RIGHT COLUMN - Context Panel */}
+          <TodayContextPanel context={dailyContext} />
+        </div>
+        
+        {/* Desktop Reflection Strip */}
+        <div className="hidden lg:block mt-6">
+          <TodayReflectionStrip />
+        </div>
+
+        {/* Mobile/Tablet Task Display - Original Layout */}
+        <div className="lg:hidden">
+          <AnimatePresence mode="wait">
+            {allCompleted ? (
+              /* Completion State - Day is done */
+              <motion.div
+                key="completed"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center py-12 text-center"
+              >
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                  <Moon className="w-10 h-10 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold text-foreground mb-2">
+                  You're done for today.
+                </h2>
+                <p className="text-muted-foreground text-sm max-w-xs mb-8">
+                  All tasks complete. Rest up — tomorrow brings new focus.
+                </p>
+                
+                {/* Completed tasks summary - collapsed */}
+                {completedTasks.length > 0 && (
+                  <div className="w-full text-left mb-6">
+                    <p className="text-xs text-muted-foreground/60 uppercase tracking-wider mb-3 text-center">
+                      Completed today
+                    </p>
+                    <div className="space-y-2">
+                      {completedTasks.map((item) => {
+                        const duration = item.scheduledAt && item.task.completed_at
+                          ? formatTaskDuration(item.scheduledAt, item.task.completed_at)
+                          : null;
+
+                        return (
+                          <div 
+                            key={`${item.weekIndex}-${item.taskIndex}`}
+                            className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/30 text-muted-foreground"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                <span className="w-2 h-2 rounded-full bg-primary" />
+                              </span>
+                              <span className="text-sm line-through truncate">{item.task.title}</span>
+                            </div>
+                            {duration && (
+                              <span className="text-xs text-muted-foreground/60 shrink-0 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {duration}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/plan')}
+                  className="touch-press"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  View Full Plan
+                </Button>
+              </motion.div>
+            ) : todaysTasks.length === 0 ? (
+              /* No Tasks Scheduled for Today */
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center py-12 text-center"
+              >
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                  <Sparkles className="w-10 h-10 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold text-foreground mb-2">
+                  You're clear for today.
+                </h2>
+                <p className="text-muted-foreground text-sm max-w-xs mb-6">
+                  Enjoy the momentum. Schedule tasks from your plan to see them here.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/plan')}
+                  className="touch-press"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  View Full Plan
+                </Button>
+              </motion.div>
+            ) : (
+              /* Active Tasks - Mobile */
+              <motion.div
+                key="tasks"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
+                {/* Primary Task - First incomplete task gets emphasis */}
+                {primaryTask && (
+                  <PrimaryTaskCard
+                    task={primaryTask.task}
+                    weekNumber={primaryTask.weekIndex + 1}
+                    weekFocus={primaryTask.weekFocus}
+                    onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
+                    isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
+                    isScheduled={true}
+                    fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
+                  />
+                )}
+
+                {/* Secondary Tasks - Smaller, less prominent */}
+                {secondaryTasks.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs text-muted-foreground/60 uppercase tracking-wider">
+                      Also on your plate
+                    </p>
+                    {secondaryTasks.map((item, index) => (
+                      <motion.div
+                        key={`${item.weekIndex}-${item.taskIndex}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 + index * 0.05 }}
+                      >
+                        <SecondaryTaskCard
+                          task={item.task}
+                          weekNumber={item.weekIndex + 1}
+                          weekFocus={item.weekFocus}
+                          onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                          isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                          taskNumber={index + 2}
+                          isScheduled={true}
+                          fallbackExplanation={generateFallbackExplanation(item.task.title)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Muted Tasks - Visible but de-emphasized */}
+                {mutedTasks.length > 0 && (
+                  <div className="space-y-2 pt-4 opacity-50">
+                    <p className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+                      Later today
+                    </p>
+                    {mutedTasks.map((item) => (
+                      <div
+                        key={`muted-${item.weekIndex}-${item.taskIndex}`}
+                        className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-muted/20 text-muted-foreground"
+                      >
+                        <span className="text-sm truncate">{item.task.title}</span>
+                        <span className="text-xs text-muted-foreground/50 flex items-center gap-1 shrink-0">
+                          <Clock className="w-3 h-3" />
+                          {item.task.estimated_hours <= 0.5 ? '~30m' : `~${item.task.estimated_hours}h`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Completed Tasks - Subtle list */}
+                {completedTasks.length > 0 && (
+                  <div className="pt-4 border-t border-border/10">
+                    <p className="text-xs text-muted-foreground/50 mb-2">
+                      ✓ {completedTasks.length} done today
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </main>
       
       <BottomNav />
