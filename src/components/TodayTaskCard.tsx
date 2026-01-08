@@ -7,7 +7,8 @@ import {
   Clock, 
   Target,
   Lightbulb,
-  Loader2
+  Loader2,
+  CalendarCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,6 +33,11 @@ interface TodayTaskCardProps {
   weekFocus: string;
   onComplete: () => void;
   isCompleting?: boolean;
+  isPrimary?: boolean;
+  onSelect?: () => void;
+  isSelected?: boolean;
+  showExpandable?: boolean;
+  fallbackExplanation?: string;
 }
 
 // Convert hours to friendly time hint
@@ -57,22 +63,52 @@ export function TodayTaskCard({
   weekNumber, 
   weekFocus,
   onComplete,
-  isCompleting = false
+  isCompleting = false,
+  isPrimary = false,
+  onSelect,
+  isSelected = false,
+  showExpandable = true,
+  fallbackExplanation
 }: TodayTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
+  const hasFallback = !hasExplanation && fallbackExplanation;
+  const showHowSection = showExpandable && (hasExplanation || hasFallback);
   const howBullets = formatHowToBullets(task.explanation?.how || '');
+
+  const handleCardClick = () => {
+    if (onSelect) {
+      onSelect();
+    }
+  };
 
   return (
     <motion.div
       layout
+      onClick={handleCardClick}
+      onMouseEnter={onSelect}
       className={cn(
-        "rounded-2xl glass-card border border-border/30 overflow-hidden transition-all duration-200",
-        task.completed && "opacity-60"
+        "rounded-2xl glass-card border overflow-hidden transition-all duration-200",
+        isPrimary 
+          ? "border-primary/30 shadow-lg shadow-primary/5" 
+          : "border-border/30",
+        isSelected && "ring-2 ring-primary/40 border-primary/40",
+        task.completed && "opacity-60",
+        onSelect && !task.completed && "cursor-pointer hover:border-primary/40"
       )}
     >
+      {/* Accent bar for primary */}
+      {isPrimary && <div className="h-1 gradient-kaamyab" />}
+      
       {/* Main Task Content */}
-      <div className="p-5">
+      <div className={cn("p-5", isPrimary && "p-6")}>
+        {/* Primary label */}
+        {isPrimary && !task.completed && (
+          <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">
+            Start with this
+          </p>
+        )}
+        
         {/* Week indicator + Time hint */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
@@ -80,15 +116,21 @@ export function TodayTaskCard({
             <span>•</span>
             <span className="truncate max-w-[120px]">{weekFocus}</span>
           </div>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground/60 bg-muted/40 px-2 py-0.5 rounded-full">
-            <Clock className="w-3 h-3" />
-            {getTimeHint(task.estimated_hours)}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-primary/70">
+              <CalendarCheck className="w-3 h-3" />
+            </span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground/60 bg-muted/40 px-2 py-0.5 rounded-full">
+              <Clock className="w-3 h-3" />
+              {getTimeHint(task.estimated_hours)}
+            </span>
+          </div>
         </div>
 
         {/* Task Title */}
         <h3 className={cn(
-          "text-lg font-semibold text-foreground mb-4 leading-tight",
+          "font-semibold text-foreground mb-4 leading-tight",
+          isPrimary ? "text-xl" : "text-lg",
           task.completed && "line-through text-muted-foreground"
         )}>
           {task.title}
@@ -104,16 +146,25 @@ export function TodayTaskCard({
               exit={{ opacity: 0, scale: 0.95 }}
             >
               <Button
-                onClick={onComplete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onComplete();
+                }}
                 disabled={isCompleting}
-                className="w-full gradient-kaamyab hover:opacity-90 touch-press h-12 text-base font-medium"
+                size={isPrimary ? "lg" : "default"}
+                className={cn(
+                  "w-full touch-press font-medium",
+                  isPrimary 
+                    ? "gradient-kaamyab hover:opacity-90 h-12 text-base" 
+                    : "h-10"
+                )}
               >
                 {isCompleting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
                     <Check className="w-5 h-5 mr-2" />
-                    Complete Task
+                    {isPrimary ? 'Start this task' : 'Complete'}
                   </>
                 )}
               </Button>
@@ -132,11 +183,12 @@ export function TodayTaskCard({
         </AnimatePresence>
       </div>
 
-      {/* Expandable "How to approach this" Section */}
-      {hasExplanation && (
+      {/* Expandable "How to approach this" Section - only on mobile */}
+      {showHowSection && (
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <button
+              onClick={(e) => e.stopPropagation()}
               className={cn(
                 "w-full flex items-center justify-between px-5 py-3 text-sm",
                 "border-t border-border/20 bg-muted/30 hover:bg-muted/50 transition-colors",
@@ -172,6 +224,13 @@ export function TodayTaskCard({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Fallback explanation */}
+              {hasFallback && (
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {fallbackExplanation}
+                </p>
               )}
 
               {/* Why this matters */}
