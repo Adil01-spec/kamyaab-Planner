@@ -3,24 +3,37 @@ import { motion } from 'framer-motion';
 import { MessageSquare, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { SignalState } from '@/lib/dailyContextEngine';
 
 const REFLECTION_STORAGE_KEY = 'kaamyab_reflection';
 
-// Reflection prompts - rotated daily
-const reflectionPrompts = [
-  "What helped you show up today?",
-  "One thing that made today easier?",
-  "What would future-you thank you for?",
-  "What's one small win from today?",
-  "What gave you energy today?",
-  "What friction did you overcome?",
-  "What will you remember about today?",
-];
+// Phase 7.3: Signal-adaptive reflection prompts
+const reflectionPromptsBySignal: Record<SignalState, string[]> = {
+  'momentum': [
+    "What's working for you lately?",
+    "What helped maintain your rhythm?",
+    "What pattern is serving you well?",
+    "What made this week feel different?",
+  ],
+  'neutral': [
+    "One small win today?",
+    "What helped you show up today?",
+    "One thing that made today easier?",
+    "What would future-you thank you for?",
+  ],
+  'burnout-risk': [
+    "What would make today easier?",
+    "What's one thing you can let go of?",
+    "What would feel like rest right now?",
+    "What do you need most today?",
+  ],
+};
 
-// Get today's prompt based on day of year
-const getTodayPrompt = (): string => {
+// Get today's prompt based on day of year and signal state
+const getTodayPrompt = (signalState: SignalState): string => {
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  return reflectionPrompts[dayOfYear % reflectionPrompts.length];
+  const prompts = reflectionPromptsBySignal[signalState];
+  return prompts[dayOfYear % prompts.length];
 };
 
 // Get today's date string
@@ -30,14 +43,15 @@ const getTodayKey = (): string => {
 
 interface TodayReflectionStripProps {
   className?: string;
+  signalState?: SignalState;
 }
 
-export function TodayReflectionStrip({ className }: TodayReflectionStripProps) {
+export function TodayReflectionStrip({ className, signalState = 'neutral' }: TodayReflectionStripProps) {
   const [reflection, setReflection] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   
-  const todayPrompt = useMemo(() => getTodayPrompt(), []);
+  const todayPrompt = useMemo(() => getTodayPrompt(signalState), [signalState]);
   const todayKey = getTodayKey();
   
   // Load saved reflection on mount

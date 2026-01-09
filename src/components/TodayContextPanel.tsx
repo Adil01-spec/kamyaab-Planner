@@ -1,4 +1,4 @@
-import { DailyContext } from '@/lib/dailyContextEngine';
+import { DailyContext, SignalState } from '@/lib/dailyContextEngine';
 import { motion } from 'framer-motion';
 import { 
   Flame, 
@@ -12,6 +12,7 @@ import { getCurrentStreak } from '@/lib/streakTracker';
 
 interface TodayContextPanelProps {
   context: DailyContext;
+  collapsed?: boolean;
 }
 
 const getDayTypeLabel = (dayType: DailyContext['dayType']) => {
@@ -27,37 +28,78 @@ const getDayTypeLabel = (dayType: DailyContext['dayType']) => {
   }
 };
 
+/**
+ * Phase 7.3: Adaptive messages based on signal state
+ * These are tone-adjusted, not layout-changing
+ */
 const getAdaptiveMessage = (context: DailyContext): string => {
-  const { dayType, streakDays, hasOverdueTasks } = context;
+  const { signalState, dayType, streakDays, hasOverdueTasks } = context;
   
-  if (hasOverdueTasks) {
-    return "Clear overdue tasks first to regain flow.";
+  // Signal-based messaging (quiet adaptation)
+  switch (signalState) {
+    case 'momentum':
+      if (streakDays >= 5) {
+        return "You're building rhythm. Don't rush it.";
+      }
+      return "Your consistency is creating real momentum.";
+    
+    case 'burnout-risk':
+      // Supportive, not corrective
+      return "Let's keep things light today.";
+    
+    case 'neutral':
+    default:
+      // Fall back to day-type messaging
+      if (hasOverdueTasks) {
+        return "Clear overdue tasks first to regain flow.";
+      }
+      
+      if (dayType === 'recovery') {
+        return "One task is enough to restart momentum.";
+      }
+      
+      if (dayType === 'push' && streakDays >= 5) {
+        return "You've been consistent. Keep pressure light today.";
+      }
+      
+      if (dayType === 'push') {
+        return "Your consistency is building real momentum.";
+      }
+      
+      if (dayType === 'light') {
+        return "Fewer tasks today. Focus on quality.";
+      }
+      
+      return "Today is about showing up, not pushing.";
   }
-  
-  if (dayType === 'recovery') {
-    return "One task is enough to restart momentum.";
-  }
-  
-  if (dayType === 'push' && streakDays >= 5) {
-    return "You've been consistent. Keep pressure light today.";
-  }
-  
-  if (dayType === 'push') {
-    return "Your consistency is building real momentum.";
-  }
-  
-  if (dayType === 'light') {
-    return "Fewer tasks today. Focus on quality.";
-  }
-  
-  return "Steady work leads to steady progress.";
 };
 
-export function TodayContextPanel({ context }: TodayContextPanelProps) {
+export function TodayContextPanel({ context, collapsed = false }: TodayContextPanelProps) {
   const currentStreak = getCurrentStreak();
   const dayConfig = getDayTypeLabel(context.dayType);
   const Icon = dayConfig.icon;
   const adaptiveMessage = getAdaptiveMessage(context);
+  
+  // Phase 7.3: Collapsed mode for burnout-risk
+  if (collapsed) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="h-fit"
+      >
+        <div className="rounded-2xl border border-border/30 bg-card/50 p-4">
+          <div className="flex items-start gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground/80 leading-relaxed">
+              {adaptiveMessage}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
   
   return (
     <motion.div

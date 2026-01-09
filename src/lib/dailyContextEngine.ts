@@ -3,12 +3,17 @@
  * 
  * Pure, deterministic logic that derives daily context from existing data.
  * No database changes, no backend calls - UI + derived state only.
+ * 
+ * Phase 7.3: Added signal detection for adaptive micro-behaviors.
  */
 
 import { getStreakData, hasCompletedToday } from './streakTracker';
-import { startOfDay, subDays, parseISO, isAfter, isBefore, isSameDay } from 'date-fns';
+import { startOfDay, subDays, parseISO, isAfter, isBefore, isSameDay, differenceInDays } from 'date-fns';
 
 export type DayType = 'light' | 'normal' | 'recovery' | 'push';
+
+// Phase 7.3: Signal states for adaptive UI behavior
+export type SignalState = 'momentum' | 'neutral' | 'burnout-risk';
 
 export interface DailyContext {
   dayType: DayType;
@@ -18,6 +23,10 @@ export interface DailyContext {
   headline: string;
   subtext: string;
   streakDays: number;
+  // Phase 7.3: Signal detection
+  signalState: SignalState;
+  skippedDaysInRow: number;
+  reflectionUsedRecently: boolean;
 }
 
 interface Task {
@@ -215,6 +224,93 @@ export function generateFallbackExplanation(taskTitle: string): string {
 }
 
 /**
+ * Phase 7.3: Calculate consecutive skipped days
+ */
+function getSkippedDaysInRow(lastCompletionDate: string | null): number {
+  if (!lastCompletionDate) return 0;
+  
+  try {
+    const lastDate = parseISO(lastCompletionDate);
+    const today = startOfDay(new Date());
+    const daysSince = differenceInDays(today, startOfDay(lastDate));
+    
+    // If completed today or yesterday, no skipped streak
+    if (daysSince <= 1) return 0;
+    
+    // Return days skipped (subtract 1 for the completion day itself)
+    return daysSince - 1;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Phase 7.3: Check if reflection was used recently (last 3 days)
+ */
+function getReflectionUsedRecently(): boolean {
+  const REFLECTION_STORAGE_KEY = 'kaamyab_reflection';
+  
+  try {
+    const stored = localStorage.getItem(REFLECTION_STORAGE_KEY);
+    if (!stored) return false;
+    
+    const parsed = JSON.parse(stored);
+    if (!parsed.date) return false;
+    
+    const reflectionDate = parseISO(parsed.date);
+    const today = startOfDay(new Date());
+    const daysSince = differenceInDays(today, startOfDay(reflectionDate));
+    
+    return daysSince <= 3;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Phase 7.3: Detect signal state based on behavioral patterns
+ */
+function detectSignalState(
+  streakDays: number,
+  skippedDaysInRow: number,
+  reflectionUsedRecently: boolean,
+  hasOverdueTasks: boolean,
+  todayTaskCount: number,
+  completedToday: boolean
+): SignalState {
+  // Burnout risk detection (silent, supportive)
+  // - 2+ skipped days in a row
+  // - Tasks repeatedly deferred (overdue)
+  // - High task load + low completion
+  if (skippedDaysInRow >= 2) {
+    return 'burnout-risk';
+  }
+  
+  if (hasOverdueTasks && skippedDaysInRow >= 1) {
+    return 'burnout-risk';
+  }
+  
+  if (todayTaskCount > 5 && !completedToday && skippedDaysInRow >= 1) {
+    return 'burnout-risk';
+  }
+  
+  // Momentum detection
+  // - 3+ consecutive days with completion
+  // - No forced skips
+  // - Reflections used recently
+  if (streakDays >= 3 && !hasOverdueTasks) {
+    return 'momentum';
+  }
+  
+  if (streakDays >= 2 && reflectionUsedRecently) {
+    return 'momentum';
+  }
+  
+  // Default to neutral
+  return 'neutral';
+}
+
+/**
  * Main function: Compute daily context from existing data
  * 
  * This is pure and deterministic — same inputs always produce same outputs.
@@ -234,6 +330,9 @@ export function computeDailyContext(
       headline: "Ready to start",
       subtext: "Create a plan to see your daily focus.",
       streakDays: 0,
+      signalState: 'neutral',
+      skippedDaysInRow: 0,
+      reflectionUsedRecently: false,
     };
   }
   
@@ -249,11 +348,16 @@ export function computeDailyContext(
   const overdue = getOverdueTasks(plan, scheduledTasks);
   const hasOverdueTasks = overdue.count > 0;
   
+  // Phase 7.3: Calculate additional signal inputs
+  const skippedDaysInRow = getSkippedDaysInRow(lastCompletionDate);
+  const reflectionUsedRecently = getReflectionUsedRecently();
+  const completedToday = hasCompletedToday();
+  
   // Determine day type
   let dayType: DayType = 'normal';
   let focusCount = 3;
   
-  if (skippedYesterday && !hasCompletedToday()) {
+  if (skippedYesterday && !completedToday) {
     // User skipped yesterday and hasn't started today
     dayType = 'recovery';
     focusCount = 1; // Just focus on one thing
@@ -271,7 +375,22 @@ export function computeDailyContext(
   }
   
   // Recovery is suggested if skipped yesterday but not yet in recovery mode
-  const recoverySuggested = skippedYesterday && !hasCompletedToday();
+  const recoverySuggested = skippedYesterday && !completedToday;
+  
+  // Phase 7.3: Detect signal state
+  const signalState = detectSignalState(
+    streakDays,
+    skippedDaysInRow,
+    reflectionUsedRecently,
+    hasOverdueTasks,
+    todayTaskCount,
+    completedToday
+  );
+  
+  // Phase 7.3: Adjust focus count for burnout-risk
+  if (signalState === 'burnout-risk') {
+    focusCount = Math.min(focusCount, 2); // Reduce cognitive load
+  }
   
   return {
     dayType,
@@ -281,5 +400,8 @@ export function computeDailyContext(
     headline: getHeadline(dayType, hasOverdueTasks),
     subtext: getSubtext(dayType, streakDays, hasOverdueTasks, todayTaskCount),
     streakDays,
+    signalState,
+    skippedDaysInRow,
+    reflectionUsedRecently,
   };
 }
