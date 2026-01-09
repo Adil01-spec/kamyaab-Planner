@@ -34,6 +34,9 @@ import { DesktopSettingsDialog } from '@/components/DesktopSettingsDialog';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import TaskQuickActions from '@/components/TaskQuickActions';
 import { CursorExplosionButton } from '@/components/CursorExplosionButton';
+import { MotivationalQuoteCard } from '@/components/MotivationalQuoteCard';
+import { HomeIdentityContext } from '@/components/HomeIdentityContext';
+import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 
 interface Task {
   title: string;
@@ -56,7 +59,11 @@ interface PlanData {
   motivation?: string[];
   is_open_ended?: boolean;
   project_title?: string;
+  identity_statement?: string;
 }
+
+// Convert signalState to UserState for quote selection
+const signalToUserState = (signal: SignalState): 'momentum' | 'neutral' | 'burnout-risk' => signal;
 
 // Time-based greeting
 const getGreeting = (): string => {
@@ -543,6 +550,20 @@ const Home = () => {
             }} 
           />
         </header>
+
+        {/* Motivational Quote Card - based on user state */}
+        {planData && (
+          <>
+            <MotivationalQuoteCard 
+              userState={signalToUserState(computeDailyContext(null, todaysTasks.length).signalState)}
+              className="mb-6"
+            />
+            <HomeIdentityContext 
+              identityStatement={planData.identity_statement}
+              className="mb-6"
+            />
+          </>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             ZONE 2 — Today's Focus (Hero Section)

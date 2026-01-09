@@ -15,8 +15,12 @@ import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, CalendarPlus,
-  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight
+  Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight,
+  GitBranch, List
 } from 'lucide-react';
+import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
+import { PlanFlowView } from '@/components/PlanFlowView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { isAppleDevice } from '@/lib/calendarService';
@@ -63,6 +67,7 @@ interface PlanData {
   weeks: Week[];
   motivation: string[];
   is_open_ended?: boolean;
+  identity_statement?: string;
 }
 
 const Plan = () => {
@@ -302,6 +307,29 @@ const Plan = () => {
     }
   }, [plan, user, triggerCelebration, triggerGrandCelebration]);
 
+  // Update identity statement
+  const updateIdentityStatement = useCallback(async (statement: string) => {
+    if (!plan || !user) return;
+
+    const updatedPlan = { ...plan, identity_statement: statement };
+    setPlan(updatedPlan);
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('plans')
+        .update({ plan_json: updatedPlan as unknown as Json })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving identity statement:', error);
+      setPlan(plan); // Revert
+    } finally {
+      setSaving(false);
+    }
+  }, [plan, user]);
+
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
 
@@ -474,10 +502,14 @@ const Plan = () => {
         ) : (
           /* Plan Display */
           <div className="space-y-6">
-            {/* Overview */}
+            {/* Overview with Identity Statement */}
             <div className="animate-fade-in">
               <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
-              <p className="text-muted-foreground">{plan.overview}</p>
+              <p className="text-muted-foreground mb-3">{plan.overview}</p>
+              <IdentityStatementEditor
+                value={plan.identity_statement || ''}
+                onChange={updateIdentityStatement}
+              />
             </div>
 
             {/* Progress Overview Card */}
@@ -571,12 +603,26 @@ const Plan = () => {
               </Card>
             )}
 
-            {/* Weekly Plans */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Weekly Breakdown
-              </h2>
+            {/* View Toggle - List vs Flow */}
+            <Tabs defaultValue="list" className="animate-slide-up">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Weekly Breakdown
+                </h2>
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="list" className="flex items-center gap-2 text-xs px-3">
+                    <List className="w-3.5 h-3.5" />
+                    List
+                  </TabsTrigger>
+                  <TabsTrigger value="flow" className="flex items-center gap-2 text-xs px-3">
+                    <GitBranch className="w-3.5 h-3.5" />
+                    Flow
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="list" className="space-y-4 mt-0">
               {plan.weeks.map((week, weekIndex) => {
                 const weekCompleted = week.tasks.filter(t => t.completed).length;
                 const weekTotal = week.tasks.length;
@@ -735,7 +781,20 @@ const Plan = () => {
                   </Card>
                 );
               })}
-            </div>
+              </TabsContent>
+
+              <TabsContent value="flow" className="mt-0">
+                <Card className="glass-card overflow-hidden">
+                  <CardContent className="py-4 px-0">
+                    <PlanFlowView
+                      weeks={plan.weeks}
+                      identityStatement={plan.identity_statement}
+                      projectTitle={profile?.projectTitle}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
 
             {/* Motivation */}
             {plan.motivation && plan.motivation.length > 0 && (
