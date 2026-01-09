@@ -366,8 +366,13 @@ const Today = () => {
           show={showMomentum}
         />
 
-        {/* Desktop 3-Column Layout */}
-        <div className="hidden lg:grid lg:grid-cols-[1fr_minmax(320px,400px)_280px] lg:gap-6">
+        {/* Desktop 3-Column Layout (simplified for burnout-risk) */}
+        <div className={cn(
+          "hidden lg:grid lg:gap-6",
+          dailyContext.signalState === 'burnout-risk' 
+            ? "lg:grid-cols-[1fr_280px]" 
+            : "lg:grid-cols-[1fr_minmax(320px,400px)_280px]"
+        )}>
           {/* LEFT COLUMN - Focus Tasks */}
           <div className="space-y-4">
             <AnimatePresence mode="wait">
@@ -491,19 +496,24 @@ const Today = () => {
             </AnimatePresence>
           </div>
           
-          {/* CENTER COLUMN - Task Details */}
-          <TodayTaskDetailsPanel 
-            selectedTask={selectedTask} 
-            dayType={dailyContext.dayType}
-          />
+          {/* CENTER COLUMN - Task Details (collapsed in burnout-risk) */}
+          {dailyContext.signalState !== 'burnout-risk' && (
+            <TodayTaskDetailsPanel 
+              selectedTask={selectedTask} 
+              dayType={dailyContext.dayType}
+            />
+          )}
           
-          {/* RIGHT COLUMN - Context Panel */}
-          <TodayContextPanel context={dailyContext} />
+          {/* RIGHT COLUMN - Context Panel (collapsed in burnout-risk) */}
+          <TodayContextPanel 
+            context={dailyContext} 
+            collapsed={dailyContext.signalState === 'burnout-risk'}
+          />
         </div>
         
         {/* Desktop Reflection Strip */}
         <div className="hidden lg:block mt-6">
-          <TodayReflectionStrip />
+          <TodayReflectionStrip signalState={dailyContext.signalState} />
         </div>
 
         {/* Mobile/Tablet Task Display - Original Layout */}
