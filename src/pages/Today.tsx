@@ -15,6 +15,9 @@ import { TodayReflectionStrip } from '@/components/TodayReflectionStrip';
 import { BottomNav } from '@/components/BottomNav';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
+import { TaskEffortFeedback, storeEffortFeedback, type EffortLevel } from '@/components/TaskEffortFeedback';
+import { DayClosureModal } from '@/components/DayClosureModal';
+import { MissedTaskNotice } from '@/components/MissedTaskNotice';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -32,7 +35,7 @@ import {
   Sparkles,
   Clock
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -90,6 +93,13 @@ const Today = () => {
   const [showMomentum, setShowMomentum] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
   const previousCompletedCount = useRef(0);
+  
+  // Phase 7.5: Effort feedback and day closure
+  const [effortFeedbackTask, setEffortFeedbackTask] = useState<{ title: string; weekIndex: number; taskIndex: number } | null>(null);
+  const [showDayClosure, setShowDayClosure] = useState(false);
+  const [effortSummary, setEffortSummary] = useState<{ easy: number; okay: number; hard: number }>({ easy: 0, okay: 0, hard: 0 });
+  const [showMissedNotice, setShowMissedNotice] = useState(false);
+  const dayClosureShownRef = useRef(false);
 
   // Settings for dynamic background
   const { settings: mobileSettings, isMobile } = useMobileSettings();
@@ -175,6 +185,45 @@ const Today = () => {
     [planData, todaysTasks.length, scheduledTasks]
   );
   
+  // Phase 7.5: Count missed/rolled-forward tasks (scheduled before today but not completed)
+  const missedTaskCount = useMemo(() => {
+    const today = startOfDay(new Date());
+    let count = 0;
+    
+    for (const scheduled of scheduledTasks) {
+      const { weekNumber, taskIndex, scheduledAt } = scheduled;
+      const weekIndex = weekNumber - 1;
+      
+      if (!planData?.weeks || weekIndex < 0 || weekIndex >= planData.weeks.length) continue;
+      const week = planData.weeks[weekIndex];
+      if (!week?.tasks || taskIndex < 0 || taskIndex >= week.tasks.length) continue;
+      
+      const task = week.tasks[taskIndex];
+      if (task.completed) continue;
+      
+      try {
+        const scheduledDate = startOfDay(new Date(scheduledAt));
+        if (isBefore(scheduledDate, today)) {
+          count++;
+        }
+      } catch {
+        continue;
+      }
+    }
+    
+    return count;
+  }, [scheduledTasks, planData]);
+  
+  // Show missed notice on mount if there are missed tasks
+  useEffect(() => {
+    if (missedTaskCount > 0 && !showMissedNotice) {
+      setShowMissedNotice(true);
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => setShowMissedNotice(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [missedTaskCount]);
+  
   // Get the first incomplete task as primary
   const incompleteTasks = todaysTasks.filter(t => !t.task.completed);
   
@@ -214,6 +263,13 @@ const Today = () => {
       if (completedCount === todaysTasks.length && todaysTasks.length > 0) {
         // All tasks completed - play calm day-complete sound
         playDayCompleteSound();
+        
+        // Phase 7.5: Show day closure modal (only once)
+        if (!dayClosureShownRef.current) {
+          dayClosureShownRef.current = true;
+          // Delay to let momentum feedback show first
+          setTimeout(() => setShowDayClosure(true), 2000);
+        }
       } else if (completedCount > 0) {
         // Individual task completed - play subtle pop
         playTaskCompleteSound();
@@ -225,7 +281,7 @@ const Today = () => {
     previousCompletedCount.current = completedCount;
   }, [completedCount, todaysTasks.length]);
 
-  // Complete a task
+  // Complete a task - with effort feedback
   const handleCompleteTask = useCallback(async (weekIndex: number, taskIndex: number) => {
     if (!planData || !planId) return;
 
@@ -256,6 +312,13 @@ const Today = () => {
         .from('plans')
         .update({ plan_json: updatedPlan as unknown as Json })
         .eq('id', planId);
+      
+      // Phase 7.5: Show effort feedback after successful completion
+      setEffortFeedbackTask({
+        title: task.title,
+        weekIndex,
+        taskIndex,
+      });
     } catch (err) {
       console.error('Error completing task:', err);
       // Revert on error
@@ -267,6 +330,22 @@ const Today = () => {
       setCompletingTask(null);
     }
   }, [planData, planId, todaysTasks]);
+
+  // Handle effort feedback submission
+  const handleEffortSubmit = useCallback((effort: EffortLevel) => {
+    if (effortFeedbackTask) {
+      storeEffortFeedback(effortFeedbackTask.weekIndex, effortFeedbackTask.taskIndex, effort);
+      setEffortSummary(prev => ({
+        ...prev,
+        [effort]: prev[effort] + 1,
+      }));
+    }
+    setEffortFeedbackTask(null);
+  }, [effortFeedbackTask]);
+
+  const handleEffortSkip = useCallback(() => {
+    setEffortFeedbackTask(null);
+  }, []);
 
   if (loading) {
     return (
@@ -351,6 +430,13 @@ const Today = () => {
             )}
           </div>
         </motion.div>
+
+        {/* Phase 7.5: Missed Task Notice - gentle rollforward message */}
+        <MissedTaskNotice 
+          missedCount={missedTaskCount}
+          show={showMissedNotice}
+          className="mb-4"
+        />
 
         {/* Today Focus Card - Context-aware summary (mobile/tablet only) */}
         <div className="lg:hidden">
@@ -699,6 +785,22 @@ const Today = () => {
       </main>
       
       <BottomNav />
+      
+      {/* Phase 7.5: Effort Feedback Modal */}
+      <TaskEffortFeedback
+        taskTitle={effortFeedbackTask?.title || ''}
+        onSubmit={handleEffortSubmit}
+        onSkip={handleEffortSkip}
+        open={effortFeedbackTask !== null}
+      />
+      
+      {/* Phase 7.5: Day Closure Modal */}
+      <DayClosureModal
+        open={showDayClosure}
+        onClose={() => setShowDayClosure(false)}
+        completedCount={completedCount}
+        effortSummary={effortSummary}
+      />
     </div>
   );
 };

@@ -36,6 +36,7 @@ import TaskQuickActions from '@/components/TaskQuickActions';
 import { CursorExplosionButton } from '@/components/CursorExplosionButton';
 import { MotivationalQuoteCard } from '@/components/MotivationalQuoteCard';
 import { HomeIdentityContext } from '@/components/HomeIdentityContext';
+import { HomeFocusCard } from '@/components/HomeFocusCard';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 
 interface Task {
