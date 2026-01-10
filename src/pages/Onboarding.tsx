@@ -238,8 +238,8 @@ const Onboarding = () => {
 
       if (planError) {
         console.error('Plan generation error:', planError);
-        toast.error('Plan generation failed. Redirecting to plan setup...');
-        navigate('/plan/reset');
+        toast.error('Plan generation failed. Please try again.');
+        setLoading(false);
         return;
       }
 

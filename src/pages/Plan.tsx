@@ -414,8 +414,14 @@ const Plan = () => {
     setRefreshKey(k => k + 1);
   }, []);
 
-  // Swipe navigation
-  const swipeHandlers = useSwipeNavigation({ currentRoute: '/plan' });
+  // Flow view interaction state - disable swipe when user is interacting with flow
+  const [flowViewActive, setFlowViewActive] = useState(false);
+
+  // Swipe navigation - disabled when flow view is active
+  const swipeHandlers = useSwipeNavigation({ 
+    currentRoute: '/plan',
+    enabled: !flowViewActive
+  });
 
   if (loading) {
     return (
@@ -790,6 +796,8 @@ const Plan = () => {
                       weeks={plan.weeks}
                       identityStatement={plan.identity_statement}
                       projectTitle={profile?.projectTitle}
+                      onInteractionStart={() => setFlowViewActive(true)}
+                      onInteractionEnd={() => setFlowViewActive(false)}
                     />
                   </CardContent>
                 </Card>
