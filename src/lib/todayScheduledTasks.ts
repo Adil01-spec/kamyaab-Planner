@@ -14,6 +14,9 @@ interface Task {
   completed?: boolean;
   completed_at?: string;
   scheduled_at?: string;
+  execution_status?: 'idle' | 'doing' | 'done';
+  execution_started_at?: string;
+  time_spent_seconds?: number;
   explanation?: {
     how: string;
     why: string;

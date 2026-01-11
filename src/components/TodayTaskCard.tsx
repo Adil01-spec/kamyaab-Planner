@@ -38,6 +38,9 @@ interface TodayTaskCardProps {
   isSelected?: boolean;
   showExpandable?: boolean;
   fallbackExplanation?: string;
+  onStartTask?: () => void;
+  executionStatus?: 'idle' | 'doing' | 'done';
+  elapsedSeconds?: number;
 }
 
 // Convert hours to friendly time hint
@@ -68,13 +71,18 @@ export function TodayTaskCard({
   onSelect,
   isSelected = false,
   showExpandable = true,
-  fallbackExplanation
+  fallbackExplanation,
+  onStartTask,
+  executionStatus = 'idle',
+  elapsedSeconds = 0,
 }: TodayTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const hasFallback = !hasExplanation && fallbackExplanation;
   const showHowSection = showExpandable && (hasExplanation || hasFallback);
   const howBullets = formatHowToBullets(task.explanation?.how || '');
+  const isActive = executionStatus === 'doing';
+  const isDone = executionStatus === 'done' || task.completed;
 
   const handleCardClick = () => {
     if (onSelect) {
