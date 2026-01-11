@@ -18,15 +18,20 @@ import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { TaskEffortFeedback, storeEffortFeedback, type EffortLevel } from '@/components/TaskEffortFeedback';
 import { DayClosureModal } from '@/components/DayClosureModal';
 import { MissedTaskNotice } from '@/components/MissedTaskNotice';
+import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
+import { StartTaskModal } from '@/components/StartTaskModal';
+import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
+import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSound';
 import { computeDailyContext, generateFallbackExplanation } from '@/lib/dailyContextEngine';
 import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
-import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock } from 'lucide-react';
+import { formatTotalTime } from '@/lib/executionTimer';
+import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,6 +49,9 @@ interface PlanData {
       completed?: boolean;
       completed_at?: string;
       scheduled_at?: string;
+      execution_status?: 'idle' | 'doing' | 'done';
+      execution_started_at?: string;
+      time_spent_seconds?: number;
       explanation?: {
         how: string;
         why: string;
@@ -51,6 +59,7 @@ interface PlanData {
       };
     }[];
   }[];
+
   milestones?: {
     title: string;
     week: number;
@@ -100,6 +109,17 @@ const Today = () => {
   });
   const [showMissedNotice, setShowMissedNotice] = useState(false);
   const dayClosureShownRef = useRef(false);
+  
+  // Execution timer state
+  const [showStartTaskModal, setShowStartTaskModal] = useState(false);
+  const [pendingStartTask, setPendingStartTask] = useState<{
+    weekIndex: number;
+    taskIndex: number;
+    title: string;
+    estimatedHours: number;
+  } | null>(null);
+  const [showPlanCompletion, setShowPlanCompletion] = useState(false);
+  const planCompletionShownRef = useRef(false);
 
   // Settings for dynamic background
   const {
@@ -178,9 +198,16 @@ const Today = () => {
     }
   }, [loading, hasNoPlan, navigate]);
 
+  // Initialize execution timer hook
+  const executionTimer = useExecutionTimer({
+    planData,
+    planId,
+    onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan),
+  });
+
   // Get tasks scheduled for today
   const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];
-  const completedCount = todaysTasks.filter(t => t.task.completed).length;
+  const completedCount = todaysTasks.filter(t => t.task.completed || t.task.execution_status === 'done').length;
   const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
 
   // Compute daily context using the context engine
@@ -343,6 +370,45 @@ const Today = () => {
   const handleEffortSkip = useCallback(() => {
     setEffortFeedbackTask(null);
   }, []);
+
+  // Execution timer handlers
+  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
+    setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
+    setShowStartTaskModal(true);
+  }, []);
+
+  const handleConfirmStartTask = useCallback(async () => {
+    if (!pendingStartTask) return;
+    const success = await executionTimer.startTaskTimer(
+      pendingStartTask.weekIndex,
+      pendingStartTask.taskIndex,
+      pendingStartTask.title
+    );
+    if (success) {
+      setShowStartTaskModal(false);
+      setPendingStartTask(null);
+    }
+  }, [pendingStartTask, executionTimer]);
+
+  const handleTimerComplete = useCallback(async () => {
+    const result = await executionTimer.completeTaskTimer();
+    if (result.success && executionTimer.activeTimer) {
+      // Show effort feedback
+      setEffortFeedbackTask({
+        title: executionTimer.activeTimer.taskTitle,
+        weekIndex: executionTimer.activeTimer.weekIndex,
+        taskIndex: executionTimer.activeTimer.taskIndex,
+      });
+    }
+  }, [executionTimer]);
+
+  // Check for plan completion
+  useEffect(() => {
+    if (executionTimer.allTasksCompleted && !planCompletionShownRef.current) {
+      planCompletionShownRef.current = true;
+      setShowPlanCompletion(true);
+    }
+  }, [executionTimer.allTasksCompleted]);
   if (loading) {
     return <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <Loader2 className="w-5 h-5 animate-spin text-primary/60" />
@@ -643,11 +709,44 @@ const Today = () => {
       
       <BottomNav />
       
+      {/* Active Timer Banner - Fixed at bottom when task is active */}
+      {executionTimer.activeTimer && (
+        <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-lg mx-auto">
+          <ActiveTimerBanner
+            taskTitle={executionTimer.activeTimer.taskTitle}
+            elapsedSeconds={executionTimer.elapsedSeconds}
+            onComplete={handleTimerComplete}
+            onPause={executionTimer.pauseTaskTimer}
+            isCompleting={executionTimer.isCompleting}
+            isPausing={executionTimer.isPausing}
+            variant="prominent"
+          />
+        </div>
+      )}
+      
+      {/* Start Task Modal */}
+      <StartTaskModal
+        open={showStartTaskModal}
+        onOpenChange={setShowStartTaskModal}
+        taskTitle={pendingStartTask?.title || ''}
+        estimatedHours={pendingStartTask?.estimatedHours || 1}
+        onStart={handleConfirmStartTask}
+        isStarting={executionTimer.isStarting}
+      />
+      
       {/* Phase 7.5: Effort Feedback Modal */}
       <TaskEffortFeedback taskTitle={effortFeedbackTask?.title || ''} onSubmit={handleEffortSubmit} onSkip={handleEffortSkip} open={effortFeedbackTask !== null} />
       
       {/* Phase 7.5: Day Closure Modal */}
       <DayClosureModal open={showDayClosure} onClose={() => setShowDayClosure(false)} completedCount={completedCount} effortSummary={effortSummary} />
+      
+      {/* Plan Completion Modal */}
+      <PlanCompletionModal
+        open={showPlanCompletion}
+        onOpenChange={setShowPlanCompletion}
+        totalTimeSpentSeconds={executionTimer.totalTimeSpent}
+        totalTasks={planData?.weeks?.reduce((acc, w) => acc + w.tasks.length, 0) || 0}
+      />
     </div>;
 };
 export default Today;
