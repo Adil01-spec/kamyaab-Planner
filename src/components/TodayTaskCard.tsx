@@ -144,11 +144,45 @@ export function TodayTaskCard({
           {task.title}
         </h3>
 
-        {/* Complete Button */}
+        {/* Active Timer Display */}
+        {isActive && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-sm font-medium text-primary">
+              {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
+              {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
+              {(elapsedSeconds % 60).toString().padStart(2, '0')}
+            </span>
+            <span className="text-xs text-primary/70">In progress</span>
+          </div>
+        )}
+
+        {/* Action Buttons */}
         <AnimatePresence mode="wait">
-          {!task.completed ? (
+          {isDone ? (
             <motion.div
-              key="complete-btn"
+              key="completed"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center gap-2 py-3 text-primary"
+            >
+              <Check className="w-5 h-5" />
+              <span className="font-medium">Completed</span>
+            </motion.div>
+          ) : isActive ? (
+            <motion.div
+              key="active"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-2"
+            >
+              <span className="text-sm text-muted-foreground">
+                Use the timer below to complete
+              </span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="start-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -156,7 +190,7 @@ export function TodayTaskCard({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onComplete();
+                  onStartTask?.();
                 }}
                 disabled={isCompleting}
                 size={isPrimary ? "lg" : "default"}
@@ -171,21 +205,11 @@ export function TodayTaskCard({
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    <Check className="w-5 h-5 mr-2" />
-                    {isPrimary ? 'Start this task' : 'Complete'}
+                    <Clock className="w-5 h-5 mr-2" />
+                    {isPrimary ? 'Start this task' : 'Start'}
                   </>
                 )}
               </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="completed"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center justify-center gap-2 py-3 text-primary"
-            >
-              <Check className="w-5 h-5" />
-              <span className="font-medium">Completed</span>
             </motion.div>
           )}
         </AnimatePresence>

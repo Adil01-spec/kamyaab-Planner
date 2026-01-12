@@ -55,6 +55,9 @@ interface TaskItemProps {
   showCalendarButton?: boolean;
   planCreatedAt?: string;
   onCalendarStatusChange?: () => void;
+  onStartTask?: () => void;
+  executionStatus?: 'idle' | 'doing' | 'done';
+  elapsedSeconds?: number;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -121,7 +124,12 @@ export function TaskItem({
   showCalendarButton = false,
   planCreatedAt,
   onCalendarStatusChange,
+  onStartTask,
+  executionStatus = 'idle',
+  elapsedSeconds = 0,
 }: TaskItemProps) {
+  const isActive = executionStatus === 'doing';
+  const isDone = executionStatus === 'done' || completed;
   const [isOpen, setIsOpen] = useState(false);
   const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);

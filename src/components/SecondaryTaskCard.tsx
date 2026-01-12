@@ -36,6 +36,9 @@ interface SecondaryTaskCardProps {
   taskNumber: number;
   isScheduled?: boolean;
   fallbackExplanation?: string;
+  onStartTask?: () => void;
+  executionStatus?: 'idle' | 'doing' | 'done';
+  elapsedSeconds?: number;
 }
 
 // Convert hours to friendly time hint
@@ -64,13 +67,18 @@ export function SecondaryTaskCard({
   isCompleting = false,
   taskNumber,
   isScheduled = false,
-  fallbackExplanation
+  fallbackExplanation,
+  onStartTask,
+  executionStatus = 'idle',
+  elapsedSeconds = 0,
 }: SecondaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const hasFallback = !hasExplanation && fallbackExplanation;
   const showHowSection = hasExplanation || hasFallback;
   const howBullets = formatHowToBullets(task.explanation?.how || '');
+  const isActive = executionStatus === 'doing';
+  const isDone = executionStatus === 'done' || task.completed;
 
   return (
     <motion.div
@@ -78,7 +86,8 @@ export function SecondaryTaskCard({
       className={cn(
         "rounded-2xl overflow-hidden transition-all duration-200",
         "bg-card/60 border border-border/30",
-        task.completed && "opacity-50"
+        isDone && "opacity-50",
+        isActive && "ring-2 ring-primary/40 border-primary/30"
       )}
     >
       {/* Main Content - Compact */}
@@ -104,15 +113,45 @@ export function SecondaryTaskCard({
             {/* Task Title */}
             <h3 className={cn(
               "text-base font-medium text-foreground leading-snug",
-              task.completed && "line-through text-muted-foreground"
+              isDone && "line-through text-muted-foreground"
             )}>
               {task.title}
             </h3>
+            
+            {/* Active Timer Display */}
+            {isActive && (
+              <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded-md bg-primary/10 w-fit">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-medium text-primary font-mono">
+                  {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
+                  {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
+                  {(elapsedSeconds % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Complete button - small */}
+          {/* Action button */}
           <AnimatePresence mode="wait">
-            {!task.completed ? (
+            {isDone ? (
+              <motion.div
+                key="done"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-1 text-primary text-sm"
+              >
+                <Check className="w-4 h-4" />
+              </motion.div>
+            ) : isActive ? (
+              <motion.div
+                key="active"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-xs text-muted-foreground"
+              >
+                In progress
+              </motion.div>
+            ) : (
               <motion.div
                 key="btn"
                 initial={{ opacity: 0 }}
@@ -120,7 +159,7 @@ export function SecondaryTaskCard({
                 exit={{ opacity: 0 }}
               >
                 <Button
-                  onClick={onComplete}
+                  onClick={onStartTask}
                   disabled={isCompleting}
                   size="sm"
                   variant="outline"
@@ -130,20 +169,11 @@ export function SecondaryTaskCard({
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-1" />
-                      Done
+                      <Clock className="w-4 h-4 mr-1" />
+                      Start
                     </>
                   )}
                 </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="done"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-1 text-primary text-sm"
-              >
-                <Check className="w-4 h-4" />
               </motion.div>
             )}
           </AnimatePresence>

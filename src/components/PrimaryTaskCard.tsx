@@ -36,6 +36,9 @@ interface PrimaryTaskCardProps {
   isCompleting?: boolean;
   isScheduled?: boolean;
   fallbackExplanation?: string;
+  onStartTask?: () => void;
+  executionStatus?: 'idle' | 'doing' | 'done';
+  elapsedSeconds?: number;
 }
 
 // Convert hours to friendly time hint
@@ -67,13 +70,18 @@ export function PrimaryTaskCard({
   onComplete,
   isCompleting = false,
   isScheduled = false,
-  fallbackExplanation
+  fallbackExplanation,
+  onStartTask,
+  executionStatus = 'idle',
+  elapsedSeconds = 0,
 }: PrimaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const hasFallback = !hasExplanation && fallbackExplanation;
   const showHowSection = hasExplanation || hasFallback;
   const howBullets = formatHowToBullets(task.explanation?.how || '');
+  const isActive = executionStatus === 'doing';
+  const isDone = executionStatus === 'done' || task.completed;
 
   return (
     <motion.div
@@ -85,11 +93,12 @@ export function PrimaryTaskCard({
         "rounded-3xl overflow-hidden transition-all duration-300",
         "bg-gradient-to-br from-card via-card to-card/80",
         "border-2 border-primary/20 shadow-lg shadow-primary/5",
-        task.completed && "opacity-60 border-border/30"
+        isDone && "opacity-60 border-border/30",
+        isActive && "ring-2 ring-primary/50 border-primary/40"
       )}
     >
       {/* Accent top bar */}
-      <div className="h-1 gradient-kaamyab" />
+      <div className={cn("h-1", isActive ? "bg-primary animate-pulse" : "gradient-kaamyab")} />
 
       {/* Main Content */}
       <div className="p-6 sm:p-8">
@@ -125,15 +134,47 @@ export function PrimaryTaskCard({
 
         {/* Task Title - Large and prominent */}
         <h2 className={cn(
-          "text-xl sm:text-2xl font-bold text-foreground mb-6 leading-tight",
-          task.completed && "line-through text-muted-foreground"
+          "text-xl sm:text-2xl font-bold text-foreground mb-4 leading-tight",
+          isDone && "line-through text-muted-foreground"
         )}>
           {task.title}
         </h2>
 
+        {/* Active Timer Display */}
+        {isActive && (
+          <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
+            <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
+            <span className="text-lg font-bold text-primary font-mono">
+              {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
+              {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
+              {(elapsedSeconds % 60).toString().padStart(2, '0')}
+            </span>
+            <span className="text-sm text-primary/70">In progress</span>
+          </div>
+        )}
+
         {/* Primary Action Button */}
         <AnimatePresence mode="wait">
-          {!task.completed ? (
+          {isDone ? (
+            <motion.div
+              key="completed"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center gap-2 py-4 text-primary bg-primary/5 rounded-xl"
+            >
+              <Check className="w-5 h-5" />
+              <span className="font-semibold">Completed</span>
+            </motion.div>
+          ) : isActive ? (
+            <motion.div
+              key="active"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-3 text-sm text-muted-foreground"
+            >
+              Use the timer below to mark as complete
+            </motion.div>
+          ) : (
             <motion.div
               key="action"
               initial={{ opacity: 0 }}
@@ -141,7 +182,7 @@ export function PrimaryTaskCard({
               exit={{ opacity: 0, scale: 0.95 }}
             >
               <Button
-                onClick={onComplete}
+                onClick={onStartTask}
                 disabled={isCompleting}
                 size="lg"
                 className="w-full gradient-kaamyab hover:opacity-90 touch-press h-14 text-base font-semibold rounded-xl"
@@ -155,16 +196,6 @@ export function PrimaryTaskCard({
                   </>
                 )}
               </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="completed"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center justify-center gap-2 py-4 text-primary bg-primary/5 rounded-xl"
-            >
-              <Check className="w-5 h-5" />
-              <span className="font-semibold">Completed</span>
             </motion.div>
           )}
         </AnimatePresence>
