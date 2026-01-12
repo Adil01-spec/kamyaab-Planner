@@ -21,6 +21,8 @@ import { MissedTaskNotice } from '@/components/MissedTaskNotice';
 import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
 import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
+import { StreakBadge } from '@/components/StreakBadge';
+import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -31,6 +33,7 @@ import { playTaskCompleteSound, playDayCompleteSound } from '@/lib/celebrationSo
 import { computeDailyContext, generateFallbackExplanation } from '@/lib/dailyContextEngine';
 import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { formatTotalTime } from '@/lib/executionTimer';
+import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -89,6 +92,7 @@ const Today = () => {
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const [showMomentum, setShowMomentum] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
+  const [streak, setStreak] = useState(0);
   const previousCompletedCount = useRef(0);
 
   // Phase 7.5: Effort feedback and day closure
@@ -188,6 +192,11 @@ const Today = () => {
     };
     fetchPlan();
   }, [user]);
+
+  // Load streak on mount
+  useEffect(() => {
+    setStreak(getCurrentStreak());
+  }, []);
 
   // Redirect if no plan
   useEffect(() => {
@@ -455,9 +464,12 @@ const Today = () => {
           <div className="flex items-start justify-between gap-4">
             {/* Text content */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1">
-                {greeting}
-              </h1>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
+                  {greeting}
+                </h1>
+                <StreakBadge streak={streak} variant="default" />
+              </div>
               <p className="text-sm text-muted-foreground mb-2">
                 {motivationalLine}
               </p>

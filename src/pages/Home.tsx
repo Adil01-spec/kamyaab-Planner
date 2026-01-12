@@ -7,11 +7,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { applyDynamicAccent } from '@/lib/dynamicAccent';
+import { getLocalActiveTimer, calculateElapsedSeconds } from '@/lib/executionTimer';
 import { useTheme } from 'next-themes';
 import { 
   Loader2, 
   ArrowRight, 
-  Flame,
   Clock,
   Check,
   Sun,
@@ -37,6 +37,10 @@ import { CursorExplosionButton } from '@/components/CursorExplosionButton';
 import { MotivationalQuoteCard } from '@/components/MotivationalQuoteCard';
 import { HomeIdentityContext } from '@/components/HomeIdentityContext';
 import { HomeFocusCard } from '@/components/HomeFocusCard';
+import { StreakBadge } from '@/components/StreakBadge';
+import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
+import { MomentumIndicator } from '@/components/MomentumIndicator';
+import { ResumeFocusCTA } from '@/components/ResumeFocusCTA';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 
 interface Task {
@@ -91,6 +95,13 @@ const Home = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
   const [hoveredTaskKey, setHoveredTaskKey] = useState<string | null>(null);
+  const [activeTimer, setActiveTimer] = useState<{
+    taskTitle: string;
+    weekIndex: number;
+    taskIndex: number;
+    startedAt: string;
+  } | null>(null);
+  const [timerElapsed, setTimerElapsed] = useState(0);
   const mousePos = useRef({ x: 0.5, y: 0.5 });
   const animationRef = useRef<number>();
   
@@ -373,7 +384,33 @@ const Home = () => {
 
   useEffect(() => {
     setStreak(getCurrentStreak());
+    
+    // Check for active timer (Resume CTA)
+    const localTimer = getLocalActiveTimer();
+    if (localTimer) {
+      setActiveTimer({
+        taskTitle: localTimer.taskTitle,
+        weekIndex: localTimer.weekIndex,
+        taskIndex: localTimer.taskIndex,
+        startedAt: localTimer.started_at,
+      });
+      setTimerElapsed(calculateElapsedSeconds(localTimer.started_at) + (localTimer.elapsed_seconds || 0));
+    }
   }, []);
+  
+  // Update elapsed time every second if timer is active
+  useEffect(() => {
+    if (!activeTimer) return;
+    
+    const interval = setInterval(() => {
+      const localTimer = getLocalActiveTimer();
+      if (localTimer) {
+        setTimerElapsed(calculateElapsedSeconds(localTimer.started_at) + (localTimer.elapsed_seconds || 0));
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [activeTimer]);
 
   useEffect(() => {
     if (planData) {
@@ -706,9 +743,26 @@ const Home = () => {
           )}
         </section>
 
+        {/* Resume Focus CTA - shows if a task is in "doing" state */}
+        {activeTimer && (
+          <ResumeFocusCTA
+            taskTitle={activeTimer.taskTitle}
+            elapsedSeconds={timerElapsed}
+            onResume={() => navigate('/today')}
+            className="mb-6"
+          />
+        )}
+
+        {/* Daily Nudge Banner - shows once per day if no activity */}
+        <DailyNudgeBanner
+          hasUnlockedTasks={todaysTasks.length > 0}
+          hasActiveOrDoneToday={!!activeTimer || todaysTasks.some(t => t.task.completed)}
+          className="mb-6"
+        />
+
         {/* ═══════════════════════════════════════════════════════════════
-            ZONE 3 — Progress & Momentum (Quiet Support)
-            Informational, not motivating
+            ZONE 3 — Progress & Momentum (Visual Momentum Indicator)
+            Glassmorphism segmented progress
         ═══════════════════════════════════════════════════════════════ */}
         {planData && (
           <section 
@@ -721,14 +775,9 @@ const Home = () => {
           >
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
-                Progress
+                Momentum
               </p>
-              {streak > 0 && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground/50">
-                  <Flame className="w-3 h-3 text-orange-400/70" />
-                  <span>{streak}d</span>
-                </div>
-              )}
+              <StreakBadge streak={streak} variant="default" />
             </div>
 
             <div 
@@ -736,34 +785,21 @@ const Home = () => {
               style={{
                 background: 'hsl(var(--card) / 0.35)',
                 border: '1px solid hsl(var(--border) / 0.08)',
+                backdropFilter: 'blur(12px)',
                 transitionDuration: 'var(--color-transition)',
                 transform: `translate3d(${parallax.x * 0.2}px, ${parallax.y * 0.2}px, 0)`,
               }}
             >
-              {/* Progress bar with dynamic accent */}
-              <div className="space-y-2 mb-5">
-                <div 
-                  className="h-1.5 rounded-full overflow-hidden transition-colors"
-                  style={{ 
-                    background: 'hsl(var(--muted) / 0.25)',
-                    transitionDuration: 'var(--color-transition)'
-                  }}
-                >
-                  <div 
-                    className="h-full rounded-full transition-all"
-                    style={{ 
-                      width: `${progressValue}%`,
-                      background: 'hsl(var(--dynamic-accent-fill))',
-                      transitionDuration: '800ms',
-                      transitionTimingFunction: 'ease-out'
-                    }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground/50">
-                  <span>{progress.completed} of {progress.total} tasks</span>
-                  <span>{progress.percent}%</span>
-                </div>
-              </div>
+              {/* Momentum Indicator - replaces simple progress bar */}
+              <MomentumIndicator
+                weekNumber={currentWeekIndex + 1}
+                totalWeeks={planData.total_weeks || 1}
+                weekTasksDone={planData.weeks?.[currentWeekIndex]?.tasks?.filter(t => t.completed).length || 0}
+                weekTasksTotal={planData.weeks?.[currentWeekIndex]?.tasks?.length || 0}
+                todayTasksDone={todaysTasks.filter(t => t.task.completed).length}
+                todayTasksTotal={todaysTasks.length}
+                className="mb-5"
+              />
 
               {/* Go to Today's Focus CTA - with cursor explosion effect */}
               <CursorExplosionButton
