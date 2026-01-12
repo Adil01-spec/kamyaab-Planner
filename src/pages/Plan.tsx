@@ -9,8 +9,11 @@ import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
+import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
+import { StartTaskModal } from '@/components/StartTaskModal';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
+import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { 
@@ -74,12 +77,20 @@ const Plan = () => {
   const { profile, logout, user } = useAuth();
   const navigate = useNavigate();
   const [plan, setPlan] = useState<PlanData | null>(null);
+  const [planId, setPlanId] = useState<string | null>(null);
   const [planCreatedAt, setPlanCreatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
+  const [showStartTaskModal, setShowStartTaskModal] = useState(false);
+  const [pendingStartTask, setPendingStartTask] = useState<{
+    weekIndex: number;
+    taskIndex: number;
+    title: string;
+    estimatedHours: number;
+  } | null>(null);
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
   
@@ -196,12 +207,13 @@ const Plan = () => {
       try {
         const { data, error } = await supabase
           .from('plans')
-          .select('plan_json, created_at')
+          .select('id, plan_json, created_at')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (error) throw error;
         if (data?.plan_json) {
+          setPlanId(data.id);
           setPlan(data.plan_json as unknown as PlanData);
           setPlanCreatedAt(data.created_at);
         }
@@ -214,6 +226,38 @@ const Plan = () => {
 
     fetchPlan();
   }, [user]);
+
+  // Initialize execution timer hook
+  const executionTimer = useExecutionTimer({
+    planData: plan,
+    planId,
+    onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
+  });
+
+  // Execution timer handlers for Plan page
+  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
+    setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
+    setShowStartTaskModal(true);
+  }, []);
+
+  const handleConfirmStartTask = useCallback(async () => {
+    if (!pendingStartTask) return;
+    const success = await executionTimer.startTaskTimer(
+      pendingStartTask.weekIndex,
+      pendingStartTask.taskIndex,
+      pendingStartTask.title
+    );
+    if (success) {
+      setShowStartTaskModal(false);
+      setPendingStartTask(null);
+      // Navigate to Today page to focus on the task
+      navigate('/today');
+    }
+  }, [pendingStartTask, executionTimer, navigate]);
+
+  const handleTimerComplete = useCallback(async () => {
+    await executionTimer.completeTaskTimer();
+  }, [executionTimer]);
 
   const handleLogout = async () => {
     await logout();
@@ -741,6 +785,9 @@ const Plan = () => {
                             showCalendarButton={isActiveWeek && !isWeekComplete}
                             planCreatedAt={planCreatedAt || undefined}
                             onCalendarStatusChange={triggerCalendarRefresh}
+                            onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
+                            executionStatus={executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? 'doing' : 'idle'}
+                            elapsedSeconds={executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? executionTimer.elapsedSeconds : 0}
                           />
                         ))}
                       </div>
@@ -894,6 +941,31 @@ const Plan = () => {
         onConfirm={handleDeletePlan}
         isDeleting={isDeleting}
       />
+      
+      {/* Start Task Modal */}
+      <StartTaskModal
+        open={showStartTaskModal}
+        onOpenChange={setShowStartTaskModal}
+        taskTitle={pendingStartTask?.title || ''}
+        estimatedHours={pendingStartTask?.estimatedHours || 1}
+        onStart={handleConfirmStartTask}
+        isStarting={executionTimer.isStarting}
+      />
+      
+      {/* Active Timer Banner - Compact version for Plan page */}
+      {executionTimer.activeTimer && (
+        <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
+          <ActiveTimerBanner
+            taskTitle={executionTimer.activeTimer.taskTitle}
+            elapsedSeconds={executionTimer.elapsedSeconds}
+            onComplete={handleTimerComplete}
+            onPause={executionTimer.pauseTaskTimer}
+            isCompleting={executionTimer.isCompleting}
+            isPausing={executionTimer.isPausing}
+            variant="compact"
+          />
+        </div>
+      )}
       
       <BottomNav />
     </div>

@@ -532,7 +532,7 @@ const Today = () => {
               opacity: 1
             }} className="space-y-3">
                   {/* All focused tasks using TodayTaskCard */}
-                  {focusedTasks.map((item, index) => <TodayTaskCard key={`${item.weekIndex}-${item.taskIndex}`} task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} isPrimary={index === 0} onSelect={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)} isSelected={selectedTaskKey === `${item.weekIndex}-${item.taskIndex}`} showExpandable={false} fallbackExplanation={generateFallbackExplanation(item.task.title)} />)}
+                  {focusedTasks.map((item, index) => <TodayTaskCard key={`${item.weekIndex}-${item.taskIndex}`} task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} isPrimary={index === 0} onSelect={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)} isSelected={selectedTaskKey === `${item.weekIndex}-${item.taskIndex}`} showExpandable={false} fallbackExplanation={generateFallbackExplanation(item.task.title)} onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : item.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0} />)}
                   
                   {/* Muted Tasks */}
                   {mutedTasks.length > 0 && <div className="space-y-2 pt-4 opacity-60">
@@ -661,7 +661,7 @@ const Today = () => {
             duration: 0.2
           }} className="space-y-5">
                 {/* Primary Task - First incomplete task gets emphasis */}
-                {primaryTask && <PrimaryTaskCard task={primaryTask.task} weekNumber={primaryTask.weekIndex + 1} weekFocus={primaryTask.weekFocus} onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)} isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`} isScheduled={true} fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)} />}
+                {primaryTask && <PrimaryTaskCard task={primaryTask.task} weekNumber={primaryTask.weekIndex + 1} weekFocus={primaryTask.weekFocus} onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)} isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`} isScheduled={true} fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)} onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : primaryTask.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0} />}
 
                 {/* Secondary Tasks - Smaller, less prominent */}
                 {secondaryTasks.length > 0 && <div className="space-y-3 pt-2">
@@ -678,7 +678,7 @@ const Today = () => {
                 duration: 0.3,
                 delay: 0.1 + index * 0.05
               }}>
-                        <SecondaryTaskCard task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} taskNumber={index + 2} isScheduled={true} fallbackExplanation={generateFallbackExplanation(item.task.title)} />
+                        <SecondaryTaskCard task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} taskNumber={index + 2} isScheduled={true} fallbackExplanation={generateFallbackExplanation(item.task.title)} onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : item.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0} />
                       </motion.div>)}
                   </div>}
 
