@@ -1,13 +1,29 @@
 // Executive profile detection utilities
 
-const EXECUTIVE_PROFESSIONS = ['business_owner'];
+export const EXECUTIVE_PROFESSIONS = ['business_owner', 'executive'];
 
-const EXECUTIVE_KEYWORDS = [
+export const EXECUTIVE_KEYWORDS = [
   'ceo', 'cto', 'coo', 'cfo', 'cmo', 'cio',
   'vp', 'vice president',
   'director', 'head of', 'founder', 'co-founder',
   'president', 'chief', 'executive', 'managing director',
   'partner', 'principal', 'owner'
+];
+
+export const EXECUTIVE_ROLES = [
+  'CEO / Chief Executive Officer',
+  'CTO / Chief Technology Officer',
+  'COO / Chief Operating Officer',
+  'CFO / Chief Financial Officer',
+  'CMO / Chief Marketing Officer',
+  'VP / Vice President',
+  'Director',
+  'Head of Department',
+  'Founder / Co-Founder',
+  'Managing Director',
+  'Partner / Principal',
+  'General Manager',
+  'Other Executive Role',
 ];
 
 export function isExecutiveProfile(
