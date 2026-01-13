@@ -140,7 +140,24 @@ serve(async (req) => {
       weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
     }
 
-    const systemPrompt = `You are an expert productivity coach and project planner. You create deeply actionable plans with clear guidance.
+    // Check if this is an executive profile
+    const strategicPlanning = profile.strategicPlanning;
+    const isExecutive = strategicPlanning && Object.keys(strategicPlanning).length > 0;
+
+    // Adjust weeks based on strategic horizon if provided
+    if (isExecutive && strategicPlanning.strategy_horizon) {
+      const horizonWeeks: Record<string, number> = {
+        '30_days': 4,
+        '90_days': 12,
+        '6_months': 24,
+        '12_months': 52,
+        '3_5_years': 52, // Max out at 1 year for practical planning
+      };
+      weeksRemaining = horizonWeeks[strategicPlanning.strategy_horizon] || weeksRemaining;
+    }
+
+    // Build system prompt based on profile type
+    const baseSystemPrompt = `You are an expert productivity coach and project planner. You create deeply actionable plans with clear guidance.
 
 CRITICAL RULES:
 1. Every task MUST have detailed explanations - no exceptions
@@ -148,6 +165,26 @@ CRITICAL RULES:
 3. Prefer fewer, deeper tasks over many shallow ones
 4. If you cannot explain HOW to do a task, do not include it
 5. Your response MUST be valid JSON only. No markdown, no code blocks.`;
+
+    const executiveSystemPrompt = `You are an elite executive coach and strategic advisor. You create high-leverage plans for founders, CEOs, and senior leaders.
+
+CRITICAL RULES FOR EXECUTIVE PLANNING:
+1. Focus on STRATEGIC MILESTONES, not micro-tasks
+2. Each task should be a high-impact decision or delegation point
+3. Include "What NOT to do" notes to prevent distraction
+4. Suggest delegation where appropriate
+5. Focus on leverage - what moves the needle most?
+6. Consider the executive's decision-making style and constraints
+7. Your response MUST be valid JSON only. No markdown, no code blocks.
+
+EXECUTIVE PLANNING PRINCIPLES:
+- Strategy over execution
+- Delegation over doing
+- Decisions over tasks
+- Outcomes over activities
+- Weekly themes over daily checklists`;
+
+    const systemPrompt = isExecutive ? executiveSystemPrompt : baseSystemPrompt;
 
     const deadlineContext = noDeadline 
       ? `- Deadline: None (open-ended project)
@@ -157,7 +194,18 @@ CRITICAL RULES:
 - Days Remaining: ${daysRemaining}
 - Weeks Remaining: ${weeksRemaining}`;
 
-    const planningRequirements = noDeadline
+    // Build strategic context for executives
+    const strategicContext = isExecutive ? `
+STRATEGIC CONTEXT:
+- Time Horizon: ${strategicPlanning.strategy_horizon || 'Not specified'}
+- Primary Objective: ${strategicPlanning.primary_objective === 'Other' ? strategicPlanning.primary_objective_other : strategicPlanning.primary_objective || 'Not specified'}
+- Business Stage: ${strategicPlanning.business_stage || 'Not specified'}
+- Key Constraints: ${(strategicPlanning.constraints || []).join(', ')}${strategicPlanning.constraints_other ? `, ${strategicPlanning.constraints_other}` : ''}
+- Delegation Preference: ${strategicPlanning.delegation_preference || 'Not specified'}
+- Decision Style: ${strategicPlanning.decision_style || 'Not specified'}
+` : '';
+
+    const standardPlanningRequirements = noDeadline
       ? `Requirements for OPEN-ENDED project:
 - Create ${weeksRemaining} weeks of planning (rolling, extendable)
 - Focus on building consistent habits and sustainable momentum
@@ -174,6 +222,22 @@ CRITICAL RULES:
 - Add 3-5 motivational messages
 - Make it realistic and achievable`;
 
+    const executivePlanningRequirements = `Requirements for EXECUTIVE STRATEGIC PLAN:
+- Create ${Math.min(weeksRemaining, 12)} weeks of strategic planning
+- Each week should have a STRATEGIC THEME (e.g., "Market Validation", "Team Alignment")
+- Include 2-3 HIGH-LEVERAGE actions per week (not tasks, but strategic moves)
+- Each action should include delegation suggestions if applicable
+- Add "What to AVOID this week" notes to prevent scope creep
+- Include decision checkpoints where key choices must be made
+- Priority must be "Critical", "High", or "Medium" (no Low priority at executive level)
+- Focus on the primary objective: ${strategicPlanning?.primary_objective || 'growth'}
+- Account for constraints: ${(strategicPlanning?.constraints || []).join(', ') || 'none specified'}
+- Match delegation style: ${strategicPlanning?.delegation_preference || 'balanced'}
+- Include 3-5 strategic milestones
+- Add 3-5 executive-level insights or reminders`;
+
+    const planningRequirements = isExecutive ? executivePlanningRequirements : standardPlanningRequirements;
+
     const userPrompt = `Create a detailed, actionable project plan for:
 
 PROFILE:
@@ -185,7 +249,7 @@ PROJECT:
 - Title: ${profile.projectTitle}
 - Description: ${profile.projectDescription}
 ${deadlineContext}
-
+${strategicContext}
 Generate a JSON response with this EXACT structure. Every task MUST have the nested explanation object:
 
 {

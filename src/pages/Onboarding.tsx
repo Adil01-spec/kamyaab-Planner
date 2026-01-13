@@ -12,6 +12,8 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { isExecutiveProfile, StrategicPlanningData } from '@/lib/executiveDetection';
+import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
 
@@ -23,6 +25,7 @@ interface OnboardingData {
   projectDescription: string;
   projectDeadline: string;
   noDeadline: boolean;
+  strategicPlanning: StrategicPlanningData;
 }
 
 interface Question {
@@ -94,10 +97,14 @@ const Onboarding = () => {
     projectDescription: '',
     projectDeadline: '',
     noDeadline: false,
+    strategicPlanning: {},
   });
   const [loading, setLoading] = useState(false);
   const { saveProfile } = useAuth();
   const navigate = useNavigate();
+
+  // Check if user is executive profile
+  const showStrategicPlanning = isExecutiveProfile(data.profession, data.professionDetails);
 
   const profession = data.profession ? professionConfig[data.profession] : null;
   
@@ -195,7 +202,14 @@ const Onboarding = () => {
     setLoading(true);
     try {
       // Process profession details to combine predefined and custom technologies
-      const processedDetails: Record<string, any> = { ...data.professionDetails, noDeadline: data.noDeadline };
+      const processedDetails: Record<string, any> = { 
+        ...data.professionDetails, 
+        noDeadline: data.noDeadline,
+        // Include strategic planning data if available
+        ...(showStrategicPlanning && Object.keys(data.strategicPlanning).length > 0 
+          ? { strategicPlanning: data.strategicPlanning } 
+          : {}),
+      };
       
       // Combine technologies if present
       if (processedDetails.technologies !== undefined || processedDetails.technologies_custom) {
@@ -232,6 +246,7 @@ const Onboarding = () => {
             projectDescription: data.projectDescription,
             projectDeadline: data.noDeadline ? null : data.projectDeadline,
             noDeadline: data.noDeadline,
+            strategicPlanning: showStrategicPlanning ? data.strategicPlanning : undefined,
           }
         },
       });
@@ -534,6 +549,16 @@ const Onboarding = () => {
             <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
               No worries! We'll create a flexible plan focused on consistency and steady progress.
             </p>
+          )}
+
+          {/* Strategic Planning Section for Executives */}
+          {showStrategicPlanning && (
+            <div className="pt-4">
+              <StrategicPlanningSection
+                data={data.strategicPlanning}
+                onChange={(strategicPlanning) => setData(prev => ({ ...prev, strategicPlanning }))}
+              />
+            </div>
           )}
         </div>
       );
