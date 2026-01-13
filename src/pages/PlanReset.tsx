@@ -18,6 +18,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
+import { isExecutiveProfile, StrategicPlanningData } from '@/lib/executiveDetection';
+import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -107,6 +109,10 @@ const PlanReset = () => {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
+  const [strategicPlanning, setStrategicPlanning] = useState<StrategicPlanningData>({});
+
+  // Check if current profile is executive
+  const showStrategicPlanning = isExecutiveProfile(profession, professionDetails);
 
   // Initialize form with profile data
   useEffect(() => {
@@ -116,11 +122,16 @@ const PlanReset = () => {
       setProjectTitle(profile.projectTitle || '');
       setProjectDescription(profile.projectDescription || '');
       
-      const profDetails = profile.professionDetails as { noDeadline?: boolean } | null;
+      const profDetails = profile.professionDetails as { noDeadline?: boolean; strategicPlanning?: StrategicPlanningData } | null;
       if (profDetails?.noDeadline) {
         setNoDeadline(true);
       } else if (profile.projectDeadline) {
         setProjectDeadline(profile.projectDeadline);
+      }
+      
+      // Load existing strategic planning data
+      if (profDetails?.strategicPlanning) {
+        setStrategicPlanning(profDetails.strategicPlanning);
       }
     }
   }, [profile]);
@@ -241,7 +252,14 @@ const PlanReset = () => {
 
     try {
       // Process profession details
-      const processedDetails: Record<string, any> = { ...professionDetails, noDeadline };
+      const processedDetails: Record<string, any> = { 
+        ...professionDetails, 
+        noDeadline,
+        // Include strategic planning data if available
+        ...(showStrategicPlanning && Object.keys(strategicPlanning).length > 0 
+          ? { strategicPlanning } 
+          : {}),
+      };
       
       // Combine custom technologies
       if (processedDetails.technologies_custom) {
@@ -283,6 +301,7 @@ const PlanReset = () => {
             projectDescription,
             projectDeadline: noDeadline ? null : projectDeadline,
             noDeadline,
+            strategicPlanning: showStrategicPlanning ? strategicPlanning : undefined,
           }
         },
       });
@@ -511,6 +530,16 @@ const PlanReset = () => {
                 There is no deadline — focus on consistency
               </label>
             </div>
+
+            {/* Strategic Planning Section for Executives */}
+            {showStrategicPlanning && (
+              <div className="pt-2">
+                <StrategicPlanningSection
+                  data={strategicPlanning}
+                  onChange={setStrategicPlanning}
+                />
+              </div>
+            )}
           </div>
         </motion.div>
       );
@@ -806,6 +835,16 @@ const PlanReset = () => {
                 There is no deadline
               </label>
             </div>
+
+            {/* Strategic Planning Section for Executives */}
+            {showStrategicPlanning && (
+              <div className="pt-2">
+                <StrategicPlanningSection
+                  data={strategicPlanning}
+                  onChange={setStrategicPlanning}
+                />
+              </div>
+            )}
           </div>
         </motion.div>
       );
