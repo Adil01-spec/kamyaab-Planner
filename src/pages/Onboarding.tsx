@@ -10,12 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { isExecutiveProfile, StrategicPlanningData } from '@/lib/executiveDetection';
+import { isExecutiveProfile, StrategicPlanningData, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
 
-type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
+type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator' | 'executive';
 
 interface OnboardingData {
   fullName: string;
@@ -83,6 +83,17 @@ const professionConfig: Record<string, { label: string; icon: typeof Code; quest
       { key: 'platform', label: 'Primary Platform', type: 'select', options: ['YouTube', 'TikTok', 'Instagram', 'LinkedIn', 'Multiple'] },
       { key: 'niche', label: 'Content Niche', type: 'select', options: ['Tech', 'Vlog', 'Education', 'Entertainment', 'Business', 'Other'] },
       { key: 'postingFrequency', label: 'Posts per Week', type: 'select', options: ['1-2', '3-4', '5-7', 'Daily'] },
+    ],
+  },
+  executive: {
+    label: 'Executive / Leadership',
+    icon: Crown,
+    questions: [
+      { key: 'executiveRole', label: 'Your Role', type: 'select', options: EXECUTIVE_ROLES },
+      { key: 'executiveRoleCustom', label: 'Specify Your Role', type: 'text', showIf: { executiveRole: 'Other Executive Role' } },
+      { key: 'companySize', label: 'Company Size', type: 'select', options: ['Solo / 1-5', '6-20', '21-50', '51-200', '200+'] },
+      { key: 'industry', label: 'Industry', type: 'select', options: ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'Manufacturing', 'Services', 'Other'] },
+      { key: 'linkedinImport', label: 'Import from LinkedIn (Optional)', type: 'text' },
     ],
   },
 };
