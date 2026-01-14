@@ -23,6 +23,11 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
+// Phase 7.7: New trust & reliability components
+import { TaskSwitchModal } from '@/components/TaskSwitchModal';
+import { NavigationBlockModal } from '@/components/NavigationBlockModal';
+import { SessionRecoveryBanner } from '@/components/SessionRecoveryBanner';
+import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -124,6 +129,15 @@ const Today = () => {
   } | null>(null);
   const [showPlanCompletion, setShowPlanCompletion] = useState(false);
   const planCompletionShownRef = useRef(false);
+  
+  // Phase 7.7: Task switch and navigation state
+  const [showTaskSwitchModal, setShowTaskSwitchModal] = useState(false);
+  const [switchTargetTask, setSwitchTargetTask] = useState<{
+    weekIndex: number;
+    taskIndex: number;
+    title: string;
+    estimatedHours: number;
+  } | null>(null);
 
   // Settings for dynamic background
   const {
@@ -213,6 +227,57 @@ const Today = () => {
     planId,
     onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan),
   });
+
+  // Phase 7.7: Navigation guard - prevent accidental loss of active task
+  const navigationGuard = useNavigationGuard({
+    hasActiveTask: !!executionTimer.activeTimer,
+    taskTitle: executionTimer.activeTimer?.taskTitle,
+    enableBeforeUnload: true,
+    enableRouteGuard: true,
+  });
+
+  // Phase 7.7: Handle task switch when clicking start on another task
+  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
+    // If there's already an active task, show switch confirmation
+    if (executionTimer.activeTimer) {
+      setSwitchTargetTask({ weekIndex, taskIndex, title, estimatedHours });
+      setShowTaskSwitchModal(true);
+    } else {
+      setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
+      setShowStartTaskModal(true);
+    }
+  }, [executionTimer.activeTimer]);
+
+  // Phase 7.7: Handle pause and switch to new task
+  const handlePauseAndSwitch = useCallback(async () => {
+    if (!switchTargetTask) return;
+    await executionTimer.pauseTaskTimer();
+    setPendingStartTask(switchTargetTask);
+    setShowTaskSwitchModal(false);
+    setSwitchTargetTask(null);
+    setShowStartTaskModal(true);
+  }, [switchTargetTask, executionTimer]);
+
+  // Phase 7.7: Handle complete and switch to new task
+  const handleCompleteAndSwitch = useCallback(async () => {
+    if (!switchTargetTask) return;
+    await executionTimer.completeTaskTimer();
+    setPendingStartTask(switchTargetTask);
+    setShowTaskSwitchModal(false);
+    setSwitchTargetTask(null);
+    setShowStartTaskModal(true);
+  }, [switchTargetTask, executionTimer]);
+
+  // Phase 7.7: Navigation block handlers
+  const handlePauseAndLeave = useCallback(async () => {
+    await executionTimer.pauseTaskTimer();
+    navigationGuard.confirmNavigation();
+  }, [executionTimer, navigationGuard]);
+
+  const handleCompleteAndLeave = useCallback(async () => {
+    await executionTimer.completeTaskTimer();
+    navigationGuard.confirmNavigation();
+  }, [executionTimer, navigationGuard]);
 
   // Get tasks scheduled for today
   const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];
