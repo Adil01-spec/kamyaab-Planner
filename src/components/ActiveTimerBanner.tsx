@@ -2,19 +2,11 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Clock, CheckCircle, Pause, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { formatTimerDisplay } from '@/lib/executionTimer';
-
 interface ActiveTimerBannerProps {
   taskTitle: string;
   elapsedSeconds: number;
@@ -25,7 +17,6 @@ interface ActiveTimerBannerProps {
   variant?: 'prominent' | 'compact';
   className?: string;
 }
-
 export function ActiveTimerBanner({
   taskTitle,
   elapsedSeconds,
@@ -34,32 +25,26 @@ export function ActiveTimerBanner({
   isCompleting = false,
   isPausing = false,
   variant = 'prominent',
-  className,
+  className
 }: ActiveTimerBannerProps) {
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-
   const handleCompleteClick = () => {
     setShowCompleteDialog(true);
   };
-
   const handleConfirmComplete = () => {
     setShowCompleteDialog(false);
     onComplete();
   };
-
   const timerDisplay = formatTimerDisplay(elapsedSeconds);
-
   if (variant === 'compact') {
-    return (
-      <>
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20",
-            className
-          )}
-        >
+    return <>
+        <motion.div initial={{
+        opacity: 0,
+        y: -10
+      }} animate={{
+        opacity: 1,
+        y: 0
+      }} className={cn("flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20", className)}>
           {/* Pulsing indicator */}
           <div className="relative">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -79,23 +64,10 @@ export function ActiveTimerBanner({
           
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onPause}
-              disabled={isPausing}
-              className="h-7 w-7 p-0"
-              title="Pause"
-            >
+            <Button variant="ghost" size="sm" onClick={onPause} disabled={isPausing} className="h-7 w-7 p-0" title="Pause">
               <Pause className="w-3.5 h-3.5" />
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleCompleteClick}
-              disabled={isCompleting}
-              className="h-7 px-2 text-xs gradient-kaamyab"
-            >
+            <Button variant="default" size="sm" onClick={handleCompleteClick} disabled={isCompleting} className="h-7 px-2 text-xs gradient-kaamyab">
               Done
             </Button>
           </div>
@@ -116,38 +88,28 @@ export function ActiveTimerBanner({
               </p>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowCompleteDialog(false)}
-              >
+              <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
                 Not yet
               </Button>
-              <Button
-                onClick={handleConfirmComplete}
-                disabled={isCompleting}
-                className="gradient-kaamyab"
-              >
+              <Button onClick={handleConfirmComplete} disabled={isCompleting} className="gradient-kaamyab">
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Yes, completed
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </>
-    );
+      </>;
   }
 
   // Prominent variant (default)
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={cn(
-          "rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 p-5 shadow-lg shadow-primary/5",
-          className
-        )}
-      >
+  return <>
+      <motion.div initial={{
+      opacity: 0,
+      y: -10
+    }} animate={{
+      opacity: 1,
+      y: 0
+    }} className={cn("rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 p-5 shadow-lg shadow-primary/5 opacity-100", className)}>
         {/* Header with pulsing indicator */}
         <div className="flex items-center gap-2 mb-3">
           <div className="relative">
@@ -176,20 +138,11 @@ export function ActiveTimerBanner({
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={onPause}
-            disabled={isPausing}
-            className="flex-1 h-12 border-primary/30 hover:bg-primary/5"
-          >
+          <Button variant="outline" onClick={onPause} disabled={isPausing} className="flex-1 h-12 border-primary/30 hover:bg-primary/5">
             <Pause className="w-5 h-5 mr-2" />
             Pause
           </Button>
-          <Button
-            onClick={handleCompleteClick}
-            disabled={isCompleting}
-            className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium"
-          >
+          <Button onClick={handleCompleteClick} disabled={isCompleting} className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium">
             <CheckCircle className="w-5 h-5 mr-2" />
             Done
           </Button>
@@ -212,23 +165,15 @@ export function ActiveTimerBanner({
             </p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowCompleteDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
               Not yet
             </Button>
-            <Button
-              onClick={handleConfirmComplete}
-              disabled={isCompleting}
-              className="gradient-kaamyab"
-            >
+            <Button onClick={handleConfirmComplete} disabled={isCompleting} className="gradient-kaamyab">
               <CheckCircle className="w-4 h-4 mr-2" />
               Yes, completed
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
-  );
+    </>;
 }
