@@ -816,6 +816,39 @@ const Today = () => {
         totalTimeSpentSeconds={executionTimer.totalTimeSpent}
         totalTasks={planData?.weeks?.reduce((acc, w) => acc + w.tasks.length, 0) || 0}
       />
+      
+      {/* Phase 7.7: Task Switch Confirmation Modal */}
+      <TaskSwitchModal
+        open={showTaskSwitchModal}
+        onOpenChange={setShowTaskSwitchModal}
+        currentTaskTitle={executionTimer.activeTimer?.taskTitle || ''}
+        newTaskTitle={switchTargetTask?.title || ''}
+        elapsedSeconds={executionTimer.elapsedSeconds}
+        onPauseAndSwitch={handlePauseAndSwitch}
+        onCompleteAndSwitch={handleCompleteAndSwitch}
+        onCancel={() => {
+          setShowTaskSwitchModal(false);
+          setSwitchTargetTask(null);
+        }}
+        isPausing={executionTimer.isPausing}
+        isCompleting={executionTimer.isCompleting}
+      />
+      
+      {/* Phase 7.7: Session Recovery Banner */}
+      {executionTimer.isRecoveredSession && (
+        <div className="fixed top-20 left-4 right-4 z-50 max-w-lg mx-auto">
+          <SessionRecoveryBanner
+            taskTitle={executionTimer.activeTimer?.taskTitle || ''}
+            elapsedSeconds={executionTimer.elapsedSeconds}
+            onResume={executionTimer.acknowledgeRecovery}
+            onComplete={handleTimerComplete}
+            onPause={executionTimer.pauseTaskTimer}
+            onDismiss={executionTimer.acknowledgeRecovery}
+            isPausing={executionTimer.isPausing}
+            isCompleting={executionTimer.isCompleting}
+          />
+        </div>
+      )}
     </div>;
 };
 export default Today;
