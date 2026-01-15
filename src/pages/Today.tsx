@@ -229,11 +229,10 @@ const Today = () => {
   });
 
   // Phase 7.7: Navigation guard - prevent accidental loss of active task
-  const navigationGuard = useNavigationGuard({
+  useNavigationGuard({
     hasActiveTask: !!executionTimer.activeTimer,
     taskTitle: executionTimer.activeTimer?.taskTitle,
     enableBeforeUnload: true,
-    enableRouteGuard: true,
   });
 
   // Phase 7.7: Handle task switch when clicking start on another task
@@ -271,13 +270,11 @@ const Today = () => {
   // Phase 7.7: Navigation block handlers
   const handlePauseAndLeave = useCallback(async () => {
     await executionTimer.pauseTaskTimer();
-    navigationGuard.confirmNavigation();
-  }, [executionTimer, navigationGuard]);
+  }, [executionTimer]);
 
   const handleCompleteAndLeave = useCallback(async () => {
     await executionTimer.completeTaskTimer();
-    navigationGuard.confirmNavigation();
-  }, [executionTimer, navigationGuard]);
+  }, [executionTimer]);
 
   // Get tasks scheduled for today
   const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];

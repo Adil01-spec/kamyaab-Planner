@@ -1,7 +1,8 @@
 // Navigation Guard Hook - Prevents accidental state loss
+// Note: Uses beforeunload only since app doesn't use data router
 
 import { useEffect, useCallback, useState } from 'react';
-import { useBlocker } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 interface UseNavigationGuardOptions {
   // Whether there's an active task that could be lost
@@ -10,28 +11,25 @@ interface UseNavigationGuardOptions {
   taskTitle?: string;
   // Whether to show browser's beforeunload dialog
   enableBeforeUnload?: boolean;
-  // Whether to block route navigation
-  enableRouteGuard?: boolean;
+  // Callback when user tries to navigate away with active task
+  onNavigationAttempt?: () => void;
 }
 
 interface UseNavigationGuardReturn {
-  // Whether navigation is currently blocked
-  isBlocked: boolean;
-  // Function to confirm navigation and proceed
-  confirmNavigation: () => void;
-  // Function to cancel navigation and stay
-  cancelNavigation: () => void;
-  // The blocked location (if any)
-  blockedLocation: string | null;
+  // Whether navigation should be blocked (for UI purposes)
+  shouldBlock: boolean;
+  // Current task title being guarded
+  guardedTaskTitle: string;
 }
 
 export function useNavigationGuard({
   hasActiveTask,
   taskTitle = 'your task',
   enableBeforeUnload = true,
-  enableRouteGuard = true,
+  onNavigationAttempt,
 }: UseNavigationGuardOptions): UseNavigationGuardReturn {
-  const [blockedLocation, setBlockedLocation] = useState<string | null>(null);
+  const location = useLocation();
+  const [previousPath, setPreviousPath] = useState(location.pathname);
 
   // Browser's beforeunload event for tab close/refresh
   useEffect(() => {
@@ -48,41 +46,18 @@ export function useNavigationGuard({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasActiveTask, taskTitle, enableBeforeUnload]);
 
-  // React Router blocker for in-app navigation
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      enableRouteGuard &&
-      hasActiveTask &&
-      currentLocation.pathname !== nextLocation.pathname
-  );
-
-  // Update blocked location when blocker state changes
+  // Track path changes and notify when navigating with active task
   useEffect(() => {
-    if (blocker.state === 'blocked' && blocker.location) {
-      setBlockedLocation(blocker.location.pathname);
-    } else {
-      setBlockedLocation(null);
+    if (location.pathname !== previousPath) {
+      if (hasActiveTask && onNavigationAttempt) {
+        onNavigationAttempt();
+      }
+      setPreviousPath(location.pathname);
     }
-  }, [blocker.state, blocker.location]);
-
-  const confirmNavigation = useCallback(() => {
-    if (blocker.state === 'blocked') {
-      blocker.proceed?.();
-    }
-    setBlockedLocation(null);
-  }, [blocker]);
-
-  const cancelNavigation = useCallback(() => {
-    if (blocker.state === 'blocked') {
-      blocker.reset?.();
-    }
-    setBlockedLocation(null);
-  }, [blocker]);
+  }, [location.pathname, previousPath, hasActiveTask, onNavigationAttempt]);
 
   return {
-    isBlocked: blocker.state === 'blocked',
-    confirmNavigation,
-    cancelNavigation,
-    blockedLocation,
+    shouldBlock: hasActiveTask,
+    guardedTaskTitle: taskTitle,
   };
 }
