@@ -23,11 +23,6 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
-// Phase 7.7: New trust & reliability components
-import { TaskSwitchModal } from '@/components/TaskSwitchModal';
-import { NavigationBlockModal } from '@/components/NavigationBlockModal';
-import { SessionRecoveryBanner } from '@/components/SessionRecoveryBanner';
-import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -129,15 +124,6 @@ const Today = () => {
   } | null>(null);
   const [showPlanCompletion, setShowPlanCompletion] = useState(false);
   const planCompletionShownRef = useRef(false);
-  
-  // Phase 7.7: Task switch and navigation state
-  const [showTaskSwitchModal, setShowTaskSwitchModal] = useState(false);
-  const [switchTargetTask, setSwitchTargetTask] = useState<{
-    weekIndex: number;
-    taskIndex: number;
-    title: string;
-    estimatedHours: number;
-  } | null>(null);
 
   // Settings for dynamic background
   const {
@@ -227,54 +213,6 @@ const Today = () => {
     planId,
     onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan),
   });
-
-  // Phase 7.7: Navigation guard - prevent accidental loss of active task
-  useNavigationGuard({
-    hasActiveTask: !!executionTimer.activeTimer,
-    taskTitle: executionTimer.activeTimer?.taskTitle,
-    enableBeforeUnload: true,
-  });
-
-  // Phase 7.7: Handle task switch when clicking start on another task
-  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
-    // If there's already an active task, show switch confirmation
-    if (executionTimer.activeTimer) {
-      setSwitchTargetTask({ weekIndex, taskIndex, title, estimatedHours });
-      setShowTaskSwitchModal(true);
-    } else {
-      setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
-      setShowStartTaskModal(true);
-    }
-  }, [executionTimer.activeTimer]);
-
-  // Phase 7.7: Handle pause and switch to new task
-  const handlePauseAndSwitch = useCallback(async () => {
-    if (!switchTargetTask) return;
-    await executionTimer.pauseTaskTimer();
-    setPendingStartTask(switchTargetTask);
-    setShowTaskSwitchModal(false);
-    setSwitchTargetTask(null);
-    setShowStartTaskModal(true);
-  }, [switchTargetTask, executionTimer]);
-
-  // Phase 7.7: Handle complete and switch to new task
-  const handleCompleteAndSwitch = useCallback(async () => {
-    if (!switchTargetTask) return;
-    await executionTimer.completeTaskTimer();
-    setPendingStartTask(switchTargetTask);
-    setShowTaskSwitchModal(false);
-    setSwitchTargetTask(null);
-    setShowStartTaskModal(true);
-  }, [switchTargetTask, executionTimer]);
-
-  // Phase 7.7: Navigation block handlers
-  const handlePauseAndLeave = useCallback(async () => {
-    await executionTimer.pauseTaskTimer();
-  }, [executionTimer]);
-
-  const handleCompleteAndLeave = useCallback(async () => {
-    await executionTimer.completeTaskTimer();
-  }, [executionTimer]);
 
   // Get tasks scheduled for today
   const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];
@@ -442,7 +380,12 @@ const Today = () => {
     setEffortFeedbackTask(null);
   }, []);
 
-  // Execution timer handlers (handleStartTaskClick defined above with task switch logic)
+  // Execution timer handlers
+  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
+    setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
+    setShowStartTaskModal(true);
+  }, []);
+
   const handleConfirmStartTask = useCallback(async () => {
     if (!pendingStartTask) return;
     const success = await executionTimer.startTaskTimer(
@@ -457,15 +400,13 @@ const Today = () => {
   }, [pendingStartTask, executionTimer]);
 
   const handleTimerComplete = useCallback(async () => {
-    // Capture task info before completing (from either active or paused state)
-    const taskInfo = executionTimer.activeTimer || executionTimer.pausedTask;
     const result = await executionTimer.completeTaskTimer();
-    if (result.success && taskInfo) {
+    if (result.success && executionTimer.activeTimer) {
       // Show effort feedback
       setEffortFeedbackTask({
-        title: taskInfo.taskTitle,
-        weekIndex: taskInfo.weekIndex,
-        taskIndex: taskInfo.taskIndex,
+        title: executionTimer.activeTimer.taskTitle,
+        weekIndex: executionTimer.activeTimer.weekIndex,
+        taskIndex: executionTimer.activeTimer.taskIndex,
       });
     }
   }, [executionTimer]);
@@ -780,20 +721,16 @@ const Today = () => {
       
       <BottomNav />
       
-      {/* Active Timer Banner - Fixed at bottom when task is active or paused */}
-      {(executionTimer.activeTimer || executionTimer.pausedTask) && (
+      {/* Active Timer Banner - Fixed at bottom when task is active */}
+      {executionTimer.activeTimer && (
         <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-lg mx-auto">
           <ActiveTimerBanner
-            taskTitle={executionTimer.activeTimer?.taskTitle || executionTimer.pausedTask?.taskTitle || ''}
+            taskTitle={executionTimer.activeTimer.taskTitle}
             elapsedSeconds={executionTimer.elapsedSeconds}
             onComplete={handleTimerComplete}
             onPause={executionTimer.pauseTaskTimer}
-            onResume={executionTimer.resumeTaskTimer}
             isCompleting={executionTimer.isCompleting}
             isPausing={executionTimer.isPausing}
-            isResuming={executionTimer.isResuming}
-            isPaused={!!executionTimer.pausedTask && !executionTimer.activeTimer}
-            accumulatedSeconds={executionTimer.pausedTask?.accumulatedSeconds || 0}
             variant="prominent"
           />
         </div>
@@ -822,39 +759,6 @@ const Today = () => {
         totalTimeSpentSeconds={executionTimer.totalTimeSpent}
         totalTasks={planData?.weeks?.reduce((acc, w) => acc + w.tasks.length, 0) || 0}
       />
-      
-      {/* Phase 7.7: Task Switch Confirmation Modal */}
-      <TaskSwitchModal
-        open={showTaskSwitchModal}
-        onOpenChange={setShowTaskSwitchModal}
-        currentTaskTitle={executionTimer.activeTimer?.taskTitle || ''}
-        newTaskTitle={switchTargetTask?.title || ''}
-        elapsedSeconds={executionTimer.elapsedSeconds}
-        onPauseAndSwitch={handlePauseAndSwitch}
-        onCompleteAndSwitch={handleCompleteAndSwitch}
-        onCancel={() => {
-          setShowTaskSwitchModal(false);
-          setSwitchTargetTask(null);
-        }}
-        isPausing={executionTimer.isPausing}
-        isCompleting={executionTimer.isCompleting}
-      />
-      
-      {/* Phase 7.7: Session Recovery Banner */}
-      {executionTimer.isRecoveredSession && (
-        <div className="fixed top-20 left-4 right-4 z-50 max-w-lg mx-auto">
-          <SessionRecoveryBanner
-            taskTitle={executionTimer.activeTimer?.taskTitle || ''}
-            elapsedSeconds={executionTimer.elapsedSeconds}
-            onResume={executionTimer.acknowledgeRecovery}
-            onComplete={handleTimerComplete}
-            onPause={executionTimer.pauseTaskTimer}
-            onDismiss={executionTimer.acknowledgeRecovery}
-            isPausing={executionTimer.isPausing}
-            isCompleting={executionTimer.isCompleting}
-          />
-        </div>
-      )}
     </div>;
 };
 export default Today;

@@ -1,5 +1,4 @@
 // Execution Timer - Task state management with persistence
-// Phase 7.7: Enhanced with error handling, recovery, and trust indicators
 
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
@@ -19,18 +18,12 @@ export interface ActiveTimerState {
   taskTitle: string;
   started_at: string;
   elapsed_seconds: number;
-  // Phase 7.7: Track if this is a recovered session
-  isRecovered?: boolean;
 }
-
-// Storage key constants
-const TIMER_STORAGE_KEY = 'kaamyab_active_timer';
-const RECOVERY_FLAG_KEY = 'kaamyab_timer_recovered';
 
 // Get the active timer from localStorage (for quick access before Supabase sync)
 export function getLocalActiveTimer(): ActiveTimerState | null {
   try {
-    const stored = localStorage.getItem(TIMER_STORAGE_KEY);
+    const stored = localStorage.getItem('kaamyab_active_timer');
     if (!stored) return null;
     return JSON.parse(stored);
   } catch {
@@ -41,33 +34,10 @@ export function getLocalActiveTimer(): ActiveTimerState | null {
 // Set the active timer in localStorage
 export function setLocalActiveTimer(timer: ActiveTimerState | null): void {
   if (timer) {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
+    localStorage.setItem('kaamyab_active_timer', JSON.stringify(timer));
   } else {
-    localStorage.removeItem(TIMER_STORAGE_KEY);
-    localStorage.removeItem(RECOVERY_FLAG_KEY);
+    localStorage.removeItem('kaamyab_active_timer');
   }
-}
-
-// Mark that we recovered a timer (to show recovery banner)
-export function markTimerAsRecovered(): void {
-  localStorage.setItem(RECOVERY_FLAG_KEY, 'true');
-}
-
-// Check if timer was recovered and clear the flag
-export function wasTimerRecovered(): boolean {
-  const recovered = localStorage.getItem(RECOVERY_FLAG_KEY) === 'true';
-  if (recovered) {
-    localStorage.removeItem(RECOVERY_FLAG_KEY);
-  }
-  return recovered;
-}
-
-// Check if a timer should be considered stale (e.g., more than 24 hours)
-export function isTimerStale(startedAt: string, maxHours = 24): boolean {
-  const start = new Date(startedAt).getTime();
-  const now = Date.now();
-  const hoursElapsed = (now - start) / (1000 * 60 * 60);
-  return hoursElapsed > maxHours;
 }
 
 // Calculate elapsed time since timer started
@@ -191,7 +161,6 @@ export function areAllTasksCompleted(planData: any): boolean {
 }
 
 // Update task execution state in plan data
-// Phase 7.7: Enhanced with retry logic and detailed error reporting
 export async function updateTaskExecution(
   userId: string,
   planData: any,
@@ -203,60 +172,34 @@ export async function updateTaskExecution(
     completed_at: string | null;
     time_spent_seconds: number;
     completed: boolean;
-  }>,
-  retries = 2
-): Promise<{ success: boolean; updatedPlan: any; error?: string; errorType?: 'network' | 'validation' | 'unknown' }> {
+  }>
+): Promise<{ success: boolean; updatedPlan: any; error?: string }> {
   try {
     const updatedPlan = JSON.parse(JSON.stringify(planData)); // Deep clone
     const task = updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
     
     if (!task) {
-      return { 
-        success: false, 
-        updatedPlan: planData, 
-        error: 'Task not found',
-        errorType: 'validation'
-      };
+      return { success: false, updatedPlan: planData, error: 'Task not found' };
     }
     
     // Apply updates
     Object.assign(task, updates);
     
-    // Persist to Supabase with retry logic
-    let lastError: any = null;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const { error } = await supabase
-        .from('plans')
-        .update({ plan_json: updatedPlan as unknown as Json })
-        .eq('user_id', userId);
-      
-      if (!error) {
-        return { success: true, updatedPlan };
-      }
-      
-      lastError = error;
-      
-      // Wait before retry (exponential backoff)
-      if (attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-      }
+    // Persist to Supabase
+    const { error } = await supabase
+      .from('plans')
+      .update({ plan_json: updatedPlan as unknown as Json })
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('Error updating task execution:', error);
+      return { success: false, updatedPlan: planData, error: error.message };
     }
     
-    console.error('Error updating task execution after retries:', lastError);
-    return { 
-      success: false, 
-      updatedPlan: planData, 
-      error: lastError?.message || 'Failed to save after multiple attempts',
-      errorType: 'network'
-    };
+    return { success: true, updatedPlan };
   } catch (err) {
     console.error('Error updating task execution:', err);
-    return { 
-      success: false, 
-      updatedPlan: planData, 
-      error: 'An unexpected error occurred',
-      errorType: 'unknown'
-    };
+    return { success: false, updatedPlan: planData, error: 'Unknown error' };
   }
 }
 

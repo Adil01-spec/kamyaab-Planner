@@ -1,9 +1,7 @@
 // Hook for managing task execution timer state
-// Phase 7.7: Enhanced with recovery detection, error handling, and trust indicators
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
 import {
   ActiveTimerState,
   getLocalActiveTimer,
@@ -15,9 +13,6 @@ import {
   pauseTask,
   calculateTotalTimeSpent,
   areAllTasksCompleted,
-  markTimerAsRecovered,
-  wasTimerRecovered,
-  isTimerStale,
 } from '@/lib/executionTimer';
 
 interface UseExecutionTimerOptions {
@@ -26,40 +21,19 @@ interface UseExecutionTimerOptions {
   onPlanUpdate: (updatedPlan: any) => void;
 }
 
-// State for tracking a paused task
-interface PausedTaskState {
-  weekIndex: number;
-  taskIndex: number;
-  taskTitle: string;
-  accumulatedSeconds: number;
-}
-
 interface UseExecutionTimerReturn {
   activeTimer: ActiveTimerState | null;
   elapsedSeconds: number;
   isStarting: boolean;
   isCompleting: boolean;
   isPausing: boolean;
-  isResuming: boolean;
   totalTimeSpent: number;
   allTasksCompleted: boolean;
-  // Phase 7.7: New trust indicators
-  isRecoveredSession: boolean;
-  saveError: string | null;
-  lastSaveTime: Date | null;
-  // Paused task state
-  pausedTask: PausedTaskState | null;
-  // Core functions
   startTaskTimer: (weekIndex: number, taskIndex: number, taskTitle: string) => Promise<boolean>;
   completeTaskTimer: () => Promise<{ success: boolean; timeSpent: number }>;
   pauseTaskTimer: () => Promise<boolean>;
-  resumeTaskTimer: () => Promise<boolean>;
-  dismissPausedTask: () => void;
   isTaskActive: (weekIndex: number, taskIndex: number) => boolean;
   getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'done';
-  // Phase 7.7: New functions
-  acknowledgeRecovery: () => void;
-  clearSaveError: () => void;
 }
 
 export function useExecutionTimer({
@@ -73,11 +47,6 @@ export function useExecutionTimer({
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
-  const [isResuming, setIsResuming] = useState(false);
-  const [isRecoveredSession, setIsRecoveredSession] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
-  const [pausedTask, setPausedTask] = useState<PausedTaskState | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize timer state from local storage and plan data
@@ -88,13 +57,6 @@ export function useExecutionTimer({
     const activeTask = findActiveTask(planData);
     
     if (activeTask) {
-      // Check if timer is stale (more than 24 hours)
-      if (isTimerStale(activeTask.task.execution_started_at)) {
-        // Auto-pause stale timers
-        console.log('Stale timer detected, auto-pausing...');
-        return;
-      }
-      
       const elapsed = calculateElapsedSeconds(activeTask.task.execution_started_at);
       const timerState: ActiveTimerState = {
         weekIndex: activeTask.weekIndex,
@@ -106,16 +68,6 @@ export function useExecutionTimer({
       setActiveTimer(timerState);
       setElapsedSeconds(elapsed);
       setLocalActiveTimer(timerState);
-      
-      // Check if this was a recovered session
-      const localTimer = getLocalActiveTimer();
-      if (localTimer && wasTimerRecovered()) {
-        setIsRecoveredSession(true);
-      } else if (localTimer) {
-        // We have a local timer that matches - mark as recovered for UI
-        markTimerAsRecovered();
-        setIsRecoveredSession(true);
-      }
     } else {
       // Check local storage as fallback
       const localTimer = getLocalActiveTimer();
@@ -126,7 +78,6 @@ export function useExecutionTimer({
           const elapsed = calculateElapsedSeconds(localTimer.started_at);
           setActiveTimer({ ...localTimer, elapsed_seconds: elapsed });
           setElapsedSeconds(elapsed);
-          setIsRecoveredSession(true);
         } else {
           // Clear stale local timer
           setLocalActiveTimer(null);
@@ -167,7 +118,6 @@ export function useExecutionTimer({
       if (!user?.id || !planData) return false;
 
       setIsStarting(true);
-      setSaveError(null);
       try {
         const result = await startTask(user.id, planData, weekIndex, taskIndex);
         
@@ -183,16 +133,7 @@ export function useExecutionTimer({
               elapsed_seconds: 0,
             });
             setElapsedSeconds(0);
-            setLastSaveTime(new Date());
-            setIsRecoveredSession(false);
           }
-        } else if (result.error) {
-          setSaveError(result.error);
-          toast({
-            title: "Couldn't start task",
-            description: "Your progress is still safe. Please try again.",
-            variant: "destructive",
-          });
         }
         
         return result.success;
@@ -203,60 +144,38 @@ export function useExecutionTimer({
     [user?.id, planData, onPlanUpdate]
   );
 
-  // Complete the active or paused task
+  // Complete the active task
   const completeTaskTimer = useCallback(async (): Promise<{ success: boolean; timeSpent: number }> => {
-    // Support completing both active and paused tasks
-    const taskToComplete = activeTimer || pausedTask;
-    
-    if (!user?.id || !planData || !taskToComplete) {
+    if (!user?.id || !planData || !activeTimer) {
       return { success: false, timeSpent: 0 };
     }
 
     setIsCompleting(true);
-    setSaveError(null);
     try {
       const result = await completeTask(
         user.id,
         planData,
-        taskToComplete.weekIndex,
-        taskToComplete.taskIndex
+        activeTimer.weekIndex,
+        activeTimer.taskIndex
       );
       
       if (result.success) {
         onPlanUpdate(result.updatedPlan);
         setActiveTimer(null);
-        setPausedTask(null);
         setElapsedSeconds(0);
-        setLastSaveTime(new Date());
-        setIsRecoveredSession(false);
-      } else if (result.error) {
-        setSaveError(result.error);
-        toast({
-          title: "Couldn't save completion",
-          description: "We're retrying... Your time is still being tracked.",
-          variant: "destructive",
-        });
       }
       
       return { success: result.success, timeSpent: result.timeSpent };
     } finally {
       setIsCompleting(false);
     }
-  }, [user?.id, planData, activeTimer, pausedTask, onPlanUpdate]);
+  }, [user?.id, planData, activeTimer, onPlanUpdate]);
 
-  // Pause the active task - keeps it visible with accumulated time
+  // Pause the active task
   const pauseTaskTimer = useCallback(async (): Promise<boolean> => {
     if (!user?.id || !planData || !activeTimer) return false;
 
     setIsPausing(true);
-    setSaveError(null);
-    
-    // Capture current state before pausing
-    const taskTitle = activeTimer.taskTitle;
-    const weekIndex = activeTimer.weekIndex;
-    const taskIndex = activeTimer.taskIndex;
-    const currentElapsed = elapsedSeconds;
-    
     try {
       const result = await pauseTask(
         user.id,
@@ -267,65 +186,15 @@ export function useExecutionTimer({
       
       if (result.success) {
         onPlanUpdate(result.updatedPlan);
-        
-        // Get the accumulated time from the updated task
-        const updatedTask = result.updatedPlan.weeks?.[weekIndex]?.tasks?.[taskIndex];
-        const accumulatedSeconds = updatedTask?.time_spent_seconds || currentElapsed;
-        
-        // Set paused task state to keep banner visible
-        setPausedTask({
-          weekIndex,
-          taskIndex,
-          taskTitle,
-          accumulatedSeconds,
-        });
-        
         setActiveTimer(null);
         setElapsedSeconds(0);
-        setLastSaveTime(new Date());
-        setIsRecoveredSession(false);
-      } else if (result.error) {
-        setSaveError(result.error);
-        toast({
-          title: "Couldn't pause task",
-          description: "Your progress is still safe. Please try again.",
-          variant: "destructive",
-        });
       }
       
       return result.success;
     } finally {
       setIsPausing(false);
     }
-  }, [user?.id, planData, activeTimer, elapsedSeconds, onPlanUpdate]);
-
-  // Resume a paused task
-  const resumeTaskTimer = useCallback(async (): Promise<boolean> => {
-    if (!user?.id || !planData || !pausedTask) return false;
-
-    setIsResuming(true);
-    setSaveError(null);
-    try {
-      const success = await startTaskTimer(
-        pausedTask.weekIndex,
-        pausedTask.taskIndex,
-        pausedTask.taskTitle
-      );
-      
-      if (success) {
-        setPausedTask(null);
-      }
-      
-      return success;
-    } finally {
-      setIsResuming(false);
-    }
-  }, [user?.id, planData, pausedTask, startTaskTimer]);
-
-  // Dismiss the paused task banner without resuming
-  const dismissPausedTask = useCallback(() => {
-    setPausedTask(null);
-  }, []);
+  }, [user?.id, planData, activeTimer, onPlanUpdate]);
 
   // Check if a specific task is the active one
   const isTaskActive = useCallback(
@@ -350,16 +219,6 @@ export function useExecutionTimer({
     [planData]
   );
 
-  // Phase 7.7: Acknowledge recovery (dismiss recovery banner)
-  const acknowledgeRecovery = useCallback(() => {
-    setIsRecoveredSession(false);
-  }, []);
-
-  // Phase 7.7: Clear save error
-  const clearSaveError = useCallback(() => {
-    setSaveError(null);
-  }, []);
-
   // Calculate total time spent
   const totalTimeSpent = planData ? calculateTotalTimeSpent(planData) : 0;
 
@@ -372,25 +231,12 @@ export function useExecutionTimer({
     isStarting,
     isCompleting,
     isPausing,
-    isResuming,
     totalTimeSpent,
     allTasksCompleted,
-    // Phase 7.7: Trust indicators
-    isRecoveredSession,
-    saveError,
-    lastSaveTime,
-    // Paused task state
-    pausedTask,
-    // Core functions
     startTaskTimer,
     completeTaskTimer,
     pauseTaskTimer,
-    resumeTaskTimer,
-    dismissPausedTask,
     isTaskActive,
     getTaskStatus,
-    // Phase 7.7: New functions
-    acknowledgeRecovery,
-    clearSaveError,
   };
 }

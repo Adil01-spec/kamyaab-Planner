@@ -1,25 +1,19 @@
 // Active Timer Banner - Shows current task timer prominently
-// Supports active (running) and paused states
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Clock, CheckCircle, Pause, Play, Timer } from 'lucide-react';
+import { Clock, CheckCircle, Pause, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { formatTimerDisplay, formatTotalTime } from '@/lib/executionTimer';
-
+import { formatTimerDisplay } from '@/lib/executionTimer';
 interface ActiveTimerBannerProps {
   taskTitle: string;
   elapsedSeconds: number;
   onComplete: () => void;
   onPause: () => void;
-  onResume?: () => void;
   isCompleting?: boolean;
   isPausing?: boolean;
-  isResuming?: boolean;
-  isPaused?: boolean;
-  accumulatedSeconds?: number;
   variant?: 'prominent' | 'compact';
   className?: string;
 }
@@ -28,12 +22,8 @@ export function ActiveTimerBanner({
   elapsedSeconds,
   onComplete,
   onPause,
-  onResume,
   isCompleting = false,
   isPausing = false,
-  isResuming = false,
-  isPaused = false,
-  accumulatedSeconds = 0,
   variant = 'prominent',
   className
 }: ActiveTimerBannerProps) {
@@ -45,11 +35,7 @@ export function ActiveTimerBanner({
     setShowCompleteDialog(false);
     onComplete();
   };
-  
-  // Show accumulated time when paused, live timer when running
-  const displaySeconds = isPaused ? accumulatedSeconds : elapsedSeconds;
-  const timerDisplay = formatTimerDisplay(displaySeconds);
-  const isProcessing = isPausing || isResuming || isCompleting;
+  const timerDisplay = formatTimerDisplay(elapsedSeconds);
   if (variant === 'compact') {
     return <>
         <motion.div initial={{
@@ -58,37 +44,17 @@ export function ActiveTimerBanner({
       }} animate={{
         opacity: 1,
         y: 0
-      }} className={cn(
-        "flex items-center gap-3 px-3 py-2 rounded-lg border",
-        isPaused 
-          ? "bg-amber-500/10 border-amber-500/30" 
-          : "bg-primary/10 border-primary/20",
-        className
-      )}>
-          {/* Status indicator */}
+      }} className={cn("flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20", className)}>
+          {/* Pulsing indicator */}
           <div className="relative">
-            {isPaused ? (
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-            ) : (
-              <>
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <div className="absolute inset-0 w-2 h-2 rounded-full bg-primary/50 animate-ping" />
-              </>
-            )}
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <div className="absolute inset-0 w-2 h-2 rounded-full bg-primary/50 animate-ping" />
           </div>
           
           {/* Timer display */}
           <div className="flex items-center gap-2 text-sm">
-            {isPaused ? (
-              <Timer className="w-3.5 h-3.5 text-amber-500" />
-            ) : (
-              <Clock className="w-3.5 h-3.5 text-primary" />
-            )}
-            <span className={cn(
-              "font-mono font-medium",
-              isPaused ? "text-amber-500" : "text-primary"
-            )}>{timerDisplay}</span>
-            {isPaused && <span className="text-xs text-amber-500/70">paused</span>}
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="font-mono font-medium text-primary">{timerDisplay}</span>
           </div>
           
           {/* Task title - truncated */}
@@ -98,36 +64,10 @@ export function ActiveTimerBanner({
           
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto">
-            {isPaused ? (
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={onResume} 
-                disabled={isProcessing} 
-                className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600"
-              >
-                <Play className="w-3 h-3 mr-1" />
-                Resume
-              </Button>
-            ) : (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={onPause} 
-                disabled={isProcessing} 
-                className="h-7 w-7 p-0" 
-                title="Pause"
-              >
-                <Pause className="w-3.5 h-3.5" />
-              </Button>
-            )}
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={handleCompleteClick} 
-              disabled={isProcessing} 
-              className="h-7 px-2 text-xs gradient-kaamyab"
-            >
+            <Button variant="ghost" size="sm" onClick={onPause} disabled={isPausing} className="h-7 w-7 p-0" title="Pause">
+              <Pause className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="default" size="sm" onClick={handleCompleteClick} disabled={isCompleting} className="h-7 px-2 text-xs gradient-kaamyab">
               Done
             </Button>
           </div>
@@ -169,30 +109,15 @@ export function ActiveTimerBanner({
     }} animate={{
       opacity: 1,
       y: 0
-    }} className={cn(
-      "rounded-2xl border p-5 shadow-lg",
-      isPaused 
-        ? "border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-amber-500/10 shadow-amber-500/5" 
-        : "border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 shadow-primary/5",
-      className
-    )}>
-        {/* Header with status indicator */}
+    }} className={cn("rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 p-5 shadow-lg shadow-primary/5 opacity-100", className)}>
+        {/* Header with pulsing indicator */}
         <div className="flex items-center gap-2 mb-3">
           <div className="relative">
-            {isPaused ? (
-              <div className="w-3 h-3 rounded-full bg-amber-500" />
-            ) : (
-              <>
-                <div className="w-3 h-3 rounded-full bg-primary" />
-                <div className="absolute inset-0 w-3 h-3 rounded-full bg-primary/50 animate-ping" />
-              </>
-            )}
+            <div className="w-3 h-3 rounded-full bg-primary" />
+            <div className="absolute inset-0 w-3 h-3 rounded-full bg-primary/50 animate-ping" />
           </div>
-          <span className={cn(
-            "text-xs font-medium uppercase tracking-wider",
-            isPaused ? "text-amber-500" : "text-primary"
-          )}>
-            {isPaused ? "Task paused" : "Currently working on"}
+          <span className="text-xs font-medium text-primary uppercase tracking-wider">
+            Currently working on
           </span>
         </div>
 
@@ -203,54 +128,21 @@ export function ActiveTimerBanner({
 
         {/* Timer display */}
         <div className="flex items-center justify-center mb-5">
-          <div className={cn(
-            "flex items-center gap-3 px-6 py-3 rounded-xl bg-background/80 border",
-            isPaused ? "border-amber-500/30" : "border-border/50"
-          )}>
-            {isPaused ? (
-              <Timer className="w-5 h-5 text-amber-500" />
-            ) : (
-              <Clock className="w-5 h-5 text-primary" />
-            )}
-            <span className={cn(
-              "text-3xl font-mono font-bold tracking-wider",
-              isPaused ? "text-amber-600" : "text-foreground"
-            )}>
+          <div className="flex items-center gap-3 px-6 py-3 rounded-xl bg-background/80 border border-border/50">
+            <Clock className="w-5 h-5 text-primary" />
+            <span className="text-3xl font-mono font-bold text-foreground tracking-wider">
               {timerDisplay}
             </span>
-            {isPaused && (
-              <span className="text-sm text-amber-500/70 ml-1">saved</span>
-            )}
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          {isPaused ? (
-            <Button 
-              onClick={onResume} 
-              disabled={isProcessing} 
-              className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-medium"
-            >
-              <Play className="w-5 h-5 mr-2" />
-              Resume
-            </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              onClick={onPause} 
-              disabled={isProcessing} 
-              className="flex-1 h-12 border-primary/30 hover:bg-primary/5"
-            >
-              <Pause className="w-5 h-5 mr-2" />
-              Pause
-            </Button>
-          )}
-          <Button 
-            onClick={handleCompleteClick} 
-            disabled={isProcessing} 
-            className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium"
-          >
+          <Button variant="outline" onClick={onPause} disabled={isPausing} className="flex-1 h-12 border-primary/30 hover:bg-primary/5">
+            <Pause className="w-5 h-5 mr-2" />
+            Pause
+          </Button>
+          <Button onClick={handleCompleteClick} disabled={isCompleting} className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium">
             <CheckCircle className="w-5 h-5 mr-2" />
             Done
           </Button>
