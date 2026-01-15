@@ -445,12 +445,7 @@ const Today = () => {
     setEffortFeedbackTask(null);
   }, []);
 
-  // Execution timer handlers
-  const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
-    setPendingStartTask({ weekIndex, taskIndex, title, estimatedHours });
-    setShowStartTaskModal(true);
-  }, []);
-
+  // Execution timer handlers (handleStartTaskClick defined above with task switch logic)
   const handleConfirmStartTask = useCallback(async () => {
     if (!pendingStartTask) return;
     const success = await executionTimer.startTaskTimer(
