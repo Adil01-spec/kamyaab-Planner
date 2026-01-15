@@ -457,13 +457,15 @@ const Today = () => {
   }, [pendingStartTask, executionTimer]);
 
   const handleTimerComplete = useCallback(async () => {
+    // Capture task info before completing (from either active or paused state)
+    const taskInfo = executionTimer.activeTimer || executionTimer.pausedTask;
     const result = await executionTimer.completeTaskTimer();
-    if (result.success && executionTimer.activeTimer) {
+    if (result.success && taskInfo) {
       // Show effort feedback
       setEffortFeedbackTask({
-        title: executionTimer.activeTimer.taskTitle,
-        weekIndex: executionTimer.activeTimer.weekIndex,
-        taskIndex: executionTimer.activeTimer.taskIndex,
+        title: taskInfo.taskTitle,
+        weekIndex: taskInfo.weekIndex,
+        taskIndex: taskInfo.taskIndex,
       });
     }
   }, [executionTimer]);
@@ -778,16 +780,20 @@ const Today = () => {
       
       <BottomNav />
       
-      {/* Active Timer Banner - Fixed at bottom when task is active */}
-      {executionTimer.activeTimer && (
+      {/* Active Timer Banner - Fixed at bottom when task is active or paused */}
+      {(executionTimer.activeTimer || executionTimer.pausedTask) && (
         <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-lg mx-auto">
           <ActiveTimerBanner
-            taskTitle={executionTimer.activeTimer.taskTitle}
+            taskTitle={executionTimer.activeTimer?.taskTitle || executionTimer.pausedTask?.taskTitle || ''}
             elapsedSeconds={executionTimer.elapsedSeconds}
             onComplete={handleTimerComplete}
             onPause={executionTimer.pauseTaskTimer}
+            onResume={executionTimer.resumeTaskTimer}
             isCompleting={executionTimer.isCompleting}
             isPausing={executionTimer.isPausing}
+            isResuming={executionTimer.isResuming}
+            isPaused={!!executionTimer.pausedTask && !executionTimer.activeTimer}
+            accumulatedSeconds={executionTimer.pausedTask?.accumulatedSeconds || 0}
             variant="prominent"
           />
         </div>
