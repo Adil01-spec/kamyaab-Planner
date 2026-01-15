@@ -26,22 +26,35 @@ interface UseExecutionTimerOptions {
   onPlanUpdate: (updatedPlan: any) => void;
 }
 
+// State for tracking a paused task
+interface PausedTaskState {
+  weekIndex: number;
+  taskIndex: number;
+  taskTitle: string;
+  accumulatedSeconds: number;
+}
+
 interface UseExecutionTimerReturn {
   activeTimer: ActiveTimerState | null;
   elapsedSeconds: number;
   isStarting: boolean;
   isCompleting: boolean;
   isPausing: boolean;
+  isResuming: boolean;
   totalTimeSpent: number;
   allTasksCompleted: boolean;
   // Phase 7.7: New trust indicators
   isRecoveredSession: boolean;
   saveError: string | null;
   lastSaveTime: Date | null;
+  // Paused task state
+  pausedTask: PausedTaskState | null;
   // Core functions
   startTaskTimer: (weekIndex: number, taskIndex: number, taskTitle: string) => Promise<boolean>;
   completeTaskTimer: () => Promise<{ success: boolean; timeSpent: number }>;
   pauseTaskTimer: () => Promise<boolean>;
+  resumeTaskTimer: () => Promise<boolean>;
+  dismissPausedTask: () => void;
   isTaskActive: (weekIndex: number, taskIndex: number) => boolean;
   getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'done';
   // Phase 7.7: New functions
@@ -60,9 +73,11 @@ export function useExecutionTimer({
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const [isRecoveredSession, setIsRecoveredSession] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+  const [pausedTask, setPausedTask] = useState<PausedTaskState | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize timer state from local storage and plan data
@@ -188,9 +203,12 @@ export function useExecutionTimer({
     [user?.id, planData, onPlanUpdate]
   );
 
-  // Complete the active task
+  // Complete the active or paused task
   const completeTaskTimer = useCallback(async (): Promise<{ success: boolean; timeSpent: number }> => {
-    if (!user?.id || !planData || !activeTimer) {
+    // Support completing both active and paused tasks
+    const taskToComplete = activeTimer || pausedTask;
+    
+    if (!user?.id || !planData || !taskToComplete) {
       return { success: false, timeSpent: 0 };
     }
 
@@ -200,13 +218,14 @@ export function useExecutionTimer({
       const result = await completeTask(
         user.id,
         planData,
-        activeTimer.weekIndex,
-        activeTimer.taskIndex
+        taskToComplete.weekIndex,
+        taskToComplete.taskIndex
       );
       
       if (result.success) {
         onPlanUpdate(result.updatedPlan);
         setActiveTimer(null);
+        setPausedTask(null);
         setElapsedSeconds(0);
         setLastSaveTime(new Date());
         setIsRecoveredSession(false);
@@ -223,14 +242,21 @@ export function useExecutionTimer({
     } finally {
       setIsCompleting(false);
     }
-  }, [user?.id, planData, activeTimer, onPlanUpdate]);
+  }, [user?.id, planData, activeTimer, pausedTask, onPlanUpdate]);
 
-  // Pause the active task
+  // Pause the active task - keeps it visible with accumulated time
   const pauseTaskTimer = useCallback(async (): Promise<boolean> => {
     if (!user?.id || !planData || !activeTimer) return false;
 
     setIsPausing(true);
     setSaveError(null);
+    
+    // Capture current state before pausing
+    const taskTitle = activeTimer.taskTitle;
+    const weekIndex = activeTimer.weekIndex;
+    const taskIndex = activeTimer.taskIndex;
+    const currentElapsed = elapsedSeconds;
+    
     try {
       const result = await pauseTask(
         user.id,
@@ -241,6 +267,19 @@ export function useExecutionTimer({
       
       if (result.success) {
         onPlanUpdate(result.updatedPlan);
+        
+        // Get the accumulated time from the updated task
+        const updatedTask = result.updatedPlan.weeks?.[weekIndex]?.tasks?.[taskIndex];
+        const accumulatedSeconds = updatedTask?.time_spent_seconds || currentElapsed;
+        
+        // Set paused task state to keep banner visible
+        setPausedTask({
+          weekIndex,
+          taskIndex,
+          taskTitle,
+          accumulatedSeconds,
+        });
+        
         setActiveTimer(null);
         setElapsedSeconds(0);
         setLastSaveTime(new Date());
@@ -258,7 +297,35 @@ export function useExecutionTimer({
     } finally {
       setIsPausing(false);
     }
-  }, [user?.id, planData, activeTimer, onPlanUpdate]);
+  }, [user?.id, planData, activeTimer, elapsedSeconds, onPlanUpdate]);
+
+  // Resume a paused task
+  const resumeTaskTimer = useCallback(async (): Promise<boolean> => {
+    if (!user?.id || !planData || !pausedTask) return false;
+
+    setIsResuming(true);
+    setSaveError(null);
+    try {
+      const success = await startTaskTimer(
+        pausedTask.weekIndex,
+        pausedTask.taskIndex,
+        pausedTask.taskTitle
+      );
+      
+      if (success) {
+        setPausedTask(null);
+      }
+      
+      return success;
+    } finally {
+      setIsResuming(false);
+    }
+  }, [user?.id, planData, pausedTask, startTaskTimer]);
+
+  // Dismiss the paused task banner without resuming
+  const dismissPausedTask = useCallback(() => {
+    setPausedTask(null);
+  }, []);
 
   // Check if a specific task is the active one
   const isTaskActive = useCallback(
@@ -305,16 +372,21 @@ export function useExecutionTimer({
     isStarting,
     isCompleting,
     isPausing,
+    isResuming,
     totalTimeSpent,
     allTasksCompleted,
     // Phase 7.7: Trust indicators
     isRecoveredSession,
     saveError,
     lastSaveTime,
+    // Paused task state
+    pausedTask,
     // Core functions
     startTaskTimer,
     completeTaskTimer,
     pauseTaskTimer,
+    resumeTaskTimer,
+    dismissPausedTask,
     isTaskActive,
     getTaskStatus,
     // Phase 7.7: New functions
