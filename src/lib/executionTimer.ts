@@ -90,7 +90,7 @@ export function getTaskExecutionState(
   taskIndex: number
 ): TaskExecutionState {
   const task = planData?.weeks?.[weekIndex]?.tasks?.[taskIndex];
-  
+
   if (!task) {
     return {
       status: 'idle',
@@ -99,9 +99,17 @@ export function getTaskExecutionState(
       time_spent_seconds: 0,
     };
   }
-  
+
+  const explicitState = task.execution_state;
+  const status: TaskExecutionStatus =
+    explicitState === 'doing'
+      ? 'doing'
+      : explicitState === 'done'
+        ? 'done'
+        : task.execution_status || (task.completed ? 'done' : 'idle');
+
   return {
-    status: task.execution_status || (task.completed ? 'done' : 'idle'),
+    status,
     started_at: task.execution_started_at || null,
     completed_at: task.completed_at || null,
     time_spent_seconds: task.time_spent_seconds || 0,
@@ -115,19 +123,19 @@ export function findActiveTask(planData: any): {
   task: any;
 } | null {
   if (!planData?.weeks) return null;
-  
+
   for (let weekIndex = 0; weekIndex < planData.weeks.length; weekIndex++) {
     const week = planData.weeks[weekIndex];
     if (!week?.tasks) continue;
-    
+
     for (let taskIndex = 0; taskIndex < week.tasks.length; taskIndex++) {
       const task = week.tasks[taskIndex];
-      if (task.execution_status === 'doing') {
+      if (task.execution_state === 'doing' || task.execution_status === 'doing') {
         return { weekIndex, taskIndex, task };
       }
     }
   }
-  
+
   return null;
 }
 
@@ -167,6 +175,7 @@ export async function updateTaskExecution(
   weekIndex: number,
   taskIndex: number,
   updates: Partial<{
+    execution_state: 'pending' | 'doing' | 'done';
     execution_status: TaskExecutionStatus;
     execution_started_at: string | null;
     completed_at: string | null;
@@ -222,6 +231,7 @@ export async function startTask(
       activeTask.weekIndex,
       activeTask.taskIndex,
       {
+        execution_state: 'pending',
         execution_status: 'idle',
         execution_started_at: null,
         time_spent_seconds: (activeTask.task.time_spent_seconds || 0) + elapsed,
@@ -241,10 +251,11 @@ export async function startTask(
     currentPlan,
     weekIndex,
     taskIndex,
-    {
-      execution_status: 'doing',
-      execution_started_at: now,
-    }
+     {
+       execution_state: 'doing',
+       execution_status: 'doing',
+       execution_started_at: now,
+     }
   );
   
   if (result.success) {
@@ -288,6 +299,7 @@ export async function completeTask(
     weekIndex,
     taskIndex,
     {
+      execution_state: 'done',
       execution_status: 'done',
       execution_started_at: null,
       completed_at: now,
@@ -329,6 +341,7 @@ export async function pauseTask(
     weekIndex,
     taskIndex,
     {
+      execution_state: 'pending',
       execution_status: 'idle',
       execution_started_at: null,
       time_spent_seconds: (task.time_spent_seconds || 0) + additionalTime,

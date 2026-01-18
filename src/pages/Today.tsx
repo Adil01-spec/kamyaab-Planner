@@ -23,6 +23,7 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
+import { TodayDebugPanel } from '@/components/TodayDebugPanel';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -45,22 +46,25 @@ interface PlanData {
   weeks: {
     week: number;
     focus: string;
-    tasks: {
-      title: string;
-      priority: 'High' | 'Medium' | 'Low';
-      estimated_hours: number;
-      completed?: boolean;
-      completed_at?: string;
-      scheduled_at?: string;
-      execution_status?: 'idle' | 'doing' | 'done';
-      execution_started_at?: string;
-      time_spent_seconds?: number;
-      explanation?: {
-        how: string;
-        why: string;
-        expected_outcome: string;
-      };
-    }[];
+      tasks: {
+        title: string;
+        priority: 'High' | 'Medium' | 'Low';
+        estimated_hours: number;
+        completed?: boolean;
+        completed_at?: string;
+        scheduled_at?: string;
+        // New explicit execution state for Today flows
+        execution_state?: 'pending' | 'doing' | 'done';
+        // Legacy / backward-compat fields (still present in older plans)
+        execution_status?: 'idle' | 'doing' | 'done';
+        execution_started_at?: string;
+        time_spent_seconds?: number;
+        explanation?: {
+          how: string;
+          why: string;
+          expected_outcome: string;
+        };
+      }[];
   }[];
 
   milestones?: {
@@ -215,9 +219,22 @@ const Today = () => {
     onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan),
   });
 
+  type ExecutionState = 'pending' | 'doing' | 'done';
+
+  const getExecutionState = useCallback((task: any): ExecutionState => {
+    // Strict default: pending
+    if (task?.execution_state === 'pending' || task?.execution_state === 'doing' || task?.execution_state === 'done') {
+      return task.execution_state;
+    }
+    // Backward compat fallback (legacy)
+    if (task?.execution_status === 'doing') return 'doing';
+    if (task?.execution_status === 'done') return 'done';
+    return 'pending';
+  }, []);
+
   // Get tasks scheduled for today
   const todaysTasks: ScheduledTodayTask[] = planData ? getTasksScheduledForToday(planData) : [];
-  const completedCount = todaysTasks.filter(t => t.task.completed || t.task.execution_status === 'done').length;
+  const completedCount = todaysTasks.filter(t => getExecutionState(t.task) === 'done').length;
   const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
 
   // Compute daily context using the context engine
@@ -262,15 +279,15 @@ const Today = () => {
     }
   }, [missedTaskCount]);
 
-  // Get the first incomplete task as primary
-  const incompleteTasks = todaysTasks.filter(t => !t.task.completed);
+  // Get the first not-done task as primary
+  const incompleteTasks = todaysTasks.filter(t => getExecutionState(t.task) !== 'done');
 
   // Smart task highlighting: only focusCount tasks are emphasized
   const focusedTasks = incompleteTasks.slice(0, dailyContext.focusCount);
   const mutedTasks = incompleteTasks.slice(dailyContext.focusCount);
   const primaryTask = focusedTasks[0];
   const secondaryTasks = focusedTasks.slice(1);
-  const completedTasks = todaysTasks.filter(t => t.task.completed);
+  const completedTasks = todaysTasks.filter(t => getExecutionState(t.task) === 'done');
 
   // Get selected task for details panel (desktop)
   const selectedTask = useMemo(() => {
@@ -291,72 +308,84 @@ const Today = () => {
     }
   }, [primaryTask, selectedTaskKey]);
 
-  // Show momentum feedback and play sound when completing a task
+  const completionFeedbackTokenRef = useRef<number | null>(null);
+
+  // Run completion feedback ONLY after user-triggered completions (never on mount)
   useEffect(() => {
-    // First render: initialize without triggering effects
-    if (previousCompletedCount.current === -1) {
-      previousCompletedCount.current = completedCount;
-      return;
-    }
-    
-    // Only trigger when count actually increases (user completed a task in THIS session)
-    if (completedCount > previousCompletedCount.current) {
-      hasCompletedTaskInSession.current = true; // Mark that user completed a task this session
-      setShowMomentum(true);
+    if (!planData) return;
+    if (completionFeedbackTokenRef.current === null) return;
 
-      // Play appropriate sound
-      if (completedCount === todaysTasks.length && todaysTasks.length > 0) {
-        // All tasks completed - play calm day-complete sound
-        playDayCompleteSound();
+    completionFeedbackTokenRef.current = null;
 
-        // Phase 7.5: Show day closure modal (only once per session, only if user completed a task)
-        if (!dayClosureShownRef.current && hasCompletedTaskInSession.current) {
-          dayClosureShownRef.current = true;
-          // Delay to let momentum feedback show first
-          setTimeout(() => setShowDayClosure(true), 2000);
-        }
-      } else if (completedCount > 0) {
-        // Individual task completed - play subtle pop
-        playTaskCompleteSound();
+    const todays = getTasksScheduledForToday(planData);
+    const doneCount = todays.filter(t => getExecutionState(t.task) === 'done').length;
+
+    setShowMomentum(true);
+
+    if (todays.length > 0 && doneCount === todays.length) {
+      playDayCompleteSound();
+      if (!dayClosureShownRef.current) {
+        dayClosureShownRef.current = true;
+        setTimeout(() => setShowDayClosure(true), 2000);
       }
-      const timer = setTimeout(() => setShowMomentum(false), 4000);
-      previousCompletedCount.current = completedCount;
-      return () => clearTimeout(timer);
-    }
-    
-    previousCompletedCount.current = completedCount;
-  }, [completedCount, todaysTasks.length]);
 
-  // Complete a task - with effort feedback
+      // Plan completion modal is global; also gate it to post-completion only
+      if (executionTimer.allTasksCompleted && !planCompletionShownRef.current) {
+        planCompletionShownRef.current = true;
+        setShowPlanCompletion(true);
+      }
+    } else if (doneCount > 0) {
+      playTaskCompleteSound();
+    }
+
+    const timer = setTimeout(() => setShowMomentum(false), 4000);
+    return () => clearTimeout(timer);
+  }, [planData, executionTimer.allTasksCompleted, getExecutionState]);
+
+  // Complete a task - with effort feedback (DEFENSIVE: only allow DOING -> DONE)
   const handleCompleteTask = useCallback(async (weekIndex: number, taskIndex: number) => {
     if (!planData || !planId) return;
-    const taskKey = `${weekIndex}-${taskIndex}`;
-    setCompletingTask(taskKey);
+
     const updatedPlan = {
       ...planData
     };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
 
+    // Hard guard: pending tasks cannot be completed
+    if (getExecutionState(task) !== 'doing') {
+      console.warn('[Today] Prohibited completion: task is not doing', { weekIndex, taskIndex, state: getExecutionState(task) });
+      return;
+    }
+
+    const taskKey = `${weekIndex}-${taskIndex}`;
+    setCompletingTask(taskKey);
+
     // Find the scheduled time for this task
     const scheduledTask = todaysTasks.find(t => t.weekIndex === weekIndex && t.taskIndex === taskIndex);
 
-    // Mark as completed with timestamps
-    task.completed = true;
+    // Mark as done
+    (task as any).execution_state = 'done';
+    (task as any).execution_status = 'done'; // legacy
+    task.completed = true; // legacy
     task.completed_at = new Date().toISOString();
 
     // Store scheduled_at for duration tracking
     if (scheduledTask?.scheduledAt) {
       (task as any).scheduled_at = scheduledTask.scheduledAt;
     }
-    setPlanData({
-      ...updatedPlan
-    });
+
+    setPlanData({ ...updatedPlan });
+
     try {
       await supabase.from('plans').update({
         plan_json: updatedPlan as unknown as Json
       }).eq('id', planId);
 
-      // Phase 7.5: Show effort feedback after successful completion
+      // Mark that user completed a task and trigger feedback after state is persisted
+      hasCompletedTaskInSession.current = true;
+      completionFeedbackTokenRef.current = Date.now();
+
+      // Show effort feedback after successful completion
       setEffortFeedbackTask({
         title: task.title,
         weekIndex,
@@ -365,6 +394,8 @@ const Today = () => {
     } catch (err) {
       console.error('Error completing task:', err);
       // Revert on error
+      (task as any).execution_state = 'pending';
+      (task as any).execution_status = 'idle';
       task.completed = false;
       task.completed_at = undefined;
       (task as any).scheduled_at = undefined;
@@ -374,7 +405,7 @@ const Today = () => {
     } finally {
       setCompletingTask(null);
     }
-  }, [planData, planId, todaysTasks]);
+  }, [planData, planId, todaysTasks, getExecutionState]);
 
   // Handle effort feedback submission
   const handleEffortSubmit = useCallback((effort: EffortLevel) => {
@@ -412,6 +443,12 @@ const Today = () => {
 
   const handleTimerComplete = useCallback(async () => {
     const result = await executionTimer.completeTaskTimer();
+
+    if (result.success) {
+      hasCompletedTaskInSession.current = true;
+      completionFeedbackTokenRef.current = Date.now();
+    }
+
     if (result.success && executionTimer.activeTimer) {
       // Show effort feedback
       setEffortFeedbackTask({
@@ -422,13 +459,8 @@ const Today = () => {
     }
   }, [executionTimer]);
 
-  // Check for plan completion - only show if user completed a task in THIS session
-  useEffect(() => {
-    if (executionTimer.allTasksCompleted && !planCompletionShownRef.current && hasCompletedTaskInSession.current) {
-      planCompletionShownRef.current = true;
-      setShowPlanCompletion(true);
-    }
-  }, [executionTimer.allTasksCompleted]);
+  // NOTE: Plan/day completion checks are intentionally NOT run on mount.
+  // They are triggered only after user actions via completionFeedbackTokenRef.
   if (loading) {
     return <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <Loader2 className="w-5 h-5 animate-spin text-primary/60" />
@@ -554,8 +586,30 @@ const Today = () => {
             }} animate={{
               opacity: 1
             }} className="space-y-3">
-                  {/* All focused tasks using TodayTaskCard */}
-                  {focusedTasks.map((item, index) => <TodayTaskCard key={`${item.weekIndex}-${item.taskIndex}`} task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} isPrimary={index === 0} onSelect={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)} isSelected={selectedTaskKey === `${item.weekIndex}-${item.taskIndex}`} showExpandable={false} fallbackExplanation={generateFallbackExplanation(item.task.title)} onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : item.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0} />)}
+                  {focusedTasks.map((item, index) => {
+                    const status = executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex
+                      ? 'doing'
+                      : getExecutionState(item.task);
+
+                    return (
+                      <TodayTaskCard
+                        key={`${item.weekIndex}-${item.taskIndex}`}
+                        task={item.task}
+                        weekNumber={item.weekIndex + 1}
+                        weekFocus={item.weekFocus}
+                        onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                        isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                        isPrimary={index === 0}
+                        onSelect={() => setSelectedTaskKey(`${item.weekIndex}-${item.taskIndex}`)}
+                        isSelected={selectedTaskKey === `${item.weekIndex}-${item.taskIndex}`}
+                        showExpandable={false}
+                        fallbackExplanation={generateFallbackExplanation(item.task.title)}
+                        onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
+                        executionStatus={status as any}
+                        elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
+                      />
+                    );
+                  })}
                   
                   {/* Muted Tasks */}
                   {mutedTasks.length > 0 && <div className="space-y-2 pt-4 opacity-60">
@@ -683,8 +737,20 @@ const Today = () => {
           }} transition={{
             duration: 0.2
           }} className="space-y-5">
-                {/* Primary Task - First incomplete task gets emphasis */}
-                {primaryTask && <PrimaryTaskCard task={primaryTask.task} weekNumber={primaryTask.weekIndex + 1} weekFocus={primaryTask.weekFocus} onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)} isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`} isScheduled={true} fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)} onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : primaryTask.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0} />}
+                {primaryTask && (
+                  <PrimaryTaskCard
+                    task={primaryTask.task}
+                    weekNumber={primaryTask.weekIndex + 1}
+                    weekFocus={primaryTask.weekFocus}
+                    onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
+                    isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
+                    isScheduled={true}
+                    fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
+                    onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)}
+                    executionStatus={(executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : getExecutionState(primaryTask.task)) as any}
+                    elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0}
+                  />
+                )}
 
                 {/* Secondary Tasks - Smaller, less prominent */}
                 {secondaryTasks.length > 0 && <div className="space-y-3 pt-2">
@@ -701,7 +767,19 @@ const Today = () => {
                 duration: 0.3,
                 delay: 0.1 + index * 0.05
               }}>
-                        <SecondaryTaskCard task={item.task} weekNumber={item.weekIndex + 1} weekFocus={item.weekFocus} onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)} isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`} taskNumber={index + 2} isScheduled={true} fallbackExplanation={generateFallbackExplanation(item.task.title)} onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)} executionStatus={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : item.task.execution_status || 'idle'} elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0} />
+                        <SecondaryTaskCard
+                          task={item.task}
+                          weekNumber={item.weekIndex + 1}
+                          weekFocus={item.weekFocus}
+                          onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                          isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                          taskNumber={index + 2}
+                          isScheduled={true}
+                          fallbackExplanation={generateFallbackExplanation(item.task.title)}
+                          onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
+                          executionStatus={(executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : getExecutionState(item.task)) as any}
+                          elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
+                        />
                       </motion.div>)}
                   </div>}
 
@@ -730,6 +808,31 @@ const Today = () => {
         </div>
       </main>
       
+      {/* Dev-only debug panel */}
+      {import.meta.env.DEV && (
+        <div className="max-w-lg lg:max-w-[1280px] mx-auto px-5">
+          <TodayDebugPanel
+            data={{
+              loading,
+              planId,
+              todaysTasks: todaysTasks.map(t => ({
+                key: `${t.weekIndex}-${t.taskIndex}`,
+                title: t.task.title,
+                scheduledAt: t.scheduledAt,
+                execution_state: (t.task as any).execution_state,
+                execution_status: (t.task as any).execution_status,
+                completed: (t.task as any).completed,
+                completed_at: (t.task as any).completed_at,
+              })),
+              completedCount,
+              allCompleted,
+              hasCompletedTaskInSession: hasCompletedTaskInSession.current,
+              activeTimer: executionTimer.activeTimer,
+            }}
+          />
+        </div>
+      )}
+
       <BottomNav />
       
       {/* Active Timer Banner - Fixed at bottom when task is active */}

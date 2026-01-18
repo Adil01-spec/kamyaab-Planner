@@ -82,7 +82,7 @@ export function TodayTaskCard({
   const showHowSection = showExpandable && (hasExplanation || hasFallback);
   const howBullets = formatHowToBullets(task.explanation?.how || '');
   const isActive = executionStatus === 'doing';
-  const isDone = executionStatus === 'done' || task.completed;
+  const isDone = executionStatus === 'done';
 
   const handleCardClick = () => {
     if (onSelect) {
@@ -101,8 +101,8 @@ export function TodayTaskCard({
           ? "border-primary/30 shadow-lg shadow-primary/5" 
           : "border-border/30",
         isSelected && "ring-2 ring-primary/40 border-primary/40",
-        task.completed && "opacity-60",
-        onSelect && !task.completed && "cursor-pointer hover:border-primary/40"
+        isDone && "opacity-60",
+        onSelect && !isDone && "cursor-pointer hover:border-primary/40"
       )}
     >
       {/* Accent bar for primary */}
