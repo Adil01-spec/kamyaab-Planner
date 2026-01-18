@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { DevModeActivator } from '@/components/DevModeActivator';
 import {
   Menu,
   Home,
@@ -141,7 +142,9 @@ export function DesktopHamburgerMenu({
         <div className="p-3">
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-sm font-medium text-foreground/80">Theme</span>
-            <ThemeToggle />
+            <DevModeActivator>
+              <ThemeToggle />
+            </DevModeActivator>
           </div>
         </div>
 

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { DevModeActivator } from '@/components/DevModeActivator';
 import { 
   Rocket, Sparkles, CalendarIcon, Briefcase, Code, Bot, 
   Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle,
@@ -883,7 +884,9 @@ const PlanReset = () => {
                 Step {step} of {totalSteps}
               </span>
             )}
-            <ThemeToggle />
+            <DevModeActivator>
+              <ThemeToggle />
+            </DevModeActivator>
           </div>
         </div>
       </header>

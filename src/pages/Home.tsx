@@ -43,6 +43,7 @@ import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { ResumeFocusCTA } from '@/components/ResumeFocusCTA';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 import { DevPanel } from '@/components/DevPanel';
+import { DevModeActivator } from '@/components/DevModeActivator';
 
 interface Task {
   title: string;
@@ -527,7 +528,9 @@ const Home = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <ThemeToggle />
+              <DevModeActivator>
+                <ThemeToggle />
+              </DevModeActivator>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
