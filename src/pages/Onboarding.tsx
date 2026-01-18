@@ -14,6 +14,7 @@ import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette,
 import { Checkbox } from '@/components/ui/checkbox';
 import { isExecutiveProfile, StrategicPlanningData, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
+import { DevPanel } from '@/components/DevPanel';
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator' | 'executive';
 
@@ -637,6 +638,22 @@ const Onboarding = () => {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Dev Panel */}
+        <DevPanel
+          pageId="onboarding"
+          data={{
+            step,
+            totalSteps,
+            progress,
+            loading,
+            profession: data.profession,
+            professionDetails: data.professionDetails,
+            projectTitle: data.projectTitle,
+            noDeadline: data.noDeadline,
+            showStrategicPlanning,
+          }}
+        />
       </div>
     </div>
   );
