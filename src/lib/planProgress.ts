@@ -3,6 +3,7 @@ interface Task {
   priority: string;
   estimated_hours: number;
   completed?: boolean;
+  execution_state?: 'pending' | 'doing' | 'done';
 }
 
 interface Week {
@@ -27,6 +28,18 @@ export interface PlanProgress {
 }
 
 /**
+ * Check if a task is done using execution_state as primary source.
+ * Falls back to completed boolean for legacy data.
+ */
+function isTaskDone(task: Task): boolean {
+  // execution_state is the source of truth
+  if (task.execution_state === 'done') return true;
+  if (task.execution_state === 'pending' || task.execution_state === 'doing') return false;
+  // Legacy fallback: only use completed if execution_state is not set
+  return task.completed === true;
+}
+
+/**
  * Calculate progress from plan data by traversing all weeks and tasks.
  * This is the single source of truth for progress calculation.
  */
@@ -43,7 +56,7 @@ export function calculatePlanProgress(plan: PlanData | Record<string, any> | nul
     if (week.tasks && Array.isArray(week.tasks)) {
       week.tasks.forEach(task => {
         total++;
-        if (task.completed) {
+        if (isTaskDone(task)) {
           completed++;
         }
       });
