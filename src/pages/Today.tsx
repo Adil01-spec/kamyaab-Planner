@@ -93,7 +93,7 @@ const Today = () => {
   const [showMomentum, setShowMomentum] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
-  const previousCompletedCount = useRef(0);
+  const previousCompletedCount = useRef(-1); // -1 = uninitialized, prevents false trigger on load
 
   // Phase 7.5: Effort feedback and day closure
   const [effortFeedbackTask, setEffortFeedbackTask] = useState<{
@@ -292,7 +292,14 @@ const Today = () => {
 
   // Show momentum feedback and play sound when completing a task
   useEffect(() => {
-    if (completedCount > previousCompletedCount.current && previousCompletedCount.current >= 0) {
+    // First render: initialize without triggering effects
+    if (previousCompletedCount.current === -1) {
+      previousCompletedCount.current = completedCount;
+      return;
+    }
+    
+    // Only trigger when count actually increases (user completed a task)
+    if (completedCount > previousCompletedCount.current) {
       setShowMomentum(true);
 
       // Play appropriate sound
@@ -311,8 +318,10 @@ const Today = () => {
         playTaskCompleteSound();
       }
       const timer = setTimeout(() => setShowMomentum(false), 4000);
+      previousCompletedCount.current = completedCount;
       return () => clearTimeout(timer);
     }
+    
     previousCompletedCount.current = completedCount;
   }, [completedCount, todaysTasks.length]);
 
