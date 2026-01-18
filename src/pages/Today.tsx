@@ -113,6 +113,7 @@ const Today = () => {
   });
   const [showMissedNotice, setShowMissedNotice] = useState(false);
   const dayClosureShownRef = useRef(false);
+  const hasCompletedTaskInSession = useRef(false); // Track if user completed a task THIS session
   
   // Execution timer state
   const [showStartTaskModal, setShowStartTaskModal] = useState(false);
@@ -298,8 +299,9 @@ const Today = () => {
       return;
     }
     
-    // Only trigger when count actually increases (user completed a task)
+    // Only trigger when count actually increases (user completed a task in THIS session)
     if (completedCount > previousCompletedCount.current) {
+      hasCompletedTaskInSession.current = true; // Mark that user completed a task this session
       setShowMomentum(true);
 
       // Play appropriate sound
@@ -307,8 +309,8 @@ const Today = () => {
         // All tasks completed - play calm day-complete sound
         playDayCompleteSound();
 
-        // Phase 7.5: Show day closure modal (only once)
-        if (!dayClosureShownRef.current) {
+        // Phase 7.5: Show day closure modal (only once per session, only if user completed a task)
+        if (!dayClosureShownRef.current && hasCompletedTaskInSession.current) {
           dayClosureShownRef.current = true;
           // Delay to let momentum feedback show first
           setTimeout(() => setShowDayClosure(true), 2000);
@@ -420,9 +422,9 @@ const Today = () => {
     }
   }, [executionTimer]);
 
-  // Check for plan completion
+  // Check for plan completion - only show if user completed a task in THIS session
   useEffect(() => {
-    if (executionTimer.allTasksCompleted && !planCompletionShownRef.current) {
+    if (executionTimer.allTasksCompleted && !planCompletionShownRef.current && hasCompletedTaskInSession.current) {
       planCompletionShownRef.current = true;
       setShowPlanCompletion(true);
     }
