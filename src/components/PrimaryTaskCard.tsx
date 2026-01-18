@@ -81,7 +81,7 @@ export function PrimaryTaskCard({
   const showHowSection = hasExplanation || hasFallback;
   const howBullets = formatHowToBullets(task.explanation?.how || '');
   const isActive = executionStatus === 'doing';
-  const isDone = executionStatus === 'done' || task.completed;
+  const isDone = executionStatus === 'done';
 
   return (
     <motion.div

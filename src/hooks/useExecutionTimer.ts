@@ -74,7 +74,8 @@ export function useExecutionTimer({
       if (localTimer) {
         // Verify the task is still in 'doing' state
         const task = planData.weeks?.[localTimer.weekIndex]?.tasks?.[localTimer.taskIndex];
-        if (task?.execution_status === 'doing') {
+        const isDoing = task?.execution_state === 'doing' || task?.execution_status === 'doing';
+        if (isDoing) {
           const elapsed = calculateElapsedSeconds(localTimer.started_at);
           setActiveTimer({ ...localTimer, elapsed_seconds: elapsed });
           setElapsedSeconds(elapsed);
@@ -211,10 +212,10 @@ export function useExecutionTimer({
     (weekIndex: number, taskIndex: number): 'idle' | 'doing' | 'done' => {
       const task = planData?.weeks?.[weekIndex]?.tasks?.[taskIndex];
       if (!task) return 'idle';
-      
-      if (task.execution_status === 'doing') return 'doing';
-      if (task.execution_status === 'done' || task.completed) return 'done';
-      return 'idle';
+
+      if (task.execution_state === 'doing' || task.execution_status === 'doing') return 'doing';
+      if (task.execution_state === 'done' || task.execution_status === 'done' || task.completed) return 'done';
+      return 'idle'; // pending maps to idle for UI compatibility
     },
     [planData]
   );
