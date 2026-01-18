@@ -106,7 +106,9 @@ export function getTaskExecutionState(
       ? 'doing'
       : explicitState === 'done'
         ? 'done'
-        : task.execution_status || (task.completed ? 'done' : 'idle');
+        : task.completed
+          ? 'done'
+          : 'idle';
 
   return {
     status,
@@ -130,7 +132,7 @@ export function findActiveTask(planData: any): {
 
     for (let taskIndex = 0; taskIndex < week.tasks.length; taskIndex++) {
       const task = week.tasks[taskIndex];
-      if (task.execution_state === 'doing' || task.execution_status === 'doing') {
+      if (task.execution_state === 'doing') {
         return { weekIndex, taskIndex, task };
       }
     }
@@ -160,7 +162,7 @@ export function areAllTasksCompleted(planData: any): boolean {
   for (const week of planData.weeks) {
     if (!week?.tasks) continue;
     for (const task of week.tasks) {
-      if (!task.completed && task.execution_status !== 'done') {
+      if (task.execution_state !== 'done' && !task.completed) {
         return false;
       }
     }

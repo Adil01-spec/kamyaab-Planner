@@ -11,29 +11,42 @@ function normalizeTaskStructure(weeks: any[]): any[] {
   return weeks.map((week: any) => ({
     ...week,
     tasks: week.tasks.map((task: any) => {
-      // Already has nested structure
-      if (task.explanation && typeof task.explanation === 'object') {
-        return {
-          ...task,
-          explanation: {
-            how: task.explanation.how || task.explanation.how_to || "",
-            why: task.explanation.why || "",
-            expected_outcome: task.explanation.expected_outcome || task.explanation.expectedOutcome || ""
-          }
-        };
-      }
-      
-      // Convert flat structure to nested
-      return {
+      const baseTask = {
         title: task.title,
         priority: task.priority,
         estimated_hours: task.estimated_hours,
         completed: task.completed || false,
+        execution_state: 'pending',
+        execution_status: 'idle',
+        execution_started_at: null,
+        time_spent_seconds: 0,
+      };
+
+      // Already has nested structure
+      if (task.explanation && typeof task.explanation === 'object') {
+        return {
+          ...baseTask,
+          ...task,
+          execution_state: 'pending',
+          execution_status: 'idle',
+          execution_started_at: null,
+          time_spent_seconds: 0,
+          explanation: {
+            how: task.explanation.how || task.explanation.how_to || "",
+            why: task.explanation.why || "",
+            expected_outcome: task.explanation.expected_outcome || task.explanation.expectedOutcome || "",
+          },
+        };
+      }
+
+      // Convert flat structure to nested
+      return {
+        ...baseTask,
         explanation: {
           how: task.how_to || "",
           why: task.explanation || "",
-          expected_outcome: task.expected_outcome || ""
-        }
+          expected_outcome: task.expected_outcome || "",
+        },
       };
     })
   }));
