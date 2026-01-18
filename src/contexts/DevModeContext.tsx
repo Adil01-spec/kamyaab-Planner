@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 // ======== SECURITY CONFIG - MODIFY THESE ========
 // Add your email(s) to enable dev mode in production
 const ALLOWED_DEV_EMAILS: string[] = [
-  // Example: "your-email@example.com"
+  "rajaadil4445@gmail.com",
 ];
 
 // Secret activation code - change this to your own code
