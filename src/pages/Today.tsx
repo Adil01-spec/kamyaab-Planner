@@ -222,14 +222,17 @@ const Today = () => {
   type ExecutionState = 'pending' | 'doing' | 'done';
 
   const getExecutionState = useCallback((task: any): ExecutionState => {
-    // Strict default: pending
-    if (task?.execution_state === 'pending' || task?.execution_state === 'doing' || task?.execution_state === 'done') {
-      return task.execution_state;
+    const s = task?.execution_state;
+
+    // Source of truth: explicit execution_state
+    if (s === 'pending' || s === 'doing' || s === 'done') {
+      return s;
     }
-    // Backward compat fallback (legacy)
-    if (task?.execution_status === 'doing') return 'doing';
-    if (task?.execution_status === 'done') return 'done';
-    return 'pending';
+
+    // Backward compat: ONLY honor legacy `completed` boolean.
+    // We intentionally ignore legacy `execution_status` because stale values have been
+    // causing tasks to appear "done" on page load.
+    return task?.completed ? 'done' : 'pending';
   }, []);
 
   // Get tasks scheduled for today
@@ -819,10 +822,13 @@ const Today = () => {
                 key: `${t.weekIndex}-${t.taskIndex}`,
                 title: t.task.title,
                 scheduledAt: t.scheduledAt,
+                derived_execution_state: getExecutionState(t.task),
                 execution_state: (t.task as any).execution_state,
                 execution_status: (t.task as any).execution_status,
                 completed: (t.task as any).completed,
                 completed_at: (t.task as any).completed_at,
+                legacy_done_without_completed:
+                  !(t.task as any).execution_state && (t.task as any).execution_status === 'done' && !(t.task as any).completed,
               })),
               completedCount,
               allCompleted,
