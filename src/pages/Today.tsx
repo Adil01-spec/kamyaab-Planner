@@ -23,7 +23,7 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
-import { TodayDebugPanel } from '@/components/TodayDebugPanel';
+import { DevPanel } from '@/components/DevPanel';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -811,33 +811,32 @@ const Today = () => {
         </div>
       </main>
       
-      {/* Dev-only debug panel */}
-      {import.meta.env.DEV && (
-        <div className="max-w-lg lg:max-w-[1280px] mx-auto px-5">
-          <TodayDebugPanel
-            data={{
-              loading,
-              planId,
-              todaysTasks: todaysTasks.map(t => ({
-                key: `${t.weekIndex}-${t.taskIndex}`,
-                title: t.task.title,
-                scheduledAt: t.scheduledAt,
-                derived_execution_state: getExecutionState(t.task),
-                execution_state: (t.task as any).execution_state,
-                execution_status: (t.task as any).execution_status,
-                completed: (t.task as any).completed,
-                completed_at: (t.task as any).completed_at,
-                legacy_done_without_completed:
-                  !(t.task as any).execution_state && (t.task as any).execution_status === 'done' && !(t.task as any).completed,
-              })),
-              completedCount,
-              allCompleted,
-              hasCompletedTaskInSession: hasCompletedTaskInSession.current,
-              activeTimer: executionTimer.activeTimer,
-            }}
-          />
-        </div>
-      )}
+      {/* Dev Panel */}
+      <div className="max-w-lg lg:max-w-[1280px] mx-auto px-5">
+        <DevPanel
+          pageId="today"
+          data={{
+            loading,
+            planId,
+            todaysTasks: todaysTasks.map(t => ({
+              key: `${t.weekIndex}-${t.taskIndex}`,
+              title: t.task.title,
+              scheduledAt: t.scheduledAt,
+              derived_execution_state: getExecutionState(t.task),
+              execution_state: (t.task as any).execution_state,
+              execution_status: (t.task as any).execution_status,
+              completed: (t.task as any).completed,
+              completed_at: (t.task as any).completed_at,
+              legacy_done_without_completed:
+                !(t.task as any).execution_state && (t.task as any).execution_status === 'done' && !(t.task as any).completed,
+            })),
+            completedCount,
+            allCompleted,
+            hasCompletedTaskInSession: hasCompletedTaskInSession.current,
+            activeTimer: executionTimer.activeTimer,
+          }}
+        />
+      </div>
 
       <BottomNav />
       

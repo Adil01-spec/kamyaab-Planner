@@ -42,6 +42,7 @@ import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { ResumeFocusCTA } from '@/components/ResumeFocusCTA';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
+import { DevPanel } from '@/components/DevPanel';
 
 interface Task {
   title: string;
@@ -844,8 +845,32 @@ const Home = () => {
         onUpdateSettings={updateDesktopSettings}
         onReset={resetDesktopDefaults}
       />
+      
+      {/* Dev Panel */}
+      <div className="max-w-lg mx-auto px-5">
+        <DevPanel
+          pageId="home"
+          data={{
+            loading,
+            hasNoPlan,
+            planId,
+            streak,
+            progressValue,
+            currentWeekIndex,
+            todaysTasks: todaysTasks.map(t => ({
+              title: t.task.title,
+              weekIndex: t.weekIndex,
+              taskIndex: t.taskIndex,
+              completed: t.task.completed,
+            })),
+            activeTimer,
+            timerElapsed,
+          }}
+        />
+      </div>
     </div>
   );
 };
+
 
 export default Home;

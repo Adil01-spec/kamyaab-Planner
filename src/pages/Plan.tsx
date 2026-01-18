@@ -34,6 +34,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
+import { DevPanel } from '@/components/DevPanel';
 
 interface TaskExplanation {
   how: string;
@@ -988,6 +989,29 @@ const Plan = () => {
         </div>
       )}
       
+      {/* Dev Panel */}
+      <div className="max-w-4xl mx-auto px-4">
+        <DevPanel
+          pageId="plan"
+          data={{
+            loading,
+            saving,
+            planId,
+            totalWeeks: plan?.weeks?.length || 0,
+            progress,
+            showExtendButton,
+            isExtending,
+            activeTimer: executionTimer.activeTimer,
+            weeks: plan?.weeks?.map((w, i) => ({
+              week: w.week,
+              focus: w.focus,
+              taskCount: w.tasks.length,
+              completedCount: w.tasks.filter(t => (t as any).execution_state === 'done' || t.completed).length,
+            })) || [],
+          }}
+        />
+      </div>
+
       <BottomNav />
     </div>
   );
