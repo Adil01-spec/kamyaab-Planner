@@ -56,7 +56,8 @@ interface TaskItemProps {
   planCreatedAt?: string;
   onCalendarStatusChange?: () => void;
   onStartTask?: () => void;
-  executionStatus?: 'idle' | 'doing' | 'done';
+  /** execution_state is the source of truth for task state */
+  executionState?: 'pending' | 'doing' | 'done';
   elapsedSeconds?: number;
 }
 
@@ -125,11 +126,13 @@ export function TaskItem({
   planCreatedAt,
   onCalendarStatusChange,
   onStartTask,
-  executionStatus = 'idle',
+  executionState = 'pending',
   elapsedSeconds = 0,
 }: TaskItemProps) {
-  const isActive = executionStatus === 'doing';
-  const isDone = executionStatus === 'done' || completed;
+  // Derive status from execution_state (source of truth), with legacy fallback
+  const derivedState = executionState !== 'pending' ? executionState : (completed ? 'done' : 'pending');
+  const isActive = derivedState === 'doing';
+  const isDone = derivedState === 'done';
   const [isOpen, setIsOpen] = useState(false);
   const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);

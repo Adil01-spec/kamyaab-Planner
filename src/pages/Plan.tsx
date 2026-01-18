@@ -301,9 +301,18 @@ const Plan = () => {
     if (!plan || !user) return;
 
     const updatedPlan = { ...plan };
-    const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
-    const wasCompleted = task.completed;
-    task.completed = !task.completed;
+    const task = updatedPlan.weeks[weekIndex].tasks[taskIndex] as any;
+    const wasCompleted = task.execution_state === 'done' || task.completed;
+    
+    // Update execution_state (source of truth) and legacy completed
+    if (wasCompleted) {
+      task.execution_state = 'pending';
+      task.completed = false;
+    } else {
+      task.execution_state = 'done';
+      task.completed = true;
+      task.completed_at = new Date().toISOString();
+    }
     
     setPlan({ ...updatedPlan });
     setSaving(true);
@@ -316,9 +325,9 @@ const Plan = () => {
 
       if (error) throw error;
 
-      // Check if the entire plan is now completed
+      // Check if the entire plan is now completed (using execution_state)
       const allTasksCompleted = updatedPlan.weeks.every(w => 
-        w.tasks.every(t => t.completed)
+        w.tasks.every(t => (t as any).execution_state === 'done' || t.completed)
       );
 
       if (allTasksCompleted && !wasCompleted && !hasCompletedPlan.current) {
@@ -331,7 +340,7 @@ const Plan = () => {
       } else {
         // Check if the week is now fully completed (and wasn't before)
         const week = updatedPlan.weeks[weekIndex];
-        const weekNowCompleted = week.tasks.every(t => t.completed);
+        const weekNowCompleted = week.tasks.every(t => (t as any).execution_state === 'done' || t.completed);
         
         if (weekNowCompleted && !wasCompleted && !celebratedWeeks.current.has(weekIndex)) {
           celebratedWeeks.current.add(weekIndex);
@@ -344,7 +353,14 @@ const Plan = () => {
       }
     } catch (error) {
       console.error('Error saving task completion:', error);
-      task.completed = !task.completed;
+      // Revert execution_state
+      if (wasCompleted) {
+        task.execution_state = 'done';
+        task.completed = true;
+      } else {
+        task.execution_state = 'pending';
+        task.completed = false;
+      }
       setPlan({ ...updatedPlan });
     } finally {
       setSaving(false);
@@ -383,7 +399,7 @@ const Plan = () => {
     
     const totalWeeks = plan.weeks.length;
     const completedWeeks = plan.weeks.filter(week => 
-      week.tasks.every(task => task.completed)
+      week.tasks.every(task => (task as any).execution_state === 'done' || task.completed)
     ).length;
     
     // Show extend button if 75%+ weeks completed or in last 2 weeks
@@ -619,7 +635,7 @@ const Plan = () => {
             <WeeklyCalendarView 
               weeks={plan.weeks}
               planCreatedAt={planCreatedAt || undefined}
-              activeWeekIndex={plan.weeks.findIndex(w => !w.tasks.every(t => t.completed))}
+              activeWeekIndex={plan.weeks.findIndex(w => !w.tasks.every(t => (t as any).execution_state === 'done' || t.completed))}
               refreshKey={refreshKey}
             />
 
@@ -674,14 +690,14 @@ const Plan = () => {
 
               <TabsContent value="list" className="space-y-4 mt-0">
               {plan.weeks.map((week, weekIndex) => {
-                const weekCompleted = week.tasks.filter(t => t.completed).length;
+                const weekCompleted = week.tasks.filter(t => (t as any).execution_state === 'done' || t.completed).length;
                 const weekTotal = week.tasks.length;
                 const weekPercent = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
                 const isWeekComplete = weekCompleted === weekTotal;
                 
                 // Sequential unlock: find the first incomplete week
                 const firstIncompleteWeekIndex = plan.weeks.findIndex(w => 
-                  !w.tasks.every(t => t.completed)
+                  !w.tasks.every(t => (t as any).execution_state === 'done' || t.completed)
                 );
                 const isActiveWeek = weekIndex === firstIncompleteWeekIndex;
                 const isLockedWeek = firstIncompleteWeekIndex !== -1 && weekIndex > firstIncompleteWeekIndex;
@@ -786,7 +802,12 @@ const Plan = () => {
                             planCreatedAt={planCreatedAt || undefined}
                             onCalendarStatusChange={triggerCalendarRefresh}
                             onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
-                            executionStatus={executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? 'doing' : 'idle'}
+                            executionState={
+                              (task as any).execution_state === 'doing' ? 'doing' :
+                              (task as any).execution_state === 'done' ? 'done' :
+                              executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? 'doing' :
+                              'pending'
+                            }
                             elapsedSeconds={executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? executionTimer.elapsedSeconds : 0}
                           />
                         ))}
