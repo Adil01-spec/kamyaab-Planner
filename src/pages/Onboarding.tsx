@@ -6,14 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown, SkipForward } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { isExecutiveProfile, StrategicPlanningData, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
+import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
+import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
+import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 import { DevPanel } from '@/components/DevPanel';
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator' | 'executive';
@@ -27,6 +29,9 @@ interface OnboardingData {
   projectDeadline: string;
   noDeadline: boolean;
   strategicPlanning: StrategicPlanningData;
+  // New: Strategic planning mode for all users
+  strategicModeChoice: 'standard' | 'strategic';
+  strategicPlanContext: StrategicPlanContext;
 }
 
 interface Question {
@@ -110,23 +115,30 @@ const Onboarding = () => {
     projectDeadline: '',
     noDeadline: false,
     strategicPlanning: {},
+    strategicModeChoice: 'standard',
+    strategicPlanContext: { strategic_mode: false },
   });
   const [loading, setLoading] = useState(false);
   const { saveProfile } = useAuth();
   const navigate = useNavigate();
 
-  // Check if user is executive profile
-  const showStrategicPlanning = isExecutiveProfile(data.profession, data.professionDetails);
+  // Check if user is executive profile (for existing collapsible section)
+  const showExecutiveStrategicPlanning = isExecutiveProfile(data.profession, data.professionDetails);
 
   const profession = data.profession ? professionConfig[data.profession] : null;
   
-  // Calculate total steps: 2 base + profession questions + 3 project questions
+  // Calculate filtered profession questions
   const professionQuestions = profession?.questions.filter(q => {
     if (!q.showIf) return true;
     return Object.entries(q.showIf).every(([key, value]) => data.professionDetails[key] === value);
   }) || [];
   
-  const totalSteps = 2 + professionQuestions.length + 3;
+  // Calculate strategic steps count (only if strategic mode is selected)
+  const strategicStepsCount = data.strategicModeChoice === 'strategic' ? STRATEGIC_STEPS_COUNT : 0;
+  
+  // Total steps: 
+  // 1 (name) + 1 (profession) + 1 (strategic toggle) + strategicSteps + professionQuestions + 3 (project steps)
+  const totalSteps = 3 + strategicStepsCount + professionQuestions.length + 3;
   const progress = (step / totalSteps) * 100;
 
   const updateProfessionDetail = (key: string, value: any) => {
@@ -173,17 +185,44 @@ const Onboarding = () => {
     return combined;
   };
 
-  const canProceed = () => {
-    if (step === 1) return data.fullName.trim().length > 0;
-    if (step === 2) return data.profession !== '';
+  // Get the current step type and index
+  const getStepInfo = () => {
+    if (step === 1) return { type: 'name', index: 0 };
+    if (step === 2) return { type: 'profession', index: 0 };
+    if (step === 3) return { type: 'strategicToggle', index: 0 };
     
-    const professionStep = step - 3;
-    if (professionStep >= 0 && professionStep < professionQuestions.length) {
-      const question = professionQuestions[professionStep];
+    let currentStep = step - 3; // After toggle
+    
+    // Strategic steps (if enabled)
+    if (data.strategicModeChoice === 'strategic' && currentStep <= STRATEGIC_STEPS_COUNT) {
+      return { type: 'strategicStep', index: currentStep };
+    }
+    currentStep -= strategicStepsCount;
+    
+    // Profession questions
+    if (currentStep <= professionQuestions.length) {
+      return { type: 'professionQuestion', index: currentStep - 1 };
+    }
+    currentStep -= professionQuestions.length;
+    
+    // Project steps
+    return { type: 'projectStep', index: currentStep };
+  };
+
+  const canProceed = () => {
+    const { type, index } = getStepInfo();
+    
+    if (type === 'name') return data.fullName.trim().length > 0;
+    if (type === 'profession') return data.profession !== '';
+    if (type === 'strategicToggle') return true; // Always can proceed (default selected)
+    if (type === 'strategicStep') return true; // All strategic steps are optional
+    
+    if (type === 'professionQuestion') {
+      const question = professionQuestions[index];
+      if (!question) return true;
       if (question.type === 'text' && (question.label.includes('Optional') || question.key === 'aiToolsList')) return true;
       if (question.type === 'boolean') return data.professionDetails[question.key] !== undefined;
       if (question.type === 'chips') {
-        // Allow proceeding if either predefined or custom technologies are provided
         const predefined = data.professionDetails[question.key] || [];
         const customRaw = data.professionDetails[`${question.key}_custom`] || '';
         const customItems = customRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -192,10 +231,11 @@ const Onboarding = () => {
       return data.professionDetails[question.key];
     }
     
-    const projectStep = step - 2 - professionQuestions.length;
-    if (projectStep === 1) return data.projectTitle.trim().length > 0;
-    if (projectStep === 2) return data.projectDescription.trim().length > 0;
-    if (projectStep === 3) return data.noDeadline || data.projectDeadline !== '';
+    if (type === 'projectStep') {
+      if (index === 1) return data.projectTitle.trim().length > 0;
+      if (index === 2) return data.projectDescription.trim().length > 0;
+      if (index === 3) return data.noDeadline || data.projectDeadline !== '';
+    }
     
     return true;
   };
@@ -210,6 +250,11 @@ const Onboarding = () => {
     setStep(prev => Math.max(1, prev - 1));
   };
 
+  const handleSkip = () => {
+    // Skip current step and move to next
+    setStep(prev => prev + 1);
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -217,10 +262,14 @@ const Onboarding = () => {
       const processedDetails: Record<string, any> = { 
         ...data.professionDetails, 
         noDeadline: data.noDeadline,
-        // Include strategic planning data if available
-        ...(showStrategicPlanning && Object.keys(data.strategicPlanning).length > 0 
+        // Include executive strategic planning data if available
+        ...(showExecutiveStrategicPlanning && Object.keys(data.strategicPlanning).length > 0 
           ? { strategicPlanning: data.strategicPlanning } 
           : {}),
+        // Include new strategic plan context if strategic mode was selected
+        ...(data.strategicModeChoice === 'strategic' 
+          ? { plan_context: { ...data.strategicPlanContext, strategic_mode: true } } 
+          : { plan_context: null }),
       };
       
       // Combine technologies if present
@@ -258,7 +307,7 @@ const Onboarding = () => {
             projectDescription: data.projectDescription,
             projectDeadline: data.noDeadline ? null : data.projectDeadline,
             noDeadline: data.noDeadline,
-            strategicPlanning: showStrategicPlanning ? data.strategicPlanning : undefined,
+            strategicPlanning: showExecutiveStrategicPlanning ? data.strategicPlanning : undefined,
           }
         },
       });
@@ -281,8 +330,10 @@ const Onboarding = () => {
   };
 
   const renderStep = () => {
+    const { type, index } = getStepInfo();
+
     // Step 1: Full Name
-    if (step === 1) {
+    if (type === 'name') {
       return (
         <div className="space-y-4 animate-fade-in">
           <div className="text-center mb-6">
@@ -308,7 +359,7 @@ const Onboarding = () => {
     }
 
     // Step 2: Profession Selection
-    if (step === 2) {
+    if (type === 'profession') {
       return (
         <div className="space-y-4 animate-fade-in">
           <div className="text-center mb-6">
@@ -344,10 +395,37 @@ const Onboarding = () => {
       );
     }
 
+    // Step 3: Strategic Planning Toggle
+    if (type === 'strategicToggle') {
+      return (
+        <StrategicPlanningToggle
+          value={data.strategicModeChoice}
+          onChange={(value) => setData(prev => ({ 
+            ...prev, 
+            strategicModeChoice: value,
+            strategicPlanContext: value === 'strategic' 
+              ? { strategic_mode: true } 
+              : { strategic_mode: false }
+          }))}
+        />
+      );
+    }
+
+    // Strategic Planning Steps (if strategic mode selected)
+    if (type === 'strategicStep') {
+      return (
+        <StrategicPlanningSteps
+          currentStep={index}
+          data={data.strategicPlanContext}
+          onChange={(context) => setData(prev => ({ ...prev, strategicPlanContext: context }))}
+        />
+      );
+    }
+
     // Profession-specific questions
-    const professionStep = step - 3;
-    if (professionStep >= 0 && professionStep < professionQuestions.length) {
-      const question = professionQuestions[professionStep];
+    if (type === 'professionQuestion') {
+      const question = professionQuestions[index];
+      if (!question) return null;
       const Icon = profession?.icon || Briefcase;
 
       return (
@@ -476,110 +554,112 @@ const Onboarding = () => {
     }
 
     // Project questions
-    const projectStep = step - 2 - professionQuestions.length;
-
-    if (projectStep === 1) {
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-              <FileText className="w-6 h-6 text-primary" />
+    if (type === 'projectStep') {
+      if (index === 1) {
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
+                <FileText className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold">Project Title</h2>
+              <p className="text-muted-foreground text-sm mt-1">What are you working on?</p>
             </div>
-            <h2 className="text-xl font-semibold">Project Title</h2>
-            <p className="text-muted-foreground text-sm mt-1">What are you working on?</p>
-          </div>
-          <Input
-            placeholder="e.g., Launch my e-commerce store"
-            value={data.projectTitle}
-            onChange={(e) => setData(prev => ({ ...prev, projectTitle: e.target.value }))}
-            className="h-12"
-            autoFocus
-          />
-        </div>
-      );
-    }
-
-    if (projectStep === 2) {
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-              <FileText className="w-6 h-6 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold">Project Description</h2>
-            <p className="text-muted-foreground text-sm mt-1">Tell us more about your project</p>
-          </div>
-          <Textarea
-            placeholder="Describe your project goals, milestones, and what success looks like..."
-            value={data.projectDescription}
-            onChange={(e) => setData(prev => ({ ...prev, projectDescription: e.target.value }))}
-            className="min-h-[150px]"
-            autoFocus
-          />
-        </div>
-      );
-    }
-
-    if (projectStep === 3) {
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-              <Calendar className="w-6 h-6 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold">Project Deadline</h2>
-            <p className="text-muted-foreground text-sm mt-1">When do you want to complete this?</p>
-          </div>
-          <Input
-            type="date"
-            value={data.projectDeadline}
-            onChange={(e) => setData(prev => ({ ...prev, projectDeadline: e.target.value, noDeadline: false }))}
-            className="h-12"
-            min={new Date().toISOString().split('T')[0]}
-            disabled={data.noDeadline}
-          />
-          <div className="flex items-center space-x-3 pt-2">
-            <Checkbox
-              id="noDeadline"
-              checked={data.noDeadline}
-              onCheckedChange={(checked) => 
-                setData(prev => ({ 
-                  ...prev, 
-                  noDeadline: checked === true,
-                  projectDeadline: checked === true ? '' : prev.projectDeadline 
-                }))
-              }
+            <Input
+              placeholder="e.g., Launch my e-commerce store"
+              value={data.projectTitle}
+              onChange={(e) => setData(prev => ({ ...prev, projectTitle: e.target.value }))}
+              className="h-12"
+              autoFocus
             />
-            <label
-              htmlFor="noDeadline"
-              className="text-sm text-muted-foreground cursor-pointer select-none"
-            >
-              There is no deadline
-            </label>
           </div>
-          {data.noDeadline && (
-            <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
-              No worries! We'll create a flexible plan focused on consistency and steady progress.
-            </p>
-          )}
+        );
+      }
 
-          {/* Strategic Planning Section for Executives */}
-          {showStrategicPlanning && (
-            <div className="pt-4">
-              <StrategicPlanningSection
-                data={data.strategicPlanning}
-                onChange={(strategicPlanning) => setData(prev => ({ ...prev, strategicPlanning }))}
-              />
+      if (index === 2) {
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
+                <FileText className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold">Project Description</h2>
+              <p className="text-muted-foreground text-sm mt-1">Tell us more about your project</p>
             </div>
-          )}
-        </div>
-      );
+            <Textarea
+              placeholder="Describe your project goals, milestones, and what success looks like..."
+              value={data.projectDescription}
+              onChange={(e) => setData(prev => ({ ...prev, projectDescription: e.target.value }))}
+              className="min-h-[150px]"
+              autoFocus
+            />
+          </div>
+        );
+      }
+
+      if (index === 3) {
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
+                <Calendar className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold">Project Deadline</h2>
+              <p className="text-muted-foreground text-sm mt-1">When do you want to complete this?</p>
+            </div>
+            <Input
+              type="date"
+              value={data.projectDeadline}
+              onChange={(e) => setData(prev => ({ ...prev, projectDeadline: e.target.value, noDeadline: false }))}
+              className="h-12"
+              min={new Date().toISOString().split('T')[0]}
+              disabled={data.noDeadline}
+            />
+            <div className="flex items-center space-x-3 pt-2">
+              <Checkbox
+                id="noDeadline"
+                checked={data.noDeadline}
+                onCheckedChange={(checked) => 
+                  setData(prev => ({ 
+                    ...prev, 
+                    noDeadline: checked === true,
+                    projectDeadline: checked === true ? '' : prev.projectDeadline 
+                  }))
+                }
+              />
+              <label
+                htmlFor="noDeadline"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
+                There is no deadline
+              </label>
+            </div>
+            {data.noDeadline && (
+              <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
+                No worries! We'll create a flexible plan focused on consistency and steady progress.
+              </p>
+            )}
+
+            {/* Strategic Planning Section for Executives (existing collapsible) */}
+            {showExecutiveStrategicPlanning && (
+              <div className="pt-4">
+                <StrategicPlanningSection
+                  data={data.strategicPlanning}
+                  onChange={(strategicPlanning) => setData(prev => ({ ...prev, strategicPlanning }))}
+                />
+              </div>
+            )}
+          </div>
+        );
+      }
     }
 
     return null;
   };
 
+  const { type } = getStepInfo();
   const isLastStep = step === totalSteps;
+  const isStrategicStep = type === 'strategicStep';
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-subtle">
@@ -616,6 +696,20 @@ const Onboarding = () => {
                   Back
                 </Button>
               )}
+              
+              {/* Skip button for strategic steps */}
+              {isStrategicStep && (
+                <Button
+                  variant="ghost"
+                  onClick={handleSkip}
+                  className="h-12 text-muted-foreground"
+                  disabled={loading}
+                >
+                  <SkipForward className="w-4 h-4 mr-1" />
+                  Skip
+                </Button>
+              )}
+              
               <Button
                 onClick={isLastStep ? handleSubmit : handleNext}
                 disabled={!canProceed() || loading}
@@ -651,7 +745,9 @@ const Onboarding = () => {
             professionDetails: data.professionDetails,
             projectTitle: data.projectTitle,
             noDeadline: data.noDeadline,
-            showStrategicPlanning,
+            showExecutiveStrategicPlanning,
+            strategicModeChoice: data.strategicModeChoice,
+            strategicPlanContext: data.strategicPlanContext,
           }}
         />
       </div>

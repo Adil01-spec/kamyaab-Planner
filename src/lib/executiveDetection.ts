@@ -54,7 +54,7 @@ export function isExecutiveProfile(
   return false;
 }
 
-// Strategic planning field definitions
+// Strategic planning field definitions (for executives via collapsible section)
 export interface StrategicPlanningData {
   strategy_horizon?: '30_days' | '90_days' | '6_months' | '12_months' | '3_5_years';
   primary_objective?: string;
@@ -117,3 +117,43 @@ export const DECISION_STYLES = [
   'Speed over perfection',
   'Consensus-based',
 ];
+
+// ====== NEW: Strategic Plan Context for ALL users (opt-in toggle) ======
+
+export interface StrategicPlanContext {
+  strategic_mode: boolean;
+  planning_seniority?: 'individual_contributor' | 'manager' | 'director' | 'vp_head' | 'founder_owner';
+  planning_scope?: ('personal' | 'team' | 'department' | 'company')[];
+  time_horizon?: '30_days' | '90_days' | '6_months' | '12_months';
+  constraints?: {
+    budget?: string;
+    team_size?: number;
+    dependencies?: string;
+    risk_tolerance?: 'low' | 'medium' | 'high';
+  };
+  success_definition?: string;
+}
+
+export const SENIORITY_LEVELS = [
+  { value: 'individual_contributor', label: 'Individual Contributor' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'director', label: 'Director' },
+  { value: 'vp_head', label: 'VP / Head' },
+  { value: 'founder_owner', label: 'Founder / Owner' },
+] as const;
+
+export const PLANNING_SCOPES = [
+  { value: 'personal', label: 'Personal execution' },
+  { value: 'team', label: 'Team initiative' },
+  { value: 'department', label: 'Department-level strategy' },
+  { value: 'company', label: 'Company-wide initiative' },
+] as const;
+
+export const TIME_HORIZONS = [
+  { value: '30_days', label: '30 days' },
+  { value: '90_days', label: '90 days' },
+  { value: '6_months', label: '6 months' },
+  { value: '12_months', label: '12 months' },
+] as const;
+
+export const RISK_TOLERANCES = ['low', 'medium', 'high'] as const;
