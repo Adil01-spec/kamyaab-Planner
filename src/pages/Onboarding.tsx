@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown, SkipForward } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown, SkipForward, LogOut } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
@@ -119,8 +119,13 @@ const Onboarding = () => {
     strategicPlanContext: { strategic_mode: false },
   });
   const [loading, setLoading] = useState(false);
-  const { saveProfile } = useAuth();
+  const { saveProfile, logout } = useAuth();
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+  };
 
   // Check if user is executive profile (for existing collapsible section)
   const showExecutiveStrategicPlanning = isExecutiveProfile(data.profession, data.professionDetails);
@@ -672,7 +677,17 @@ const Onboarding = () => {
             </div>
             <span className="font-semibold text-foreground">Kaamyab</span>
           </div>
-          <span className="text-sm text-muted-foreground">Step {step} of {totalSteps}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Step {step} of {totalSteps}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Progress */}
