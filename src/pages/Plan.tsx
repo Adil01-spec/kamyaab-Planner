@@ -19,11 +19,12 @@ import confetti from 'canvas-confetti';
 import { 
   Rocket, LogOut, Target, Calendar, CalendarPlus,
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight,
-  GitBranch, List
+  GitBranch, List, ChevronDown, Lightbulb, AlertTriangle
 } from 'lucide-react';
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { isAppleDevice } from '@/lib/calendarService';
@@ -64,14 +65,35 @@ interface Milestone {
   week: number;
 }
 
+interface StrategicMilestone extends Milestone {
+  outcome?: string;
+  timeframe?: string;
+}
+
+interface Risk {
+  risk: string;
+  mitigation?: string;
+}
+
+interface StrategyOverview {
+  objective: string;
+  why_now?: string;
+  success_definition?: string;
+}
+
 interface PlanData {
   overview: string;
   total_weeks: number;
-  milestones: Milestone[];
+  milestones: Milestone[] | StrategicMilestone[];
   weeks: Week[];
   motivation: string[];
   is_open_ended?: boolean;
   identity_statement?: string;
+  // Strategic plan fields (optional)
+  is_strategic_plan?: boolean;
+  strategy_overview?: StrategyOverview;
+  assumptions?: string[];
+  risks?: Risk[];
 }
 
 const Plan = () => {
@@ -578,6 +600,124 @@ const Plan = () => {
                 onChange={updateIdentityStatement}
               />
             </div>
+
+            {/* Strategic Plan Section - Only for strategic plans */}
+            {plan.is_strategic_plan && plan.strategy_overview && (
+              <Collapsible defaultOpen={false} className="animate-slide-up">
+                <Card className="glass-card overflow-hidden">
+                  <CollapsibleTrigger className="w-full">
+                    <CardHeader className="pb-3 cursor-pointer hover:bg-accent/5 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Target className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="text-left">
+                            <CardTitle className="text-lg">Strategy Overview</CardTitle>
+                            <p className="text-sm text-muted-foreground font-normal">
+                              Strategic context for this plan
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                            Strategic Plan
+                          </Badge>
+                          <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 space-y-4">
+                      {/* Objective */}
+                      <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Lightbulb className="w-4 h-4 text-primary" />
+                          <h4 className="font-medium text-foreground">Objective</h4>
+                        </div>
+                        <p className="text-muted-foreground">{plan.strategy_overview.objective}</p>
+                      </div>
+
+                      {/* Why Now */}
+                      {plan.strategy_overview.why_now && (
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-medium text-foreground mb-2">Why Now</h4>
+                          <p className="text-muted-foreground">{plan.strategy_overview.why_now}</p>
+                        </div>
+                      )}
+
+                      {/* Success Definition */}
+                      {plan.strategy_overview.success_definition && (
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-medium text-foreground mb-2">Success Definition</h4>
+                          <p className="text-muted-foreground">{plan.strategy_overview.success_definition}</p>
+                        </div>
+                      )}
+
+                      {/* Assumptions */}
+                      {plan.assumptions && plan.assumptions.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2">Key Assumptions</h4>
+                          <ul className="space-y-1">
+                            {plan.assumptions.map((assumption, i) => (
+                              <li key={i} className="flex items-start gap-2 text-muted-foreground">
+                                <span className="text-primary mt-1">•</span>
+                                <span>{assumption}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Risks */}
+                      {plan.risks && plan.risks.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                            Risks & Mitigations
+                          </h4>
+                          <div className="space-y-2">
+                            {plan.risks.map((riskItem, i) => (
+                              <div key={i} className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                                <p className="text-foreground font-medium">{riskItem.risk}</p>
+                                {riskItem.mitigation && (
+                                  <p className="text-muted-foreground text-sm mt-1">
+                                    <span className="text-primary">Mitigation:</span> {riskItem.mitigation}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Strategic Milestones Preview */}
+                      {plan.milestones && plan.milestones.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2">Strategic Milestones</h4>
+                          <div className="space-y-2">
+                            {(plan.milestones as StrategicMilestone[]).map((milestone, i) => (
+                              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                                <span className="text-foreground">{milestone.title}</span>
+                                <div className="flex items-center gap-2">
+                                  {milestone.timeframe && (
+                                    <span className="text-xs text-muted-foreground">{milestone.timeframe}</span>
+                                  )}
+                                  <Badge variant="outline" className="text-xs">
+                                    Week {milestone.week}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            )}
 
             {/* Progress Overview Card */}
             <Card className="glass-card glass-card-hover animate-slide-up">
