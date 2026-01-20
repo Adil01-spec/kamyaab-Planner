@@ -19,8 +19,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
-import { isExecutiveProfile, StrategicPlanningData } from '@/lib/executiveDetection';
+import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
+import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
+import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -112,8 +114,16 @@ const PlanReset = () => {
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [strategicPlanning, setStrategicPlanning] = useState<StrategicPlanningData>({});
 
-  // Check if current profile is executive
+  // NEW: Phase 8.1 Planning Mode state
+  const [planningModeChoice, setPlanningModeChoice] = useState<'standard' | 'strategic'>('standard');
+  const [strategicPlanContext, setStrategicPlanContext] = useState<StrategicPlanContext>({ strategic_mode: false });
+  const [strategicStep, setStrategicStep] = useState(0); // 0 = not in strategic steps, 1-5 = strategic steps
+
+  // Check if current profile is executive (legacy)
   const showStrategicPlanning = isExecutiveProfile(profession, professionDetails);
+  
+  // Check if strategic mode was enabled in current plan context
+  const isStrategicModeSelected = planningModeChoice === 'strategic';
 
   // Initialize form with profile data
   useEffect(() => {
@@ -123,16 +133,23 @@ const PlanReset = () => {
       setProjectTitle(profile.projectTitle || '');
       setProjectDescription(profile.projectDescription || '');
       
-      const profDetails = profile.professionDetails as { noDeadline?: boolean; strategicPlanning?: StrategicPlanningData } | null;
+      const profDetails = profile.professionDetails as { noDeadline?: boolean; strategicPlanning?: StrategicPlanningData; plan_context?: StrategicPlanContext } | null;
       if (profDetails?.noDeadline) {
         setNoDeadline(true);
       } else if (profile.projectDeadline) {
         setProjectDeadline(profile.projectDeadline);
       }
       
-      // Load existing strategic planning data
+      // Load existing strategic planning data (legacy)
       if (profDetails?.strategicPlanning) {
         setStrategicPlanning(profDetails.strategicPlanning);
+      }
+      
+      // Load existing Phase 8.1 strategic plan context
+      const existingPlanContext = profDetails?.plan_context as StrategicPlanContext | undefined;
+      if (existingPlanContext?.strategic_mode) {
+        setPlanningModeChoice('strategic');
+        setStrategicPlanContext(existingPlanContext);
       }
     }
   }, [profile]);
@@ -169,12 +186,19 @@ const PlanReset = () => {
     return Object.entries(q.showIf).every(([key, value]) => professionDetails[key] === value);
   }) || [] : [];
 
-  // Calculate total steps based on intent
+  // Calculate total steps based on intent and planning mode
   const getTotalSteps = () => {
+    // Planning mode toggle is step 1 for both flows
+    const planningModeStep = 1;
+    // Strategic steps only if strategic mode selected
+    const strategicStepsCount = isStrategicModeSelected ? STRATEGIC_STEPS_COUNT : 0;
+    
     if (intent === 'same_field') {
-      return 2; // Project details only (step 1 = project, step 2 = deadline)
+      // planning mode + strategic steps (if any) + project + deadline
+      return planningModeStep + strategicStepsCount + 2;
     } else if (intent === 'new_field') {
-      return 1 + professionQuestions.length + 2; // Profession + questions + project + deadline
+      // planning mode + strategic steps (if any) + profession + questions + project + deadline
+      return planningModeStep + strategicStepsCount + 1 + professionQuestions.length + 2;
     }
     return 0;
   };
@@ -204,14 +228,42 @@ const PlanReset = () => {
     setStep(1);
   };
 
+  // Helper: Calculate step offsets based on planning mode
+  const getStepOffsets = () => {
+    const strategicStepsCount = isStrategicModeSelected ? STRATEGIC_STEPS_COUNT : 0;
+    // Step 1 is always planning mode toggle
+    // Steps 2-(1+strategicStepsCount) are strategic steps (if strategic)
+    return {
+      planningModeStep: 1,
+      strategicStepsStart: 2,
+      strategicStepsEnd: 1 + strategicStepsCount,
+      afterStrategicSteps: 2 + strategicStepsCount, // First step after strategic steps
+    };
+  };
+
   const canProceed = () => {
+    const offsets = getStepOffsets();
+    
+    // Step 1: Planning mode toggle - always can proceed
+    if (step === 1) return true;
+    
+    // Strategic steps (2 to 1+strategicStepsCount): all optional
+    if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
+      return true;
+    }
+    
     if (intent === 'same_field') {
-      if (step === 1) return projectTitle.trim().length > 0 && projectDescription.trim().length > 0;
-      if (step === 2) return noDeadline || projectDeadline !== '';
+      // After planning mode + strategic steps: project details, then deadline
+      const projectStep = step - offsets.afterStrategicSteps + 1;
+      if (projectStep === 1) return projectTitle.trim().length > 0 && projectDescription.trim().length > 0;
+      if (projectStep === 2) return noDeadline || projectDeadline !== '';
     } else if (intent === 'new_field') {
-      if (step === 1) return profession !== '';
+      // After planning mode + strategic steps: profession, then questions, then project, then deadline
+      const afterStrategic = step - offsets.afterStrategicSteps + 1;
       
-      const questionStep = step - 2;
+      if (afterStrategic === 1) return profession !== '';
+      
+      const questionStep = afterStrategic - 2;
       if (questionStep >= 0 && questionStep < professionQuestions.length) {
         const question = professionQuestions[questionStep];
         if (question.type === 'text' && question.key === 'aiToolsList') return true;
@@ -224,7 +276,7 @@ const PlanReset = () => {
         return professionDetails[question.key];
       }
       
-      const projectStep = step - 1 - professionQuestions.length;
+      const projectStep = afterStrategic - 1 - professionQuestions.length;
       if (projectStep === 1) return projectTitle.trim().length > 0 && projectDescription.trim().length > 0;
       if (projectStep === 2) return noDeadline || projectDeadline !== '';
     }
@@ -245,6 +297,16 @@ const PlanReset = () => {
       setStep(prev => prev - 1);
     }
   };
+  
+  const handlePlanningModeChange = (mode: 'standard' | 'strategic') => {
+    setPlanningModeChoice(mode);
+    if (mode === 'strategic') {
+      setStrategicPlanContext({ strategic_mode: true });
+    } else {
+      // Clear strategic context when switching to standard
+      setStrategicPlanContext({ strategic_mode: false });
+    }
+  };
 
   const handleGenerate = async () => {
     if (!user) return;
@@ -256,10 +318,14 @@ const PlanReset = () => {
       const processedDetails: Record<string, any> = { 
         ...professionDetails, 
         noDeadline,
-        // Include strategic planning data if available
+        // Include legacy strategic planning data if available (for executives)
         ...(showStrategicPlanning && Object.keys(strategicPlanning).length > 0 
           ? { strategicPlanning } 
           : {}),
+        // Include Phase 8.1 strategic plan context
+        plan_context: isStrategicModeSelected 
+          ? strategicPlanContext 
+          : { strategic_mode: false },
       };
       
       // Combine custom technologies
@@ -411,8 +477,65 @@ const PlanReset = () => {
     </motion.div>
   );
 
+  // Render planning mode toggle (Step 1 for both flows)
+  const renderPlanningModeStep = () => (
+    <motion.div 
+      key="planning-mode-step"
+      className="space-y-6"
+      variants={stepVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={stepTransition}
+    >
+      <StrategicPlanningToggle
+        value={planningModeChoice}
+        onChange={handlePlanningModeChange}
+      />
+    </motion.div>
+  );
+
+  // Render strategic planning steps (Steps 2-6 if strategic mode selected)
+  const renderStrategicStep = (stepNumber: number) => {
+    const offsets = getStepOffsets();
+    const strategicStepIndex = stepNumber - offsets.strategicStepsStart + 1; // 1-5
+    
+    return (
+      <motion.div 
+        key={`strategic-step-${strategicStepIndex}`}
+        className="space-y-6"
+        variants={stepVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={stepTransition}
+      >
+        <StrategicPlanningSteps
+          currentStep={strategicStepIndex}
+          data={strategicPlanContext}
+          onChange={setStrategicPlanContext}
+        />
+      </motion.div>
+    );
+  };
+
   const renderSameFieldFlow = () => {
+    const offsets = getStepOffsets();
+    
+    // Step 1: Planning mode toggle
     if (step === 1) {
+      return renderPlanningModeStep();
+    }
+    
+    // Steps 2-(1+strategicStepsCount): Strategic steps (if strategic mode)
+    if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
+      return renderStrategicStep(step);
+    }
+    
+    // After strategic steps: project details
+    const afterStrategicStep = step - offsets.afterStrategicSteps + 1;
+    
+    if (afterStrategicStep === 1) {
       return (
         <motion.div 
           key="same-field-step-1"
@@ -481,7 +604,7 @@ const PlanReset = () => {
       );
     }
 
-    if (step === 2) {
+    if (afterStrategicStep === 2) {
       return (
         <motion.div 
           key="same-field-step-2"
@@ -550,11 +673,26 @@ const PlanReset = () => {
   };
 
   const renderNewFieldFlow = () => {
-    // Step 1: Profession selection
+    const offsets = getStepOffsets();
+    
+    // Step 1: Planning mode toggle
     if (step === 1) {
+      return renderPlanningModeStep();
+    }
+    
+    // Steps 2-(1+strategicStepsCount): Strategic steps (if strategic mode)
+    if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
+      return renderStrategicStep(step);
+    }
+    
+    // After strategic steps: profession, then questions, then project, then deadline
+    const afterStrategicStep = step - offsets.afterStrategicSteps + 1;
+    
+    // Profession selection
+    if (afterStrategicStep === 1) {
       return (
         <motion.div 
-          key="new-field-step-1"
+          key="new-field-profession"
           className="space-y-6"
           variants={stepVariants}
           initial="initial"
@@ -609,7 +747,7 @@ const PlanReset = () => {
     }
 
     // Profession-specific questions
-    const questionStep = step - 2;
+    const questionStep = afterStrategicStep - 2;
     if (questionStep >= 0 && questionStep < professionQuestions.length) {
       const question = professionQuestions[questionStep];
       const Icon = professionConfig[profession]?.icon || Briefcase;
@@ -737,7 +875,7 @@ const PlanReset = () => {
     }
 
     // Project details
-    const projectStep = step - 1 - professionQuestions.length;
+    const projectStep = afterStrategicStep - 1 - professionQuestions.length;
     if (projectStep === 1) {
       return (
         <motion.div 
