@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
 import { PlanRealityCheck } from '@/components/PlanRealityCheck';
+import { ExecutionInsights, type ExecutionInsightsData } from '@/components/ExecutionInsights';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -111,6 +112,8 @@ interface PlanData {
   risks?: Risk[];
   // Reality check cache
   reality_check?: RealityCritique;
+  // Execution insights cache
+  execution_insights?: ExecutionInsightsData;
 }
 
 const Plan = () => {
@@ -453,6 +456,28 @@ const Plan = () => {
     }
   }, [plan, user]);
 
+  // Save execution insights to plan
+  const handleInsightsGenerated = useCallback(async (insights: ExecutionInsightsData) => {
+    if (!plan || !user) return;
+
+    const updatedPlan = { ...plan, execution_insights: insights };
+    setPlan(updatedPlan);
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('plans')
+        .update({ plan_json: updatedPlan as unknown as Json })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving execution insights:', error);
+    } finally {
+      setSaving(false);
+    }
+  }, [plan, user]);
+
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
 
@@ -789,6 +814,16 @@ const Plan = () => {
                 <Progress value={progress.percent} className="h-3" />
               </CardContent>
             </Card>
+
+            {/* Execution Insights - Post-execution analysis */}
+            {planId && (
+              <ExecutionInsights
+                planData={plan}
+                planId={planId}
+                cachedInsights={plan.execution_insights}
+                onInsightsGenerated={handleInsightsGenerated}
+              />
+            )}
 
             {/* Quick Stats */}
             {profile && (
