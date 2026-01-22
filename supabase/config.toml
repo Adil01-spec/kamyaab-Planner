@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.plan-reality-check]
 verify_jwt = false
+
+[functions.execution-insights]
+verify_jwt = false
