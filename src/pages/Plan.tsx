@@ -22,6 +22,7 @@ import {
   GitBranch, List, ChevronDown, Lightbulb, AlertTriangle
 } from 'lucide-react';
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
+import { PlanRealityCheck } from '@/components/PlanRealityCheck';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -81,6 +82,20 @@ interface StrategyOverview {
   success_definition?: string;
 }
 
+interface RealityCritique {
+  feasibility: {
+    assessment: 'realistic' | 'challenging' | 'unrealistic';
+    summary: string;
+    concerns: string[];
+  };
+  risk_signals: { items: { signal: string; severity: 'low' | 'medium' | 'high' }[] };
+  focus_gaps: { items: string[]; strategic_blind_spots?: string[] };
+  deprioritization_suggestions: { items: { task_or_area: string; reason: string }[] };
+  is_strategic: boolean;
+  generated_at: string;
+  plan_version?: string;
+}
+
 interface PlanData {
   overview: string;
   total_weeks: number;
@@ -94,6 +109,8 @@ interface PlanData {
   strategy_overview?: StrategyOverview;
   assumptions?: string[];
   risks?: Risk[];
+  // Reality check cache
+  reality_check?: RealityCritique;
 }
 
 const Plan = () => {
@@ -413,6 +430,29 @@ const Plan = () => {
     }
   }, [plan, user]);
 
+  // Save reality check critique to plan
+  const handleCritiqueGenerated = useCallback(async (critique: RealityCritique) => {
+    if (!plan || !user) return;
+
+    const updatedPlan = { ...plan, reality_check: critique };
+    setPlan(updatedPlan);
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('plans')
+        .update({ plan_json: updatedPlan as unknown as Json })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving reality check:', error);
+      // Don't revert - the critique is still useful locally
+    } finally {
+      setSaving(false);
+    }
+  }, [plan, user]);
+
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
 
@@ -717,6 +757,16 @@ const Plan = () => {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
+            )}
+
+            {/* Plan Reality Check - AI-powered critique */}
+            {planId && (
+              <PlanRealityCheck
+                plan={plan}
+                planId={planId}
+                cachedCritique={plan.reality_check}
+                onCritiqueGenerated={handleCritiqueGenerated}
+              />
             )}
 
             {/* Progress Overview Card */}
