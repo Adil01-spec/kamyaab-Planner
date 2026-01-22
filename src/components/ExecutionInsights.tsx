@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Clock, Zap, TrendingUp, Lightbulb, ChevronDown, 
-  Loader2, AlertCircle, CheckCircle2, Target
+  Loader2, AlertCircle, CheckCircle2, Target, Stethoscope, ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -15,6 +15,21 @@ import {
   generateExecutionVersion,
   type ExecutionMetrics 
 } from '@/lib/executionAnalytics';
+
+export interface ExecutionDiagnosis {
+  has_sufficient_data: boolean;
+  primary_mistake: {
+    label: string;
+    detail: string;
+  };
+  secondary_pattern?: {
+    label: string;
+    detail: string;
+  };
+  adjustment: {
+    action: string;
+  };
+}
 
 export interface ExecutionInsightsData {
   time_estimation_insight: {
@@ -36,6 +51,7 @@ export interface ExecutionInsightsData {
     title: string;
     detail: string;
   };
+  execution_diagnosis?: ExecutionDiagnosis;
   generated_at: string;
   execution_version: string;
   tasks_analyzed: number;
@@ -377,6 +393,79 @@ export function ExecutionInsights({
                     {displayInsights.forward_suggestion.detail}
                   </p>
                 </div>
+
+                {/* Execution Diagnosis Subsection */}
+                {displayInsights.execution_diagnosis && (
+                  <Collapsible defaultOpen={false} className="mt-2">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-medium text-foreground">Execution Diagnosis</span>
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="pt-3 space-y-3">
+                        {!displayInsights.execution_diagnosis.has_sufficient_data ? (
+                          <p className="text-sm text-muted-foreground italic px-1">
+                            Not enough execution data yet to identify reliable patterns.
+                          </p>
+                        ) : (
+                          <>
+                            {/* Primary Mistake */}
+                            <div className="p-3 rounded-lg bg-rose-500/5 border border-rose-500/20">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="text-xs text-rose-600 font-medium uppercase tracking-wider">Primary drag</span>
+                                  <p className="text-sm text-foreground mt-1">
+                                    <span className="font-medium">{displayInsights.execution_diagnosis.primary_mistake.label}:</span>{' '}
+                                    {displayInsights.execution_diagnosis.primary_mistake.detail}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Secondary Pattern (optional) */}
+                            {displayInsights.execution_diagnosis.secondary_pattern && (
+                              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                                <div className="flex items-start gap-2">
+                                  <TrendingUp className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                                  <div>
+                                    <span className="text-xs text-amber-600 font-medium uppercase tracking-wider">Secondary pattern</span>
+                                    <p className="text-sm text-foreground mt-1">
+                                      <span className="font-medium">{displayInsights.execution_diagnosis.secondary_pattern.label}:</span>{' '}
+                                      {displayInsights.execution_diagnosis.secondary_pattern.detail}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Adjustment */}
+                            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                              <div className="flex items-start gap-2">
+                                <ArrowRight className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Next cycle adjustment</span>
+                                  <p className="text-sm text-foreground mt-1 font-medium">
+                                    {displayInsights.execution_diagnosis.adjustment.action}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        <p className="text-xs text-muted-foreground/50 px-1">
+                          This diagnosis is based on observed behavior only and does not modify your plan.
+                        </p>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
 
                 {/* Disclaimer + Re-analyze */}
                 <div className="flex items-center justify-between pt-2 border-t border-border/30">

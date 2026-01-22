@@ -104,9 +104,16 @@ serve(async (req) => {
     const systemPrompt = `You are an execution analyst reviewing how a user performed on their productivity plan tasks. 
 Your job is to identify patterns in their work habits and provide actionable, observational insights.
 
-Tone: Direct, observational, non-judgmental. Not motivational or critical.
-Focus: Behavioral patterns, not plan quality.
-Goal: Help user understand their work patterns to improve future execution.`;
+Tone: Calm, direct, non-judgmental. Not motivational or critical.
+Focus: Behavioral patterns based on observed data only.
+Goal: Help user understand their execution patterns to improve future cycles.
+
+CRITICAL RULES:
+- Do NOT mention motivation, discipline, or habits
+- Do NOT compare to other users
+- Do NOT speculate beyond the data
+- Keep diagnosis brief and specific
+- One clear adjustment, not a list`;
 
     const userPrompt = `Analyze this execution data from ${completedTasks.length} completed tasks:
 
@@ -135,7 +142,9 @@ ${completionVelocity.slowestTask ? `- Slowest (vs estimate): "${completionVeloci
 **Recent tasks:**
 ${taskSummaries}
 
-Provide insights on execution patterns.`;
+Provide:
+1. General execution insights (patterns, strengths, bottlenecks)
+2. Execution diagnosis with the PRIMARY execution mistake and ONE actionable adjustment for the next cycle`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -201,8 +210,45 @@ Provide insights on execution patterns.`;
                     },
                     required: ["title", "detail"],
                   },
+                  execution_diagnosis: {
+                    type: "object",
+                    description: "Diagnostic analysis of execution mistakes and adjustments for next cycle",
+                    properties: {
+                      has_sufficient_data: { 
+                        type: "boolean", 
+                        description: "Whether there is enough meaningful data to provide a reliable diagnosis" 
+                      },
+                      primary_mistake: {
+                        type: "object",
+                        description: "The single biggest execution inefficiency observed",
+                        properties: {
+                          label: { type: "string", description: "Short label like 'Systematic underestimation' or 'Context switching overload'" },
+                          detail: { type: "string", description: "One sentence explaining the issue with specific data, e.g. 'You spent ~35% more time than planned on setup-heavy tasks, delaying execution momentum.'" },
+                        },
+                        required: ["label", "detail"],
+                      },
+                      secondary_pattern: {
+                        type: "object",
+                        description: "Optional reinforcing behavior pattern. Only include if statistically meaningful.",
+                        properties: {
+                          label: { type: "string" },
+                          detail: { type: "string" },
+                        },
+                        required: ["label", "detail"],
+                      },
+                      adjustment: {
+                        type: "object",
+                        description: "One clear, actionable change for the next plan cycle",
+                        properties: {
+                          action: { type: "string", description: "Specific action like 'Increase buffer for research tasks by 30%' or 'Cap daily execution to 3 tasks'" },
+                        },
+                        required: ["action"],
+                      },
+                    },
+                    required: ["has_sufficient_data", "primary_mistake", "adjustment"],
+                  },
                 },
-                required: ["time_estimation_insight", "effort_distribution_insight", "productivity_patterns", "forward_suggestion"],
+                required: ["time_estimation_insight", "effort_distribution_insight", "productivity_patterns", "forward_suggestion", "execution_diagnosis"],
                 additionalProperties: false,
               },
             },
