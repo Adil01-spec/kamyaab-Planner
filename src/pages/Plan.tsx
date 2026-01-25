@@ -26,14 +26,20 @@ import { PlanRealityCheck } from '@/components/PlanRealityCheck';
 import { ExecutionInsights, type ExecutionInsightsData } from '@/components/ExecutionInsights';
 import { CalibrationInsights } from '@/components/CalibrationInsights';
 import { PersonalPatternUpdate } from '@/components/PersonalPatternUpdate';
+import { ProgressProof } from '@/components/ProgressProof';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { 
   fetchExecutionProfile, 
   extractProfileFromPlan,
   mergeProfileUpdates,
   saveExecutionProfile,
-  type PersonalExecutionProfile 
+  type PersonalExecutionProfile,
+  type ProgressHistory 
 } from '@/lib/personalExecutionProfile';
+import { 
+  createPlanCycleSnapshot, 
+  appendSnapshotToHistory 
+} from '@/lib/progressProof';
 import { compileExecutionMetrics } from '@/lib/executionAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -506,10 +512,25 @@ const Plan = () => {
       // Extract and merge new observations
       const newObservations = extractProfileFromPlan(completedPlan);
       const mergedProfile = mergeProfileUpdates(prevProfile, newObservations);
-      setCurrentProfile(mergedProfile);
       
-      // Save updated profile
-      await saveExecutionProfile(user.id, mergedProfile);
+      // Create and append progress snapshot (Phase 8.7)
+      const isStrategic = completedPlan.is_strategic_plan || false;
+      const snapshot = createPlanCycleSnapshot(completedPlan, isStrategic);
+      const updatedHistory = appendSnapshotToHistory(
+        mergedProfile.progress_history,
+        snapshot
+      );
+      
+      // Update profile with progress history
+      const profileWithHistory: PersonalExecutionProfile = {
+        ...mergedProfile,
+        progress_history: updatedHistory,
+      };
+      
+      setCurrentProfile(profileWithHistory);
+      
+      // Save updated profile with progress history
+      await saveExecutionProfile(user.id, profileWithHistory);
       
       // Show the pattern update modal
       setShowPatternUpdate(true);
@@ -868,6 +889,14 @@ const Plan = () => {
             {/* Calibration Insights - Personalized historical patterns */}
             {user && (
               <CalibrationInsights
+                userId={user.id}
+                currentPlanData={plan}
+              />
+            )}
+
+            {/* Progress Proof - Evidence of improvement over time */}
+            {user && (
+              <ProgressProof
                 userId={user.id}
                 currentPlanData={plan}
               />
