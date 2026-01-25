@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hapticSelection } from '@/lib/hapticFeedback';
 
 interface TaskExplanation {
   how: string;
@@ -182,7 +183,10 @@ export function PrimaryTaskCard({
               exit={{ opacity: 0, scale: 0.95 }}
             >
               <Button
-                onClick={onStartTask}
+                onClick={() => {
+                  hapticSelection();
+                  onStartTask?.();
+                }}
                 disabled={isCompleting}
                 size="lg"
                 className="w-full gradient-kaamyab hover:opacity-90 touch-press h-14 text-base font-semibold rounded-xl"

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hapticSelection } from '@/lib/hapticFeedback';
 
 interface TaskExplanation {
   how: string;
@@ -190,6 +191,7 @@ export function TodayTaskCard({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
+                  hapticSelection();
                   onStartTask?.();
                 }}
                 disabled={isCompleting}

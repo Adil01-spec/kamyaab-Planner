@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hapticSelection } from '@/lib/hapticFeedback';
 
 interface TaskExplanation {
   how: string;
@@ -159,7 +160,10 @@ export function SecondaryTaskCard({
                 exit={{ opacity: 0 }}
               >
                 <Button
-                  onClick={onStartTask}
+                  onClick={() => {
+                    hapticSelection();
+                    onStartTask?.();
+                  }}
                   disabled={isCompleting}
                   size="sm"
                   variant="outline"
