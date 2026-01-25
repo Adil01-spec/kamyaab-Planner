@@ -24,6 +24,7 @@ import {
   type TrendDirection,
 } from '@/lib/progressProof';
 import { generateProgressPdf } from '@/lib/progressPdfExport';
+import { ProgressTimeline } from '@/components/ProgressTimeline';
 
 interface ProgressProofProps {
   userId: string;
@@ -239,6 +240,11 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
                       ))}
                     </div>
                   </div>
+                )}
+                
+                {/* Progress Timeline */}
+                {history && history.snapshots.length >= 2 && (
+                  <ProgressTimeline snapshots={history.snapshots} />
                 )}
                 
                 {/* Compared to Previous Plan Section */}

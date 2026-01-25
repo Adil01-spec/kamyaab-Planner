@@ -27,6 +27,7 @@ import { ExecutionInsights, type ExecutionInsightsData } from '@/components/Exec
 import { CalibrationInsights } from '@/components/CalibrationInsights';
 import { PersonalPatternUpdate } from '@/components/PersonalPatternUpdate';
 import { ProgressProof } from '@/components/ProgressProof';
+import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { 
   fetchExecutionProfile, 
@@ -901,6 +902,14 @@ const Plan = () => {
                 currentPlanData={plan}
                 userName={profile.fullName || undefined}
                 projectTitle={profile.projectTitle || undefined}
+              />
+            )}
+
+            {/* Next-Cycle Adjustment Guidance - Show after plan completion or when history exists */}
+            {user && progress.percent === 100 && (
+              <NextCycleGuidance
+                userId={user.id}
+                showAfterCompletion={true}
               />
             )}
 

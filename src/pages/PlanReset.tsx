@@ -24,6 +24,7 @@ import { StrategicPlanningSection } from '@/components/StrategicPlanningSection'
 import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 import { PlanningGuidanceHint } from '@/components/PlanningGuidanceHint';
+import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { fetchExecutionProfile, type PersonalExecutionProfile } from '@/lib/personalExecutionProfile';
 
 const stepVariants = {
@@ -424,6 +425,14 @@ const PlanReset = () => {
       exit="exit"
       transition={stepTransition}
     >
+      {/* Next-Cycle Guidance - Show before new plan if user has history */}
+      {user && personalProfile?.progress_history && personalProfile.progress_history.snapshots.length > 0 && (
+        <NextCycleGuidance
+          userId={user.id}
+          showBeforeGeneration={true}
+        />
+      )}
+
       <div className="text-center">
         <motion.div 
           className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-kaamyab mb-4"
