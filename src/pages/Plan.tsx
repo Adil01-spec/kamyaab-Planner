@@ -899,6 +899,8 @@ const Plan = () => {
               <ProgressProof
                 userId={user.id}
                 currentPlanData={plan}
+                userName={profile.fullName || undefined}
+                projectTitle={profile.projectTitle || undefined}
               />
             )}
 

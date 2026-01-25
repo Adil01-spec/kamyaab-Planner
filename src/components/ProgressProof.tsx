@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { TrendingUp, TrendingDown, Minus, ChevronDown, BarChart3, GitCompare, Lightbulb, ArrowLeftRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronDown, BarChart3, GitCompare, Lightbulb, ArrowLeftRight, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import { 
   fetchExecutionProfile, 
   type PersonalExecutionProfile,
@@ -21,16 +23,20 @@ import {
   type StrategicComparison,
   type TrendDirection,
 } from '@/lib/progressProof';
+import { generateProgressPdf } from '@/lib/progressPdfExport';
 
 interface ProgressProofProps {
   userId: string;
   currentPlanData: any;
+  userName?: string;
+  projectTitle?: string;
 }
 
-export function ProgressProof({ userId, currentPlanData }: ProgressProofProps) {
+export function ProgressProof({ userId, currentPlanData, userName, projectTitle }: ProgressProofProps) {
   const [profile, setProfile] = useState<PersonalExecutionProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Derived insights
   const [trends, setTrends] = useState<ProgressTrend[]>([]);
@@ -112,6 +118,30 @@ export function ProgressProof({ userId, currentPlanData }: ProgressProofProps) {
     }
   };
   
+  const handleExportPdf = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent collapsible toggle
+    
+    if (!history) return;
+    
+    setExporting(true);
+    try {
+      await generateProgressPdf(history, { userName, projectTitle });
+      toast({
+        title: 'Report downloaded',
+        description: 'Your progress report has been saved as a PDF.',
+      });
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Could not generate the PDF report. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+  
   if (loading) {
     return null; // Don't show anything while loading
   }
@@ -136,6 +166,22 @@ export function ProgressProof({ userId, currentPlanData }: ProgressProofProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {hasEnoughData && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleExportPdf}
+                    disabled={exporting}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    <span className="ml-1.5 hidden sm:inline text-xs">Export</span>
+                  </Button>
+                )}
                 <Badge variant="outline" className="bg-muted/50 text-muted-foreground text-xs">
                   {plansTracked} {plansTracked === 1 ? 'plan' : 'plans'} tracked
                 </Badge>
