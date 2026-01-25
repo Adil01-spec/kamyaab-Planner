@@ -48,6 +48,40 @@ export interface ProductivityBias {
   sustained_focus_duration: number;
 }
 
+// ============================================
+// Progress History Types (Phase 8.7)
+// ============================================
+
+export interface PlanCycleSnapshot {
+  snapshot_id: string;
+  snapshot_date: string;
+  plan_type: 'strategic' | 'standard';
+  
+  // Core metrics
+  metrics: {
+    average_overrun_percent: number;
+    completion_rate: number;
+    completion_smoothness: number; // 0-100
+    planning_alignment: number; // 0-100
+    late_stage_adjustments: number;
+    tasks_completed: number;
+    total_time_spent_seconds: number;
+  };
+  
+  // Detected patterns
+  patterns: {
+    front_loaded: boolean;
+    consistent_pace: boolean;
+    rework_required: boolean;
+  };
+}
+
+export interface ProgressHistory {
+  snapshots: PlanCycleSnapshot[];
+  last_snapshot_date: string;
+  total_plans_tracked: number;
+}
+
 export interface PersonalExecutionProfile {
   estimation_accuracy_trend: EstimationTrend;
   overload_tendency: OverloadTendency;
@@ -58,6 +92,8 @@ export interface PersonalExecutionProfile {
   data_points_count: number;
   plans_analyzed: number;
   confidence_level: 'low' | 'medium' | 'high';
+  // Progress history for trend tracking (Phase 8.7)
+  progress_history?: ProgressHistory;
 }
 
 export interface CalibrationInsight {
