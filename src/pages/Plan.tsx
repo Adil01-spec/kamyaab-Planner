@@ -24,7 +24,17 @@ import {
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
 import { PlanRealityCheck } from '@/components/PlanRealityCheck';
 import { ExecutionInsights, type ExecutionInsightsData } from '@/components/ExecutionInsights';
+import { CalibrationInsights } from '@/components/CalibrationInsights';
+import { PersonalPatternUpdate } from '@/components/PersonalPatternUpdate';
 import { PlanFlowView } from '@/components/PlanFlowView';
+import { 
+  fetchExecutionProfile, 
+  extractProfileFromPlan,
+  mergeProfileUpdates,
+  saveExecutionProfile,
+  type PersonalExecutionProfile 
+} from '@/lib/personalExecutionProfile';
+import { compileExecutionMetrics } from '@/lib/executionAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useNavigate } from 'react-router-dom';
@@ -128,6 +138,9 @@ const Plan = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
   const [showStartTaskModal, setShowStartTaskModal] = useState(false);
+  const [showPatternUpdate, setShowPatternUpdate] = useState(false);
+  const [previousProfile, setPreviousProfile] = useState<PersonalExecutionProfile | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<PersonalExecutionProfile | null>(null);
   const [pendingStartTask, setPendingStartTask] = useState<{
     weekIndex: number;
     taskIndex: number;
@@ -380,6 +393,9 @@ const Plan = () => {
           title: "🏆 Plan Complete!",
           description: "Incredible! You've completed your entire plan. You're unstoppable!",
         });
+        
+        // Trigger personal pattern update
+        triggerPatternUpdate(updatedPlan);
       } else {
         // Check if the week is now fully completed (and wasn't before)
         const week = updatedPlan.weeks[weekIndex];
@@ -477,6 +493,30 @@ const Plan = () => {
       setSaving(false);
     }
   }, [plan, user]);
+
+  // Trigger personal pattern update after plan completion
+  const triggerPatternUpdate = useCallback(async (completedPlan: PlanData) => {
+    if (!user) return;
+    
+    try {
+      // Fetch previous profile
+      const prevProfile = await fetchExecutionProfile(user.id);
+      setPreviousProfile(prevProfile);
+      
+      // Extract and merge new observations
+      const newObservations = extractProfileFromPlan(completedPlan);
+      const mergedProfile = mergeProfileUpdates(prevProfile, newObservations);
+      setCurrentProfile(mergedProfile);
+      
+      // Save updated profile
+      await saveExecutionProfile(user.id, mergedProfile);
+      
+      // Show the pattern update modal
+      setShowPatternUpdate(true);
+    } catch (error) {
+      console.error('Error updating personal profile:', error);
+    }
+  }, [user]);
 
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
@@ -822,6 +862,14 @@ const Plan = () => {
                 planId={planId}
                 cachedInsights={plan.execution_insights}
                 onInsightsGenerated={handleInsightsGenerated}
+              />
+            )}
+
+            {/* Calibration Insights - Personalized historical patterns */}
+            {user && (
+              <CalibrationInsights
+                userId={user.id}
+                currentPlanData={plan}
               />
             )}
 
@@ -1238,6 +1286,21 @@ const Plan = () => {
       </div>
 
       <BottomNav />
+
+      {/* Personal Pattern Update Modal - Shown after plan completion */}
+      {currentProfile && (
+        <PersonalPatternUpdate
+          open={showPatternUpdate}
+          onClose={() => setShowPatternUpdate(false)}
+          previousProfile={previousProfile}
+          currentProfile={currentProfile}
+          planSummary={{
+            tasksCompleted: progress.completed,
+            totalTimeSpent: plan ? compileExecutionMetrics(plan).totalTimeSpent : 0,
+            averageVariance: plan ? compileExecutionMetrics(plan).estimationAccuracy.averageVariance : 0,
+          }}
+        />
+      )}
     </div>
   );
 };
