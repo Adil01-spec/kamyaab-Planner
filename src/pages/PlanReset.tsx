@@ -23,6 +23,8 @@ import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from 
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
 import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
+import { PlanningGuidanceHint } from '@/components/PlanningGuidanceHint';
+import { fetchExecutionProfile, type PersonalExecutionProfile } from '@/lib/personalExecutionProfile';
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -113,6 +115,7 @@ const PlanReset = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [strategicPlanning, setStrategicPlanning] = useState<StrategicPlanningData>({});
+  const [personalProfile, setPersonalProfile] = useState<PersonalExecutionProfile | null>(null);
 
   // NEW: Phase 8.1 Planning Mode state
   const [planningModeChoice, setPlanningModeChoice] = useState<'standard' | 'strategic'>('standard');
@@ -124,6 +127,17 @@ const PlanReset = () => {
   
   // Check if strategic mode was enabled in current plan context
   const isStrategicModeSelected = planningModeChoice === 'strategic';
+  
+  // Load personal execution profile for guidance hints
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (user) {
+        const profile = await fetchExecutionProfile(user.id);
+        setPersonalProfile(profile);
+      }
+    };
+    loadProfile();
+  }, [user]);
 
   // Initialize form with profile data
   useEffect(() => {
@@ -898,6 +912,14 @@ const PlanReset = () => {
             <h2 className="text-xl font-semibold text-foreground">Project Details</h2>
             <p className="text-sm text-muted-foreground">What are you working on?</p>
           </div>
+
+          {/* Personal Execution Guidance Hint */}
+          <PlanningGuidanceHint
+            profile={personalProfile}
+            currentStep="project"
+            formData={{ projectDescription, projectDeadline, noDeadline }}
+            className="mb-2"
+          />
 
           <div className="space-y-4">
             <div className="space-y-2">
