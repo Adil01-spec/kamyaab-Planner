@@ -24,6 +24,7 @@ import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { DevPanel } from '@/components/DevPanel';
+import { SwipeableTaskWrapper } from '@/components/SwipeableTaskWrapper';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -35,6 +36,7 @@ import { computeDailyContext, generateFallbackExplanation } from '@/lib/dailyCon
 import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { formatTotalTime } from '@/lib/executionTimer';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
+import { hapticSuccess, hapticSelection } from '@/lib/hapticFeedback';
 import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -450,6 +452,7 @@ const Today = () => {
     if (result.success) {
       hasCompletedTaskInSession.current = true;
       completionFeedbackTokenRef.current = Date.now();
+      hapticSuccess(); // Haptic feedback on completion
     }
 
     if (result.success && executionTimer.activeTimer) {
@@ -461,6 +464,25 @@ const Today = () => {
       });
     }
   }, [executionTimer]);
+
+  // Swipe completion handler for mobile
+  const handleSwipeComplete = useCallback(async (weekIndex: number, taskIndex: number, taskTitle: string) => {
+    // If this task is already active, complete it via timer
+    if (executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex) {
+      await handleTimerComplete();
+      return;
+    }
+    
+    // Otherwise, mark as done directly (for idle tasks)
+    hapticSuccess();
+    await handleCompleteTask(weekIndex, taskIndex);
+  }, [executionTimer.activeTimer, handleTimerComplete, handleCompleteTask]);
+
+  // Swipe start handler for mobile
+  const handleSwipeStart = useCallback((weekIndex: number, taskIndex: number, taskTitle: string, estimatedHours: number) => {
+    hapticSelection();
+    handleStartTaskClick(weekIndex, taskIndex, taskTitle, estimatedHours);
+  }, [handleStartTaskClick]);
 
   // NOTE: Plan/day completion checks are intentionally NOT run on mount.
   // They are triggered only after user actions via completionFeedbackTokenRef.
@@ -741,18 +763,25 @@ const Today = () => {
             duration: 0.2
           }} className="space-y-5">
                 {primaryTask && (
-                  <PrimaryTaskCard
-                    task={primaryTask.task}
-                    weekNumber={primaryTask.weekIndex + 1}
-                    weekFocus={primaryTask.weekFocus}
-                    onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
-                    isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
-                    isScheduled={true}
-                    fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
-                    onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)}
-                    executionStatus={(executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : getExecutionState(primaryTask.task)) as any}
-                    elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0}
-                  />
+                  <SwipeableTaskWrapper
+                    onComplete={() => handleSwipeComplete(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title)}
+                    onStart={() => handleSwipeStart(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)}
+                    disabled={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex}
+                    isDone={getExecutionState(primaryTask.task) === 'done'}
+                  >
+                    <PrimaryTaskCard
+                      task={primaryTask.task}
+                      weekNumber={primaryTask.weekIndex + 1}
+                      weekFocus={primaryTask.weekFocus}
+                      onComplete={() => handleCompleteTask(primaryTask.weekIndex, primaryTask.taskIndex)}
+                      isCompleting={completingTask === `${primaryTask.weekIndex}-${primaryTask.taskIndex}`}
+                      isScheduled={true}
+                      fallbackExplanation={generateFallbackExplanation(primaryTask.task.title)}
+                      onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)}
+                      executionStatus={(executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : getExecutionState(primaryTask.task)) as any}
+                      elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0}
+                    />
+                  </SwipeableTaskWrapper>
                 )}
 
                 {/* Secondary Tasks - Smaller, less prominent */}
@@ -770,19 +799,26 @@ const Today = () => {
                 duration: 0.3,
                 delay: 0.1 + index * 0.05
               }}>
-                        <SecondaryTaskCard
-                          task={item.task}
-                          weekNumber={item.weekIndex + 1}
-                          weekFocus={item.weekFocus}
-                          onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
-                          isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
-                          taskNumber={index + 2}
-                          isScheduled={true}
-                          fallbackExplanation={generateFallbackExplanation(item.task.title)}
-                          onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
-                          executionStatus={(executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : getExecutionState(item.task)) as any}
-                          elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
-                        />
+                        <SwipeableTaskWrapper
+                          onComplete={() => handleSwipeComplete(item.weekIndex, item.taskIndex, item.task.title)}
+                          onStart={() => handleSwipeStart(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
+                          disabled={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex}
+                          isDone={getExecutionState(item.task) === 'done'}
+                        >
+                          <SecondaryTaskCard
+                            task={item.task}
+                            weekNumber={item.weekIndex + 1}
+                            weekFocus={item.weekFocus}
+                            onComplete={() => handleCompleteTask(item.weekIndex, item.taskIndex)}
+                            isCompleting={completingTask === `${item.weekIndex}-${item.taskIndex}`}
+                            taskNumber={index + 2}
+                            isScheduled={true}
+                            fallbackExplanation={generateFallbackExplanation(item.task.title)}
+                            onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
+                            executionStatus={(executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : getExecutionState(item.task)) as any}
+                            elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
+                          />
+                        </SwipeableTaskWrapper>
                       </motion.div>)}
                   </div>}
 
