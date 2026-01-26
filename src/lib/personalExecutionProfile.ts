@@ -52,10 +52,14 @@ export interface ProductivityBias {
 // Progress History Types (Phase 8.7)
 // ============================================
 
+import { type ScenarioTag } from './scenarioMemory';
+
 export interface PlanCycleSnapshot {
   snapshot_id: string;
   snapshot_date: string;
   plan_type: 'strategic' | 'standard';
+  // Phase 8.9: Scenario Memory (immutable after plan creation)
+  scenario?: ScenarioTag;
   
   // Core metrics
   metrics: {

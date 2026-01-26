@@ -3,6 +3,11 @@ import {
   ProgressHistory,
   PlanCycleSnapshot 
 } from './personalExecutionProfile';
+import { 
+  getScenarioContextPrefix, 
+  getScenarioDelayContext,
+  type ScenarioTag 
+} from './scenarioMemory';
 
 // ============================================
 // Next-Cycle Guidance Types
@@ -15,6 +20,8 @@ export interface NextCycleAdjustment {
   justification: string;   // Data-backed reason
   pattern_source: string;  // Which pattern triggered this
   confidence: 'high' | 'medium';
+  // Phase 8.9: Scenario-aware context
+  scenario_context?: string;
 }
 
 export interface NextCycleGuidanceResult {
@@ -139,6 +146,27 @@ function detectCoordinationBufferNeed(history: ProgressHistory): NextCycleAdjust
   const lateAdjustmentsCount = recentSnapshots.filter(
     s => s.metrics.late_stage_adjustments > 0
   ).length;
+  
+  // Phase 8.9: Check if overruns correlate with coordination scenarios
+  const coordinationOverruns = recentSnapshots.filter(
+    s => s.scenario === 'heavy_coordination' && s.metrics.average_overrun_percent > 25
+  );
+  
+  if (coordinationOverruns.length >= 2) {
+    const avgOverrun = coordinationOverruns.reduce(
+      (sum, s) => sum + s.metrics.average_overrun_percent, 0
+    ) / coordinationOverruns.length;
+    
+    return {
+      id: 'coordination-buffer',
+      title: 'Add buffer time for coordination-heavy work',
+      detail: 'to account for integration and sync overhead.',
+      justification: `Coordination-tagged plans averaged ${Math.round(avgOverrun)}% overrun.`,
+      pattern_source: 'scenario_correlation',
+      confidence: 'high',
+      scenario_context: getScenarioDelayContext('heavy_coordination') || undefined,
+    };
+  }
   
   if (highOverrunCount >= 2 && lateAdjustmentsCount >= 1) {
     return {

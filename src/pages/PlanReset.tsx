@@ -25,6 +25,8 @@ import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 import { PlanningGuidanceHint } from '@/components/PlanningGuidanceHint';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
+import { ScenarioTagSelector } from '@/components/ScenarioTagSelector';
+import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { fetchExecutionProfile, type PersonalExecutionProfile } from '@/lib/personalExecutionProfile';
 
 const stepVariants = {
@@ -122,6 +124,9 @@ const PlanReset = () => {
   const [planningModeChoice, setPlanningModeChoice] = useState<'standard' | 'strategic'>('standard');
   const [strategicPlanContext, setStrategicPlanContext] = useState<StrategicPlanContext>({ strategic_mode: false });
   const [strategicStep, setStrategicStep] = useState(0); // 0 = not in strategic steps, 1-5 = strategic steps
+  
+  // Phase 8.9: Scenario Memory state
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioTag>(null);
 
   // Check if current profile is executive (legacy)
   const showStrategicPlanning = isExecutiveProfile(profession, professionDetails);
@@ -205,15 +210,17 @@ const PlanReset = () => {
   const getTotalSteps = () => {
     // Planning mode toggle is step 1 for both flows
     const planningModeStep = 1;
+    // Scenario step is step 2 (Phase 8.9)
+    const scenarioStep = 1;
     // Strategic steps only if strategic mode selected
     const strategicStepsCount = isStrategicModeSelected ? STRATEGIC_STEPS_COUNT : 0;
     
     if (intent === 'same_field') {
-      // planning mode + strategic steps (if any) + project + deadline
-      return planningModeStep + strategicStepsCount + 2;
+      // planning mode + scenario + strategic steps (if any) + project + deadline
+      return planningModeStep + scenarioStep + strategicStepsCount + 2;
     } else if (intent === 'new_field') {
-      // planning mode + strategic steps (if any) + profession + questions + project + deadline
-      return planningModeStep + strategicStepsCount + 1 + professionQuestions.length + 2;
+      // planning mode + scenario + strategic steps (if any) + profession + questions + project + deadline
+      return planningModeStep + scenarioStep + strategicStepsCount + 1 + professionQuestions.length + 2;
     }
     return 0;
   };
@@ -247,12 +254,14 @@ const PlanReset = () => {
   const getStepOffsets = () => {
     const strategicStepsCount = isStrategicModeSelected ? STRATEGIC_STEPS_COUNT : 0;
     // Step 1 is always planning mode toggle
-    // Steps 2-(1+strategicStepsCount) are strategic steps (if strategic)
+    // Step 2 is scenario selection (Phase 8.9)
+    // Steps 3-(2+strategicStepsCount) are strategic steps (if strategic)
     return {
       planningModeStep: 1,
-      strategicStepsStart: 2,
-      strategicStepsEnd: 1 + strategicStepsCount,
-      afterStrategicSteps: 2 + strategicStepsCount, // First step after strategic steps
+      scenarioStep: 2, // Phase 8.9
+      strategicStepsStart: 3,
+      strategicStepsEnd: 2 + strategicStepsCount,
+      afterStrategicSteps: 3 + strategicStepsCount, // First step after strategic steps
     };
   };
 
@@ -262,7 +271,10 @@ const PlanReset = () => {
     // Step 1: Planning mode toggle - always can proceed
     if (step === 1) return true;
     
-    // Strategic steps (2 to 1+strategicStepsCount): all optional
+    // Step 2: Scenario step (Phase 8.9) - always can proceed (optional)
+    if (step === 2) return true;
+    
+    // Strategic steps (3 to 2+strategicStepsCount): all optional
     if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
       return true;
     }
@@ -337,10 +349,13 @@ const PlanReset = () => {
         ...(showStrategicPlanning && Object.keys(strategicPlanning).length > 0 
           ? { strategicPlanning } 
           : {}),
-        // Include Phase 8.1 strategic plan context
-        plan_context: isStrategicModeSelected 
-          ? strategicPlanContext 
-          : { strategic_mode: false },
+        // Include Phase 8.1 strategic plan context + Phase 8.9 scenario
+        plan_context: {
+          strategic_mode: isStrategicModeSelected,
+          ...(isStrategicModeSelected ? strategicPlanContext : {}),
+          // Phase 8.9: Include scenario (immutable after plan creation)
+          scenario: selectedScenario,
+        } as StrategicPlanContext,
       };
       
       // Combine custom technologies
@@ -518,6 +533,28 @@ const PlanReset = () => {
     </motion.div>
   );
 
+  // Render scenario step (Step 2 for both flows - Phase 8.9)
+  const renderScenarioStep = () => {
+    const handleScenarioSelect = (tag: ScenarioTag) => {
+      setSelectedScenario(tag);
+      // Automatically advance after selection
+      handleNext();
+    };
+    
+    const handleScenarioSkip = () => {
+      setSelectedScenario(null);
+      handleNext();
+    };
+    
+    return (
+      <ScenarioTagSelector
+        selected={selectedScenario}
+        onSelect={handleScenarioSelect}
+        onSkip={handleScenarioSkip}
+      />
+    );
+  };
+
   // Render strategic planning steps (Steps 2-6 if strategic mode selected)
   const renderStrategicStep = (stepNumber: number) => {
     const offsets = getStepOffsets();
@@ -550,7 +587,12 @@ const PlanReset = () => {
       return renderPlanningModeStep();
     }
     
-    // Steps 2-(1+strategicStepsCount): Strategic steps (if strategic mode)
+    // Step 2: Scenario selection (Phase 8.9)
+    if (step === offsets.scenarioStep) {
+      return renderScenarioStep();
+    }
+    
+    // Steps 3-(2+strategicStepsCount): Strategic steps (if strategic mode)
     if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
       return renderStrategicStep(step);
     }
@@ -703,7 +745,12 @@ const PlanReset = () => {
       return renderPlanningModeStep();
     }
     
-    // Steps 2-(1+strategicStepsCount): Strategic steps (if strategic mode)
+    // Step 2: Scenario selection (Phase 8.9)
+    if (step === offsets.scenarioStep) {
+      return renderScenarioStep();
+    }
+    
+    // Steps 3-(2+strategicStepsCount): Strategic steps (if strategic mode)
     if (isStrategicModeSelected && step >= offsets.strategicStepsStart && step <= offsets.strategicStepsEnd) {
       return renderStrategicStep(step);
     }
