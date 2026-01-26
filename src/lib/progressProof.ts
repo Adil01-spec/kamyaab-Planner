@@ -53,12 +53,15 @@ export interface StrategicComparison {
 // Snapshot Creation
 // ============================================
 
+import { type ScenarioTag } from './scenarioMemory';
+
 /**
  * Create a snapshot from current plan execution data
  */
 export function createPlanCycleSnapshot(
   planData: any,
-  isStrategic: boolean = false
+  isStrategic: boolean = false,
+  scenario?: ScenarioTag
 ): PlanCycleSnapshot {
   const metrics = compileExecutionMetrics(planData);
   const { completedTasks, estimationAccuracy } = metrics;
@@ -99,6 +102,7 @@ export function createPlanCycleSnapshot(
     snapshot_id: `snapshot_${Date.now()}`,
     snapshot_date: new Date().toISOString(),
     plan_type: isStrategic ? 'strategic' : 'standard',
+    scenario: scenario || null,
     metrics: {
       average_overrun_percent: estimationAccuracy.averageVariance,
       completion_rate: Math.round(completionRate),

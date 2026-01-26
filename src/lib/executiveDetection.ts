@@ -120,6 +120,8 @@ export const DECISION_STYLES = [
 
 // ====== NEW: Strategic Plan Context for ALL users (opt-in toggle) ======
 
+import { type ScenarioTag } from './scenarioMemory';
+
 export interface StrategicPlanContext {
   strategic_mode: boolean;
   planning_seniority?: 'individual_contributor' | 'manager' | 'director' | 'vp_head' | 'founder_owner';
@@ -132,6 +134,8 @@ export interface StrategicPlanContext {
     risk_tolerance?: 'low' | 'medium' | 'high';
   };
   success_definition?: string;
+  // Phase 8.9: Scenario Memory
+  scenario?: ScenarioTag;
 }
 
 export const SENIORITY_LEVELS = [

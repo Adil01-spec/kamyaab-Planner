@@ -170,6 +170,13 @@ function AdjustmentCard({ adjustment }: AdjustmentCardProps) {
       <p className="text-xs text-muted-foreground/70 pl-6 italic">
         {adjustment.justification}
       </p>
+      
+      {/* Phase 8.9: Scenario context (if available) */}
+      {adjustment.scenario_context && (
+        <p className="text-xs text-muted-foreground/60 pl-6">
+          {adjustment.scenario_context}
+        </p>
+      )}
     </div>
   );
 }

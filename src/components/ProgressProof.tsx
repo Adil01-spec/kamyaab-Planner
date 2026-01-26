@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { TrendingUp, TrendingDown, Minus, ChevronDown, BarChart3, GitCompare, Lightbulb, ArrowLeftRight, Download, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronDown, BarChart3, GitCompare, Lightbulb, ArrowLeftRight, Download, Loader2, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { 
@@ -23,6 +23,12 @@ import {
   type StrategicComparison,
   type TrendDirection,
 } from '@/lib/progressProof';
+import {
+  analyzeScenarioPatterns,
+  generateScenarioInsights,
+  getScenarioLabel,
+  type ScenarioPatternAnalysis,
+} from '@/lib/scenarioMemory';
 import { generateProgressPdf } from '@/lib/progressPdfExport';
 import { ProgressTimeline } from '@/components/ProgressTimeline';
 
@@ -44,6 +50,9 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
   const [comparison, setComparison] = useState<PlanComparison | null>(null);
   const [attributions, setAttributions] = useState<ProgressAttribution[]>([]);
   const [strategicComparison, setStrategicComparison] = useState<StrategicComparison | null>(null);
+  // Phase 8.9: Scenario patterns
+  const [scenarioAnalysis, setScenarioAnalysis] = useState<ScenarioPatternAnalysis | null>(null);
+  const [scenarioInsights, setScenarioInsights] = useState<string[]>([]);
   
   useEffect(() => {
     const loadProfile = async () => {
@@ -65,6 +74,13 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
             const current = history.snapshots[history.snapshots.length - 1];
             const previous = history.snapshots[history.snapshots.length - 2];
             setAttributions(attributeImprovements(current, previous));
+          }
+          
+          // Phase 8.9: Analyze scenario patterns
+          const analysis = analyzeScenarioPatterns(history.snapshots);
+          setScenarioAnalysis(analysis);
+          if (analysis.has_enough_data) {
+            setScenarioInsights(generateScenarioInsights(analysis));
           }
         }
       } catch (error) {
@@ -315,6 +331,29 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
                           {strategicComparison.standard_insight}
                         </p>
                       )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Phase 8.9: Scenario Patterns Section */}
+                {scenarioAnalysis?.has_enough_data && scenarioInsights.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-primary" />
+                      Scenario Patterns
+                    </h4>
+                    <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
+                      <ul className="space-y-2">
+                        {scenarioInsights.map((insight, index) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span className="text-muted-foreground">{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground/60 mt-3 pt-3 border-t border-accent/20">
+                        Based on {Object.values(scenarioAnalysis.patterns).reduce((sum, p) => sum + p.count, 0)} tagged plans
+                      </p>
                     </div>
                   </div>
                 )}

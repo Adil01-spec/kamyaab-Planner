@@ -41,6 +41,7 @@ import {
   createPlanCycleSnapshot, 
   appendSnapshotToHistory 
 } from '@/lib/progressProof';
+import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { compileExecutionMetrics } from '@/lib/executionAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -503,7 +504,7 @@ const Plan = () => {
 
   // Trigger personal pattern update after plan completion
   const triggerPatternUpdate = useCallback(async (completedPlan: PlanData) => {
-    if (!user) return;
+    if (!user || !profile) return;
     
     try {
       // Fetch previous profile
@@ -516,7 +517,12 @@ const Plan = () => {
       
       // Create and append progress snapshot (Phase 8.7)
       const isStrategic = completedPlan.is_strategic_plan || false;
-      const snapshot = createPlanCycleSnapshot(completedPlan, isStrategic);
+      
+      // Phase 8.9: Extract scenario from profile's plan_context
+      const profDetails = profile.professionDetails as { plan_context?: { scenario?: ScenarioTag } } | null;
+      const scenario = profDetails?.plan_context?.scenario || null;
+      
+      const snapshot = createPlanCycleSnapshot(completedPlan, isStrategic, scenario);
       const updatedHistory = appendSnapshotToHistory(
         mergedProfile.progress_history,
         snapshot
@@ -538,7 +544,7 @@ const Plan = () => {
     } catch (error) {
       console.error('Error updating personal profile:', error);
     }
-  }, [user]);
+  }, [user, profile]);
 
   // Calculate overall progress using the shared utility
   const progress = calculatePlanProgress(plan);
