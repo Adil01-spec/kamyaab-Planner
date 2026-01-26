@@ -120,9 +120,7 @@ Based on the field and answers so far, either:
 Current question number: ${questionCount}`;
 
     // Call Lovable AI Gateway
-    const gatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai-gateway.lovable.dev";
-    
-    const response = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
