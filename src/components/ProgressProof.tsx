@@ -31,6 +31,8 @@ import {
 } from '@/lib/scenarioMemory';
 import { generateProgressPdf } from '@/lib/progressPdfExport';
 import { ProgressTimeline } from '@/components/ProgressTimeline';
+import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
+import { ProFeatureHint } from '@/components/ProFeatureHint';
 
 interface ProgressProofProps {
   userId: string;
@@ -184,20 +186,23 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
               </div>
               <div className="flex items-center gap-2">
                 {hasEnoughData && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleExportPdf}
-                    disabled={exporting}
-                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                  >
-                    {exporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    <span className="ml-1.5 hidden sm:inline text-xs">Export</span>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportPdf}
+                      disabled={exporting}
+                      className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                      {exporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      <span className="ml-1.5 hidden sm:inline text-xs">Export</span>
+                    </Button>
+                    <ProFeatureIndicator featureId="progress-pdf-export" variant="star" showTooltip={true} />
+                  </div>
                 )}
                 <Badge variant="outline" className="bg-muted/50 text-muted-foreground text-xs">
                   {plansTracked} {plansTracked === 1 ? 'plan' : 'plans'} tracked
@@ -269,6 +274,7 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
                     <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
                       <GitCompare className="w-4 h-4 text-primary" />
                       Compared to Your Previous Plan
+                      <ProFeatureIndicator featureId="historical-comparisons" variant="star" />
                     </h4>
                     <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
                       <ul className="space-y-2">
@@ -341,6 +347,7 @@ export function ProgressProof({ userId, currentPlanData, userName, projectTitle 
                     <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
                       <Layers className="w-4 h-4 text-primary" />
                       Scenario Patterns
+                      <ProFeatureIndicator featureId="scenario-patterns" variant="star" />
                     </h4>
                     <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
                       <ul className="space-y-2">

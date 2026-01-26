@@ -15,6 +15,8 @@ import {
   generateExecutionVersion,
   type ExecutionMetrics 
 } from '@/lib/executionAnalytics';
+import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
+import { ProFeatureHint } from '@/components/ProFeatureHint';
 
 export interface ExecutionDiagnosis {
   has_sufficient_data: boolean;
@@ -402,6 +404,7 @@ export function ExecutionInsights({
                         <div className="flex items-center gap-2">
                           <Stethoscope className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm font-medium text-foreground">Execution Diagnosis</span>
+                          <ProFeatureIndicator featureId="deeper-diagnosis" variant="star" />
                         </div>
                         <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </div>

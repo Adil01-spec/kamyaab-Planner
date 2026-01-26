@@ -13,6 +13,7 @@ import {
   type NextCycleAdjustment,
   type NextCycleGuidanceResult,
 } from '@/lib/nextCycleGuidance';
+import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 
 interface NextCycleGuidanceProps {
   userId: string;
@@ -75,7 +76,14 @@ export function NextCycleGuidance({
                   <Target className="w-5 h-5 text-primary" />
                 </div>
                 <div className="text-left">
-                  <CardTitle className="text-lg">For Your Next Plan</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">For Your Next Plan</CardTitle>
+                    <ProFeatureIndicator 
+                      featureId="next-cycle-guidance" 
+                      variant="badge"
+                      showTooltip={true}
+                    />
+                  </div>
                   <p className="text-sm text-muted-foreground font-normal">
                     {adjustmentCount > 0 
                       ? 'Data-backed suggestions from your history'
