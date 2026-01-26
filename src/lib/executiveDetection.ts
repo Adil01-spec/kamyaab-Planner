@@ -121,6 +121,7 @@ export const DECISION_STYLES = [
 // ====== NEW: Strategic Plan Context for ALL users (opt-in toggle) ======
 
 import { type ScenarioTag } from './scenarioMemory';
+import { type StrategicContextProfile } from './strategicDiscovery';
 
 export interface StrategicPlanContext {
   strategic_mode: boolean;
@@ -136,6 +137,8 @@ export interface StrategicPlanContext {
   success_definition?: string;
   // Phase 8.9: Scenario Memory
   scenario?: ScenarioTag;
+  // Phase 8.10: Strategic Discovery Profile
+  strategic_context_profile?: StrategicContextProfile;
 }
 
 export const SENIORITY_LEVELS = [
