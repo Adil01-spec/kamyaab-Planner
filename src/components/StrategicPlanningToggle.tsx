@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Zap, Target, CheckCircle2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface StrategicPlanningToggleProps {
   value: 'standard' | 'strategic';
@@ -67,7 +68,15 @@ export function StrategicPlanningToggle({ value, onChange }: StrategicPlanningTo
             <Target className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-foreground">Strategic planning</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">Strategic planning</h3>
+              <Badge
+                variant="outline"
+                className="text-[10px] h-4 px-1.5 font-medium bg-primary/10 text-primary border-primary/20"
+              >
+                Pro
+              </Badge>
+            </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               Advanced context for complex, long-term projects
             </p>

@@ -16,6 +16,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
+import { ProFeatureHint } from '@/components/ProFeatureHint';
 
 interface FeasibilityData {
   assessment: 'realistic' | 'challenging' | 'unrealistic';
@@ -291,8 +293,9 @@ export function PlanRealityCheck({ plan, planId, cachedCritique, onCritiqueGener
                     )}
                     {critique.focus_gaps.strategic_blind_spots && critique.focus_gaps.strategic_blind_spots.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-border/50">
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-2">
                           Strategic Blind Spots
+                          <ProFeatureIndicator featureId="strategic-blind-spots" variant="star" />
                         </p>
                         <ul className="space-y-1">
                           {critique.focus_gaps.strategic_blind_spots.map((spot, i) => (

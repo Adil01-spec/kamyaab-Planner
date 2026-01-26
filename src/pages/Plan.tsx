@@ -29,6 +29,7 @@ import { PersonalPatternUpdate } from '@/components/PersonalPatternUpdate';
 import { ProgressProof } from '@/components/ProgressProof';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { PlanFlowView } from '@/components/PlanFlowView';
+import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { 
   fetchExecutionProfile, 
   extractProfileFromPlan,
@@ -746,7 +747,10 @@ const Plan = () => {
                             <Target className="w-5 h-5 text-primary" />
                           </div>
                           <div className="text-left">
-                            <CardTitle className="text-lg">Strategy Overview</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">Strategy Overview</CardTitle>
+                              <ProFeatureIndicator featureId="strategy-overview" variant="badge" />
+                            </div>
                             <p className="text-sm text-muted-foreground font-normal">
                               Strategic context for this plan
                             </p>
