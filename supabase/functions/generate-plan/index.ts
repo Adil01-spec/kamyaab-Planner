@@ -288,6 +288,25 @@ STRATEGIC PLANNING PRINCIPLES:
         '12_months': '12 months',
       };
 
+      // Phase 8.10: Strategic Discovery Profile
+      const discoveryProfile = planContext.strategic_context_profile;
+      const discoveryContextBlock = discoveryProfile ? `
+STRATEGIC DISCOVERY PROFILE (from discovery questions):
+- Decision Authority: ${discoveryProfile.decision_authority} (${discoveryProfile.decision_authority === 'high' ? 'Full autonomy to make decisions' : discoveryProfile.decision_authority === 'low' ? 'Requires approvals for key decisions' : 'Shared decision-making process'})
+- Uncertainty Level: ${discoveryProfile.uncertainty_level} (${discoveryProfile.uncertainty_level === 'high' ? 'Many unknowns, exploratory work' : discoveryProfile.uncertainty_level === 'low' ? 'Clear requirements and scope' : 'Some unknowns to resolve'})
+- Dependency Density: ${discoveryProfile.dependency_density} (${discoveryProfile.dependency_density === 'high' ? 'Heavy cross-team coordination needed' : discoveryProfile.dependency_density === 'low' ? 'Independent execution possible' : 'Some coordination required'})
+- Risk Tolerance: ${discoveryProfile.risk_tolerance} (${discoveryProfile.risk_tolerance === 'high' ? 'Can take calculated risks' : discoveryProfile.risk_tolerance === 'low' ? 'Risk-averse, prefer safe approaches' : 'Balanced approach to risk'})
+- Time Sensitivity: ${discoveryProfile.time_sensitivity} (${discoveryProfile.time_sensitivity === 'high' ? 'Urgent, time-critical' : discoveryProfile.time_sensitivity === 'low' ? 'Flexible timeline' : 'Moderate urgency'})
+- Field: ${discoveryProfile.field?.replace('_', ' / ') || 'Not specified'}
+
+Use this profile to:
+- Adjust risk surfacing based on uncertainty and risk tolerance levels
+- Consider dependencies when structuring milestones and task sequencing
+- Account for decision authority when suggesting delegation or escalation
+- Reflect time sensitivity in milestone pacing and buffer recommendations
+- Tailor the strategy overview to the specific field context
+` : '';
+
       return `
 STRATEGIC CONTEXT (User-provided):
 - Seniority: ${seniorityMap[planContext.planning_seniority] || 'Not specified'}
@@ -298,7 +317,7 @@ STRATEGIC CONTEXT (User-provided):
 - Dependencies: ${planContext.constraints?.dependencies || 'Not specified'}
 - Risk Tolerance: ${planContext.constraints?.risk_tolerance || 'Not specified'}
 - Success Definition: ${planContext.success_definition || 'Not specified'}
-
+${discoveryContextBlock}
 Use this context to inform your strategic planning. If a field is "Not specified", make reasonable assumptions.`;
     };
 

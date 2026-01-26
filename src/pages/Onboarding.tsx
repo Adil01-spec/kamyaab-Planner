@@ -16,6 +16,8 @@ import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext, EXECUT
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
 import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
+import { StrategicDiscoveryFlow } from '@/components/StrategicDiscoveryFlow';
+import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { DevPanel } from '@/components/DevPanel';
 
 type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator' | 'executive';
@@ -119,6 +121,8 @@ const Onboarding = () => {
     strategicPlanContext: { strategic_mode: false },
   });
   const [loading, setLoading] = useState(false);
+  // Phase 8.10: Strategic Discovery state
+  const [discoveryCompleted, setDiscoveryCompleted] = useState(false);
   const { saveProfile, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -141,9 +145,12 @@ const Onboarding = () => {
   // Calculate strategic steps count (only if strategic mode is selected)
   const strategicStepsCount = data.strategicModeChoice === 'strategic' ? STRATEGIC_STEPS_COUNT : 0;
   
+  // Discovery step (only for strategic mode) - Phase 8.10
+  const discoveryStep = data.strategicModeChoice === 'strategic' ? 1 : 0;
+  
   // Total steps: 
-  // 1 (name) + 1 (profession) + 1 (strategic toggle) + strategicSteps + professionQuestions + 3 (project steps)
-  const totalSteps = 3 + strategicStepsCount + professionQuestions.length + 3;
+  // 1 (name) + 1 (profession) + 1 (strategic toggle) + discovery (if strategic) + strategicSteps + professionQuestions + 3 (project steps)
+  const totalSteps = 3 + discoveryStep + strategicStepsCount + professionQuestions.length + 3;
   const progress = (step / totalSteps) * 100;
 
   const updateProfessionDetail = (key: string, value: any) => {
@@ -198,6 +205,14 @@ const Onboarding = () => {
     
     let currentStep = step - 3; // After toggle
     
+    // Discovery step (if strategic mode) - Phase 8.10
+    if (data.strategicModeChoice === 'strategic' && currentStep === 1) {
+      return { type: 'discovery', index: 0 };
+    }
+    if (data.strategicModeChoice === 'strategic') {
+      currentStep -= 1; // Account for discovery step
+    }
+    
     // Strategic steps (if enabled)
     if (data.strategicModeChoice === 'strategic' && currentStep <= STRATEGIC_STEPS_COUNT) {
       return { type: 'strategicStep', index: currentStep };
@@ -220,6 +235,7 @@ const Onboarding = () => {
     if (type === 'name') return data.fullName.trim().length > 0;
     if (type === 'profession') return data.profession !== '';
     if (type === 'strategicToggle') return true; // Always can proceed (default selected)
+    if (type === 'discovery') return true; // Discovery is optional
     if (type === 'strategicStep') return true; // All strategic steps are optional
     
     if (type === 'professionQuestion') {
@@ -413,6 +429,43 @@ const Onboarding = () => {
               : { strategic_mode: false }
           }))}
         />
+      );
+    }
+
+    // Strategic Discovery Step (Phase 8.10) - only for strategic mode
+    if (type === 'discovery') {
+      const handleDiscoveryComplete = (profile: StrategicContextProfile | null) => {
+        setDiscoveryCompleted(true);
+        if (profile) {
+          setData(prev => ({
+            ...prev,
+            strategicPlanContext: {
+              ...prev.strategicPlanContext,
+              strategic_context_profile: profile,
+            },
+          }));
+        }
+        handleNext();
+      };
+      
+      const handleDiscoverySkip = () => {
+        setDiscoveryCompleted(true);
+        handleNext();
+      };
+      
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <div className="text-center mb-4">
+            <h2 className="text-xl font-semibold">Help us understand your context</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              A few quick questions to tailor your strategic plan
+            </p>
+          </div>
+          <StrategicDiscoveryFlow
+            onComplete={handleDiscoveryComplete}
+            onSkip={handleDiscoverySkip}
+          />
+        </div>
       );
     }
 
