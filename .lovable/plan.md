@@ -1,458 +1,430 @@
 
 
-## Cross-Week Task Movement on /plan Page
+## Locked Week Execution Guard
 
-### Overview
-This feature extends the existing task reordering to allow users to drag tasks between weeks (locked or unlocked). It enables full manual control over task scheduling while maintaining execution safety and /today view integrity.
+### Problem Analysis
 
-**Core Principle:** "I can reshuffle reality when things change."
+After enabling cross-week task movement, a critical security gap exists: **tasks in locked weeks can be executed (started/completed)**. This breaks the sequential week progression model.
 
----
+**Root Cause:** The `DraggableTaskItem` component always passes `isLocked={false}` to `TaskItem`, ignoring the week's locked status.
 
-### Current State Analysis
-
-The existing implementation:
-- Uses `framer-motion`'s `Reorder.Group` per week for within-week reordering
-- Each week has its own isolated `Reorder.Group`, preventing cross-week movement
-- Tasks are stored in `plan.weeks[weekIndex].tasks[]` arrays
-- No `week_index` field on tasks - position in array determines week
-
-**Key Insight:** Cross-week movement requires a fundamentally different approach since `Reorder.Group` only handles items within a single list.
+**Current Broken Behavior:**
+- Checkbox toggles work on locked week tasks
+- "Start Task" button is active on locked week tasks
+- Timer can be started on locked week tasks
+- Locked tasks can appear actionable on /today
 
 ---
 
-### Architecture Approach
+### Solution Architecture
 
-**Option Selected: Drag-and-Drop with `@dnd-kit` Library**
+```text
++-------------------+     +-------------------+     +-------------------+
+|   Plan.tsx        | --> | DraggableTaskItem | --> |    TaskItem       |
+|  (determines      |     | (passes isLocked  |     | (UI enforcement)  |
+|   locked weeks)   |     |  to TaskItem)     |     |                   |
++-------------------+     +-------------------+     +-------------------+
+         |                                                    |
+         v                                                    v
++-------------------+                               +-------------------+
+| useExecutionTimer |                               |  /today page      |
+| (core logic guard)|                               | (filter out       |
++-------------------+                               |  locked tasks)    |
+                                                    +-------------------+
+```
 
-Since framer-motion's `Reorder` components are designed for single-list reordering and don't support moving items between groups, we need to either:
-1. Use a dedicated cross-list DnD library (`@dnd-kit`)
-2. Build custom drag-and-drop with framer-motion's low-level APIs
-
-**Decision: Use `@dnd-kit/core` and `@dnd-kit/sortable`**
-
-Reasons:
-- Purpose-built for multi-container drag-and-drop
-- Excellent accessibility support
-- Supports both within-list reordering AND cross-list movement
-- Works well with React state management
-- Touch-friendly with mobile optimizations
+**Guards implemented at 3 levels:**
+1. **UI Level:** Disable buttons, show tooltip for locked tasks
+2. **Logic Level:** Prevent execution in hooks/libraries
+3. **Data Level:** Filter locked tasks from /today view
 
 ---
-
-### Files to Create
-
-| File | Description |
-|------|-------------|
-| `src/hooks/useCrossWeekTaskMove.ts` | Hook managing cross-week movement logic and persistence |
-| `src/components/DraggableWeekContainer.tsx` | Wrapper for each week that acts as a droppable container |
-| `src/components/DraggableTaskItem.tsx` | Individual draggable task with handle |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/pages/Plan.tsx` | Replace `ReorderableTaskList` with new DnD components, pass active timer for safety checks |
-| `src/hooks/useTaskReorder.ts` | Extend to handle cross-week moves (move + reorder) |
-| `package.json` | Add `@dnd-kit/core` and `@dnd-kit/sortable` dependencies |
+| `src/components/DraggableTaskItem.tsx` | Pass `isLocked` prop based on week status |
+| `src/components/TaskItem.tsx` | Add "Available when unlocked" tooltip, disable Start button for locked tasks |
+| `src/hooks/useExecutionTimer.ts` | Add `isTaskInLockedWeek` check to `startTaskTimer` |
+| `src/lib/executionTimer.ts` | Add `isTaskInLockedWeek` helper function |
+| `src/lib/todayScheduledTasks.ts` | Filter out tasks from locked weeks |
 
-### Files to Remove (Optional)
+### Files to Create
 
-| File | Reason |
-|------|--------|
-| `src/components/ReorderableTaskList.tsx` | Replaced by new DnD system |
-| `src/components/ReorderableTaskItem.tsx` | Replaced by `DraggableTaskItem.tsx` |
+| File | Description |
+|------|-------------|
+| `src/lib/weekLockStatus.ts` | Shared utility to determine if a week/task is locked |
 
 ---
 
 ### Technical Implementation
 
-#### Step 1: Install Dependencies
+#### Step 1: Create Week Lock Status Utility
 
-```bash
-npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-```
+**File:** `src/lib/weekLockStatus.ts`
 
----
-
-#### Step 2: Create `useCrossWeekTaskMove` Hook
-
-**File:** `src/hooks/useCrossWeekTaskMove.ts`
-
-Extends the existing reorder logic to handle:
-1. Within-week reordering (same as before)
-2. Cross-week movement (new)
+A shared utility that determines lock status for any week or task:
 
 ```typescript
-interface MoveTaskParams {
-  taskId: string;
-  sourceWeekIndex: number;
-  sourceTaskIndex: number;
-  destinationWeekIndex: number;
-  destinationTaskIndex: number;
+interface Week {
+  week: number;
+  tasks: {
+    completed?: boolean;
+    execution_state?: 'pending' | 'doing' | 'done';
+  }[];
 }
 
-interface UseCrossWeekTaskMoveReturn {
-  moveTask: (params: MoveTaskParams) => Promise<MoveResult>;
-  reorderWithinWeek: (weekIndex: number, reorderedTasks: Task[]) => Promise<void>;
-  canMoveTask: (sourceWeekIndex: number, sourceTaskIndex: number) => { allowed: boolean; reason?: string };
-  isMoving: boolean;
+interface PlanData {
+  weeks: Week[];
 }
-```
 
-**Safety Check Implementation:**
-```typescript
-const canMoveTask = (sourceWeekIndex: number, sourceTaskIndex: number) => {
-  const task = plan.weeks[sourceWeekIndex]?.tasks[sourceTaskIndex];
-  
-  // Check if task is currently being worked on
-  if (task?.execution_state === 'doing') {
-    return { allowed: false, reason: 'Complete or pause the task first' };
+/**
+ * Get the index of the first incomplete week (the "active" week)
+ * Returns -1 if all weeks are complete
+ */
+export function getActiveWeekIndex(plan: PlanData): number {
+  for (let i = 0; i < plan.weeks.length; i++) {
+    const hasIncompleteTasks = plan.weeks[i].tasks.some(
+      t => t.execution_state !== 'done' && !t.completed
+    );
+    if (hasIncompleteTasks) return i;
   }
-  
-  // Check if active timer is on this task
-  if (activeTimer?.weekIndex === sourceWeekIndex && 
-      activeTimer?.taskIndex === sourceTaskIndex) {
-    return { allowed: false, reason: 'Stop the timer before moving' };
-  }
-  
-  return { allowed: true };
-};
-```
+  return -1; // All complete
+}
 
----
+/**
+ * Check if a specific week is locked
+ * Locked = comes after the first incomplete week
+ */
+export function isWeekLocked(plan: PlanData, weekIndex: number): boolean {
+  const activeWeekIndex = getActiveWeekIndex(plan);
+  if (activeWeekIndex === -1) return false; // All complete, nothing locked
+  return weekIndex > activeWeekIndex;
+}
 
-#### Step 3: Create `DraggableWeekContainer` Component
-
-**File:** `src/components/DraggableWeekContainer.tsx`
-
-A droppable container for each week that accepts tasks from any week.
-
-```typescript
-interface DraggableWeekContainerProps {
-  weekIndex: number;
-  weekNumber: number;
-  tasks: Task[];
-  isActiveWeek: boolean;
-  isLockedWeek: boolean;
-  isWeekComplete: boolean;
-  // ... other props
+/**
+ * Check if a specific task is in a locked week
+ */
+export function isTaskInLockedWeek(plan: PlanData, weekIndex: number): boolean {
+  return isWeekLocked(plan, weekIndex);
 }
 ```
 
-**Features:**
-- Uses `useDroppable` from `@dnd-kit/core`
-- Visual highlight when task is dragged over
-- Different highlight color for cross-week vs same-week drag
-- Accepts tasks even if week is "locked" (user override)
-
 ---
 
-#### Step 4: Create `DraggableTaskItem` Component
+#### Step 2: Update DraggableTaskItem
 
 **File:** `src/components/DraggableTaskItem.tsx`
 
-Individual task with drag handle and sortable behavior.
+Add `isLockedWeek` prop and pass it to TaskItem:
 
+**Current (line 170):**
+```typescript
+isLocked={false}
+```
+
+**Updated:**
+```typescript
+isLocked={isLockedWeek}
+```
+
+**Props to add:**
 ```typescript
 interface DraggableTaskItemProps {
-  task: Task;
-  taskId: string; // Unique ID for DnD: `week-${weekIndex}-task-${taskIndex}`
-  weekIndex: number;
-  taskIndex: number;
-  canDrag: boolean;
-  blockReason?: string;
-  // ... TaskItem props
+  // ... existing props
+  isLockedWeek: boolean; // NEW: whether this task's week is locked
 }
 ```
 
-**Features:**
-- Uses `useSortable` from `@dnd-kit/sortable`
-- Shows drag handle (like current implementation)
-- Disables drag if `canDrag === false` (active timer)
-- Shows tooltip with `blockReason` if drag is blocked
-- Haptic feedback on mobile
+The `isLockedWeek` value will be passed from `Plan.tsx` (it's already calculated there as `isLockedWeek`).
 
 ---
 
-#### Step 5: Integrate DnD Context in Plan.tsx
+#### Step 3: Update TaskItem Component
 
-**Location:** Wrap week cards in DnD providers
+**File:** `src/components/TaskItem.tsx`
 
-```tsx
-import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+Modify the component to:
+1. Hide the "Start Task" button for locked tasks
+2. Show a subtle "Available when unlocked" tooltip
+3. Disable checkbox for locked tasks (already partially implemented)
 
-// In Plan component:
-<DndContext
-  sensors={sensors}
-  collisionDetection={closestCenter}
-  onDragStart={handleDragStart}
-  onDragOver={handleDragOver}
-  onDragEnd={handleDragEnd}
->
-  {plan.weeks.map((week, weekIndex) => (
-    <DraggableWeekContainer 
-      key={week.week}
-      weekIndex={weekIndex}
-      tasks={week.tasks}
-      // ...
-    >
-      <SortableContext 
-        items={week.tasks.map((t, i) => `week-${weekIndex}-task-${i}`)}
-        strategy={verticalListSortingStrategy}
-      >
-        {week.tasks.map((task, taskIndex) => (
-          <DraggableTaskItem
-            key={`week-${weekIndex}-task-${taskIndex}`}
-            taskId={`week-${weekIndex}-task-${taskIndex}`}
-            task={task}
-            canDrag={canMoveTask(weekIndex, taskIndex).allowed}
-            blockReason={canMoveTask(weekIndex, taskIndex).reason}
-            // ...
-          />
-        ))}
-      </SortableContext>
-    </DraggableWeekContainer>
-  ))}
-  
-  <DragOverlay>
-    {activeTaskDrag ? (
-      <DraggableTaskItem 
-        task={activeTaskDrag.task}
-        isOverlay={true}
-        // ...
-      />
-    ) : null}
-  </DragOverlay>
-</DndContext>
+**Add to TaskItem (after line 131):**
+```typescript
+// Determine if execution actions should be blocked
+const executionBlocked = isLocked;
 ```
 
----
+**Update the Start Task button section (around line 178-203 area):**
+```typescript
+{/* Start Task button - only for unlocked, non-completed tasks */}
+{onStartTask && !isLocked && !isDone && executionState === 'pending' && (
+  <Button
+    onClick={(e) => {
+      e.stopPropagation();
+      onStartTask?.();
+    }}
+    // ... rest of button
+  />
+)}
 
-### Data Flow for Cross-Week Move
-
-```
-User drags task from Week 2 to Week 1
-                    ↓
-         onDragEnd fires with:
-         - active: { id: "week-1-task-2" }
-         - over: { id: "week-0-task-1" } or droppable ID
-                    ↓
-         Parse source/destination indices
-                    ↓
-         canMoveTask() check
-         (if fails → show toast, abort)
-                    ↓
-         useCrossWeekTaskMove.moveTask()
-                    ↓
-    ┌───────────────┴───────────────┐
-    ↓                               ↓
-Remove task from source week    Add task to destination week
-plan.weeks[1].tasks.splice()    plan.weeks[0].tasks.splice()
-                    ↓
-         Optimistic UI update (setPlan)
-                    ↓
-         Persist to Supabase
-                    ↓
-    ┌───────────────┴───────────────┐
-    ↓                               ↓
-Success: clear original ref     Error: rollback + toast
-```
-
----
-
-### Execution Safety Implementation
-
-| Scenario | Check | Behavior |
-|----------|-------|----------|
-| Task has `execution_state: 'doing'` | `canMoveTask()` returns false | Drag handle disabled, tooltip shows reason |
-| Task has active timer | `activeTimer.weekIndex/taskIndex` match | Same as above |
-| Task is completed | No restriction | Allow movement (user can reschedule) |
-| Moving to locked week | No restriction | User override - allow it |
-| Moving from locked week | No restriction | User override - allow it |
-
-**Visual Feedback for Blocked Tasks:**
-```tsx
-{!canDrag && (
-  <Tooltip>
-    <TooltipTrigger>
-      <div className="opacity-30 cursor-not-allowed">
-        <GripVertical />
-      </div>
-    </TooltipTrigger>
-    <TooltipContent>{blockReason}</TooltipContent>
-  </Tooltip>
+{/* Locked task indicator */}
+{isLocked && !isDone && (
+  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <Lock className="w-3.5 h-3.5" />
+    <span>Available when this week unlocks</span>
+  </div>
 )}
 ```
 
----
-
-### UX Specifications
-
-#### Desktop
-| State | Behavior |
-|-------|----------|
-| Idle | Drag handle visible on hover |
-| Dragging within week | Task lifts, siblings animate |
-| Dragging to different week | Destination week highlights with accent border |
-| Hover over blocked task | Tooltip shows "Complete or pause the task first" |
-| Drop | Smooth animation to new position |
-
-#### Mobile
-| State | Behavior |
-|-------|----------|
-| Idle | Drag handle always visible |
-| Long-press on handle | Haptic feedback, task lifts |
-| Dragging | Other tasks animate, cross-week drop zones visible |
-| Drop | Haptic confirmation |
-
-#### Visual Cues for Cross-Week Drag
-- Source week: subtle dim effect
-- Destination week: glow/highlight border
-- Dragged task: elevated shadow, slight scale
-- Drop indicator: line showing insertion point
-
----
-
-### /today Integrity Guarantee
-
-The `/today` page uses `src/lib/todayTaskSelector.ts`:
-
+**Ensure checkbox click is blocked (already partially done around line 179-186):**
 ```typescript
-function getCurrentWeekIndex(plan: PlanData): number {
-  for (let i = 0; i < plan.weeks.length; i++) {
-    const hasIncompleteTasks = plan.weeks[i].tasks.some(t => !t.completed);
-    if (hasIncompleteTasks) return i;
-  }
-  return plan.weeks.length - 1;
-}
-```
-
-**Impact Analysis:**
-- Moving a task TO the current week → it MAY appear in `/today` (if incomplete and within top 3 by priority)
-- Moving a task FROM the current week → it will NOT appear in `/today`
-- This is correct behavior - tasks show where they're scheduled
-
-**No changes needed to `todayTaskSelector.ts`** - it already uses the task's week position as the source of truth.
-
----
-
-### Persistence Strategy
-
-**Data Structure (unchanged):**
-```json
-{
-  "weeks": [
-    {
-      "week": 1,
-      "focus": "Foundation",
-      "tasks": [
-        { "title": "Task A", "priority": "High", ... },
-        { "title": "Task B", "priority": "Medium", ... }
-      ]
-    },
-    {
-      "week": 2,
-      "focus": "Build",
-      "tasks": [
-        { "title": "Task C", "priority": "High", ... }
-      ]
-    }
-  ]
-}
-```
-
-**Move Operation:**
-```typescript
-const moveTask = async (params: MoveTaskParams) => {
-  const { sourceWeekIndex, sourceTaskIndex, destinationWeekIndex, destinationTaskIndex } = params;
-  
-  // Clone plan
-  const updatedPlan = JSON.parse(JSON.stringify(plan));
-  
-  // Remove from source
-  const [movedTask] = updatedPlan.weeks[sourceWeekIndex].tasks.splice(sourceTaskIndex, 1);
-  
-  // Insert at destination
-  updatedPlan.weeks[destinationWeekIndex].tasks.splice(destinationTaskIndex, 0, movedTask);
-  
-  // Optimistic update
-  onPlanUpdate(updatedPlan);
-  
-  // Persist
-  await supabase.from('plans').update({ plan_json: updatedPlan }).eq('user_id', userId);
+const handleClick = () => {
+  if (isLocked) return; // Already exists
+  onToggle();
 };
 ```
 
 ---
 
-### Guardrails (Strict)
+#### Step 4: Add Logic Guard in useExecutionTimer
 
-| Constraint | Implementation |
-|------------|----------------|
-| No timer modification | Move preserves all task fields including `execution_started_at`, `time_spent_seconds` |
-| No completion change | `completed`, `execution_state` untouched |
-| No regeneration | Pure array manipulation only |
-| No insights trigger | No side effects |
-| Block active task move | `canMoveTask()` check before drag allowed |
+**File:** `src/hooks/useExecutionTimer.ts`
+
+Add a guard in `startTaskTimer` to prevent starting tasks in locked weeks:
+
+```typescript
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
+
+// Inside startTaskTimer function (around line 117-146):
+const startTaskTimer = useCallback(
+  async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
+    if (!user?.id || !planData) return false;
+
+    // NEW: Guard against starting tasks in locked weeks
+    if (isTaskInLockedWeek(planData, weekIndex)) {
+      console.warn('Cannot start task in locked week');
+      return false;
+    }
+
+    // ... rest of existing logic
+  },
+  [user?.id, planData, onPlanUpdate]
+);
+```
+
+---
+
+#### Step 5: Add Logic Guard in executionTimer.ts
+
+**File:** `src/lib/executionTimer.ts`
+
+Add check in `startTask` function as a secondary guard:
+
+```typescript
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
+
+// Inside startTask function (around line 217-268):
+export async function startTask(
+  userId: string,
+  planData: any,
+  weekIndex: number,
+  taskIndex: number
+): Promise<{ success: boolean; updatedPlan: any; error?: string }> {
+  // NEW: Guard against starting tasks in locked weeks
+  if (isTaskInLockedWeek(planData, weekIndex)) {
+    return { 
+      success: false, 
+      updatedPlan: planData, 
+      error: 'Cannot start task in locked week' 
+    };
+  }
+
+  // ... rest of existing logic
+}
+
+// Similarly for completeTask function (around line 270):
+export async function completeTask(
+  userId: string,
+  planData: any,
+  weekIndex: number,
+  taskIndex: number
+): Promise<{ success: boolean; updatedPlan: any; timeSpent: number; error?: string }> {
+  // NEW: Guard against completing tasks in locked weeks
+  if (isTaskInLockedWeek(planData, weekIndex)) {
+    return { 
+      success: false, 
+      updatedPlan: planData, 
+      timeSpent: 0,
+      error: 'Cannot complete task in locked week' 
+    };
+  }
+
+  // ... rest of existing logic
+}
+```
+
+---
+
+#### Step 6: Filter Locked Tasks from /today
+
+**File:** `src/lib/todayScheduledTasks.ts`
+
+Modify `getTasksScheduledForToday` to exclude tasks from locked weeks:
+
+```typescript
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
+
+export function getTasksScheduledForToday(plan: PlanData): ScheduledTodayTask[] {
+  if (!plan?.weeks || plan.weeks.length === 0) {
+    return [];
+  }
+
+  const scheduledTasks = getScheduledCalendarTasks();
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  const tasksForToday: ScheduledTodayTask[] = [];
+
+  for (const scheduled of scheduledTasks) {
+    const { weekNumber, taskIndex, scheduledAt } = scheduled;
+    const weekIndex = weekNumber - 1;
+
+    // Validate week and task exist
+    if (weekIndex < 0 || weekIndex >= plan.weeks.length) continue;
+    const week = plan.weeks[weekIndex];
+    if (!week?.tasks || taskIndex < 0 || taskIndex >= week.tasks.length) continue;
+
+    // NEW: Skip tasks in locked weeks
+    if (isTaskInLockedWeek(plan, weekIndex)) continue;
+
+    // Check if scheduledAt is today (local time)
+    try {
+      const scheduledDate = parseISO(scheduledAt);
+      if (isWithinInterval(scheduledDate, { start: todayStart, end: todayEnd })) {
+        tasksForToday.push({
+          task: week.tasks[taskIndex],
+          weekIndex,
+          taskIndex,
+          weekFocus: week.focus,
+          scheduledAt,
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Sort by scheduled time
+  tasksForToday.sort((a, b) => {
+    return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+  });
+
+  return tasksForToday;
+}
+```
+
+---
+
+#### Step 7: Update Plan.tsx to Pass isLockedWeek
+
+**File:** `src/pages/Plan.tsx`
+
+In the `DraggableTaskItem` render (around lines 1325-1342), add the `isLockedWeek` prop:
+
+```tsx
+<DraggableTaskItem
+  key={taskId}
+  task={task as Task}
+  taskId={taskId}
+  weekIndex={weekIndex}
+  taskIndex={taskIndex}
+  weekNumber={week.week}
+  isActiveWeek={isActiveWeek}
+  isWeekComplete={isWeekComplete}
+  isLockedWeek={isLockedWeek}  // NEW PROP
+  planCreatedAt={planCreatedAt || undefined}
+  onToggle={() => toggleTask(weekIndex, taskIndex)}
+  onCalendarStatusChange={triggerCalendarRefresh}
+  onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
+  executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
+  elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
+  canDrag={canDragResult.allowed}
+  blockReason={canDragResult.reason}
+/>
+```
+
+---
+
+### Drag Behavior (Unchanged)
+
+The following remains exactly as-is:
+- Locked tasks can still be dragged
+- Locked tasks can be moved across weeks
+- Moving a locked task to the current week makes it executable
+- Moving an unlocked task to a locked week makes it non-executable
+
+This is enforced by the fact that `isLockedWeek` is calculated per-week, not stored on the task. After a move, the task's executability is determined by its new position.
+
+---
+
+### UX Summary
+
+| Task State | Checkbox | Start Button | Timer | Drag |
+|------------|----------|--------------|-------|------|
+| Unlocked, pending | Enabled | "Start Task" shown | Can start | Yes |
+| Unlocked, doing | Enabled | Hidden (timer active) | Running | No (blocked) |
+| Unlocked, done | Enabled | Hidden | N/A | Yes |
+| Locked, pending | Disabled | Hidden, shows "Available when unlocked" | Cannot start | Yes |
+| Locked, done | Disabled | Hidden | N/A | Yes |
 
 ---
 
 ### Implementation Order
 
-1. Add `@dnd-kit` dependencies to `package.json`
-2. Create `src/hooks/useCrossWeekTaskMove.ts`
-3. Create `src/components/DraggableTaskItem.tsx`
-4. Create `src/components/DraggableWeekContainer.tsx`
-5. Modify `src/pages/Plan.tsx` to use DnD context and new components
-6. Remove old `ReorderableTaskList.tsx` and `ReorderableTaskItem.tsx`
-7. Test all scenarios
+1. Create `src/lib/weekLockStatus.ts` - shared utility
+2. Update `src/components/DraggableTaskItem.tsx` - add `isLockedWeek` prop, pass to TaskItem
+3. Update `src/components/TaskItem.tsx` - add locked state UI enforcement
+4. Update `src/hooks/useExecutionTimer.ts` - add logic guard
+5. Update `src/lib/executionTimer.ts` - add secondary logic guards
+6. Update `src/lib/todayScheduledTasks.ts` - filter locked tasks
+7. Update `src/pages/Plan.tsx` - pass `isLockedWeek` to DraggableTaskItem
 
 ---
 
 ### Testing Checklist
 
-**Cross-Week Movement:**
-- [ ] Drag task from Week 1 to Week 2 → appears in Week 2
-- [ ] Drag task from locked Week 3 to active Week 1 → works
-- [ ] Drag task from active week to locked week → works
-- [ ] Order within destination week respects drop position
+**Execution Blocked:**
+- [ ] Locked task checkbox does nothing when clicked
+- [ ] Locked task shows no "Start Task" button
+- [ ] Locked task shows "Available when this week unlocks" text
+- [ ] Timer cannot be started on locked task (even via direct call)
 
-**Safety Checks:**
-- [ ] Task with active timer → cannot drag, shows tooltip
-- [ ] Task with `execution_state: 'doing'` → cannot drag
-- [ ] Completed task → can drag freely
+**Drag Still Works:**
+- [ ] Locked tasks can still be dragged
+- [ ] Locked tasks can move to unlocked weeks (become executable)
+- [ ] Unlocked tasks can move to locked weeks (become non-executable)
 
-**Persistence:**
-- [ ] Move task → refresh page → task in new week
-- [ ] Move task → navigate away → return → task in new week
+**/today Safety:**
+- [ ] Locked tasks never appear as actionable on /today
+- [ ] If locked task is scheduled for today, it doesn't show
+- [ ] No duplicate tasks, no missing unlocked tasks
 
-**/today Integrity:**
-- [ ] Move task to current week → appears in /today if eligible
-- [ ] Move task from current week → disappears from /today
-- [ ] No duplicate tasks
-- [ ] No missing tasks
-
-**UX Quality:**
-- [ ] Desktop: smooth drag animations
-- [ ] Desktop: week highlight on hover
-- [ ] Mobile: long-press to drag
-- [ ] Mobile: haptic feedback
-- [ ] Blocked task shows tooltip reason
+**After Moving:**
+- [ ] Task moved to current week can be started immediately
+- [ ] Task moved to locked week cannot be started
 
 ---
 
 ### Summary
 
-This implementation enables cross-week task movement using `@dnd-kit`, which is purpose-built for multi-container drag-and-drop scenarios. The feature:
+This implementation adds execution guards at three levels (UI, logic, data) to ensure locked week tasks cannot be executed while preserving the cross-week drag functionality. The guards are:
 
-- Adds one new dependency (`@dnd-kit`)
-- Supports both within-week reordering AND cross-week movement
-- Blocks movement of actively running tasks
-- Persists changes to existing `plan_json` structure
-- Maintains `/today` integrity automatically
-- Works on both desktop and mobile with appropriate UX patterns
+1. **UI:** TaskItem shows "Available when unlocked" instead of Start button
+2. **Logic:** useExecutionTimer and executionTimer.ts reject locked task execution
+3. **Data:** /today filters out tasks from locked weeks
 
-Users will feel: **"I can reshuffle reality when things change."**
+The user experience becomes: **"I can reorganize the future, but I can't cheat time."**
 
