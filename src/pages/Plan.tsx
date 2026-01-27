@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ReorderableTaskList } from '@/components/ReorderableTaskList';
+import { DraggableTaskItem } from '@/components/DraggableTaskItem';
+import { DraggableWeekContainer } from '@/components/DraggableWeekContainer';
 import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { DynamicBackground } from '@/components/DynamicBackground';
@@ -14,9 +15,22 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import { useExecutionTimer } from '@/hooks/useExecutionTimer';
-import { useTaskReorder } from '@/hooks/useTaskReorder';
+import { useCrossWeekTaskMove } from '@/hooks/useCrossWeekTaskMove';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { 
   Rocket, LogOut, Target, Calendar, CalendarPlus,
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight,
@@ -73,6 +87,8 @@ interface Task {
   explanation?: TaskExplanation | string;
   how_to?: string;
   expected_outcome?: string;
+  execution_state?: 'pending' | 'doing' | 'done';
+  [key: string]: any;
 }
 
 interface Week {
@@ -300,13 +316,172 @@ const Plan = () => {
     onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
   });
 
-  // Initialize task reorder hook
-  const { reorderTasks } = useTaskReorder({
+  // Initialize cross-week task move hook (replaces useTaskReorder)
+  const { moveTask, reorderWithinWeek, canMoveTask, isMoving } = useCrossWeekTaskMove({
     plan,
     planId,
     userId: user?.id,
+    activeTimer: executionTimer.activeTimer,
     onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
   });
+
+  // DnD state for cross-week drag
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [activeDragData, setActiveDragData] = useState<{
+    task: Task;
+    weekIndex: number;
+    taskIndex: number;
+  } | null>(null);
+  const [overWeekIndex, setOverWeekIndex] = useState<number | null>(null);
+
+  // DnD sensors - pointer for desktop, touch with delay for mobile
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8,
+    },
+  });
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 200,
+      tolerance: 5,
+    },
+  });
+  const sensors = useSensors(pointerSensor, touchSensor);
+
+  // Parse task ID to get week and task indices
+  const parseTaskId = (id: string): { weekIndex: number; taskIndex: number } | null => {
+    const match = id.match(/^week-(\d+)-task-(\d+)$/);
+    if (!match) return null;
+    return {
+      weekIndex: parseInt(match[1], 10),
+      taskIndex: parseInt(match[2], 10),
+    };
+  };
+
+  // DnD handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    const parsed = parseTaskId(active.id as string);
+    if (!parsed || !plan) return;
+
+    const task = plan.weeks[parsed.weekIndex]?.tasks[parsed.taskIndex];
+    if (!task) return;
+
+    setActiveDragId(active.id as string);
+    setActiveDragData({
+      task: task as Task,
+      weekIndex: parsed.weekIndex,
+      taskIndex: parsed.taskIndex,
+    });
+  }, [plan]);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setOverWeekIndex(null);
+      return;
+    }
+
+    // Check if over a week container
+    const overData = over.data.current;
+    if (overData?.type === 'week') {
+      setOverWeekIndex(overData.weekIndex);
+    } else {
+      // Over a task - determine which week it's in
+      const parsed = parseTaskId(over.id as string);
+      if (parsed) {
+        setOverWeekIndex(parsed.weekIndex);
+      }
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    setActiveDragId(null);
+    setActiveDragData(null);
+    setOverWeekIndex(null);
+
+    if (!over || !plan) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeParsed = parseTaskId(activeId);
+    if (!activeParsed) return;
+
+    // Determine destination
+    let destWeekIndex: number;
+    let destTaskIndex: number;
+
+    const overData = over.data.current;
+    if (overData?.type === 'week') {
+      // Dropped on week container - add to end
+      destWeekIndex = overData.weekIndex;
+      destTaskIndex = plan.weeks[destWeekIndex].tasks.length;
+    } else {
+      // Dropped on a task
+      const overParsed = parseTaskId(overId);
+      if (!overParsed) return;
+      destWeekIndex = overParsed.weekIndex;
+      destTaskIndex = overParsed.taskIndex;
+    }
+
+    const { weekIndex: srcWeekIndex, taskIndex: srcTaskIndex } = activeParsed;
+
+    // Same position - no change
+    if (srcWeekIndex === destWeekIndex && srcTaskIndex === destTaskIndex) {
+      return;
+    }
+
+    // Same week - reorder within week
+    if (srcWeekIndex === destWeekIndex) {
+      const weekTasks = [...plan.weeks[srcWeekIndex].tasks];
+      const reorderedTasks = arrayMove(weekTasks, srcTaskIndex, destTaskIndex);
+      await reorderWithinWeek(srcWeekIndex, reorderedTasks as Task[]);
+    } else {
+      // Cross-week move
+      await moveTask({
+        sourceWeekIndex: srcWeekIndex,
+        sourceTaskIndex: srcTaskIndex,
+        destinationWeekIndex: destWeekIndex,
+        destinationTaskIndex: destTaskIndex,
+      });
+    }
+  }, [plan, moveTask, reorderWithinWeek]);
+
+  // Helper to get execution state for a task
+  const getExecutionState = useCallback((
+    task: Task,
+    weekIndex: number,
+    taskIndex: number
+  ): 'pending' | 'doing' | 'done' => {
+    if (task.execution_state === 'doing') return 'doing';
+    if (task.execution_state === 'done') return 'done';
+    
+    if (
+      executionTimer.activeTimer?.weekIndex === weekIndex &&
+      executionTimer.activeTimer?.taskIndex === taskIndex
+    ) {
+      return 'doing';
+    }
+    
+    return 'pending';
+  }, [executionTimer.activeTimer]);
+
+  // Helper to get elapsed seconds for a task
+  const getElapsedSeconds = useCallback((
+    weekIndex: number,
+    taskIndex: number
+  ): number => {
+    if (
+      executionTimer.activeTimer?.weekIndex === weekIndex &&
+      executionTimer.activeTimer?.taskIndex === taskIndex
+    ) {
+      return executionTimer.elapsedSeconds;
+    }
+    return 0;
+  }, [executionTimer.activeTimer, executionTimer.elapsedSeconds]);
 
   // Execution timer handlers for Plan page
   const handleStartTaskClick = useCallback((weekIndex: number, taskIndex: number, title: string, estimatedHours: number) => {
@@ -1022,6 +1197,13 @@ const Plan = () => {
               </div>
 
               <TabsContent value="list" className="space-y-4 mt-0">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+              >
               {plan.weeks.map((week, weekIndex) => {
                 const weekCompleted = week.tasks.filter(t => (t as any).execution_state === 'done' || t.completed).length;
                 const weekTotal = week.tasks.length;
@@ -1039,6 +1221,13 @@ const Plan = () => {
                 const canSync = canSyncWeek(weekIndex);
                 const disabledReason = getDisabledReason(weekIndex);
                 const isSyncingThisWeek = isCalendarSyncing && syncingWeek === week.week;
+
+                // Generate unique task IDs for DnD
+                const taskIds = week.tasks.map((_, taskIndex) => `week-${weekIndex}-task-${taskIndex}`);
+                
+                // Check if this week is being dragged over
+                const isDraggedOver = overWeekIndex === weekIndex;
+                const isCrossWeekDrag = activeDragData !== null && activeDragData.weekIndex !== weekIndex;
                 
                 return (
                   <Card 
@@ -1047,7 +1236,8 @@ const Plan = () => {
                       "glass-card animate-slide-up transition-all duration-300",
                       isActiveWeek && "ring-2 ring-primary/50 glass-card-hover",
                       isLockedWeek && "opacity-70",
-                      isWeekComplete && "border-primary/20"
+                      isWeekComplete && "border-primary/20",
+                      isDraggedOver && isCrossWeekDrag && "ring-2 ring-primary/70"
                     )}
                     style={{ animationDelay: `${0.1 * (weekIndex + 2)}s` }}
                   >
@@ -1116,21 +1306,43 @@ const Plan = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <ReorderableTaskList
-                        tasks={week.tasks}
+                      <DraggableWeekContainer
                         weekIndex={weekIndex}
                         weekNumber={week.week}
-                        isLockedWeek={isLockedWeek}
+                        tasks={week.tasks as Task[]}
+                        taskIds={taskIds}
                         isActiveWeek={isActiveWeek}
+                        isLockedWeek={isLockedWeek}
                         isWeekComplete={isWeekComplete}
-                        planCreatedAt={planCreatedAt || undefined}
-                        onReorder={reorderTasks}
-                        onToggleTask={toggleTask}
-                        onCalendarStatusChange={triggerCalendarRefresh}
-                        onStartTask={handleStartTaskClick}
-                        activeTimer={executionTimer.activeTimer}
-                        elapsedSeconds={executionTimer.elapsedSeconds}
-                      />
+                        isDraggedOver={isDraggedOver}
+                        isCrossWeekDrag={isCrossWeekDrag}
+                      >
+                        {week.tasks.map((task, taskIndex) => {
+                          const taskId = `week-${weekIndex}-task-${taskIndex}`;
+                          const canDragResult = canMoveTask(weekIndex, taskIndex);
+                          
+                          return (
+                            <DraggableTaskItem
+                              key={taskId}
+                              task={task as Task}
+                              taskId={taskId}
+                              weekIndex={weekIndex}
+                              taskIndex={taskIndex}
+                              weekNumber={week.week}
+                              isActiveWeek={isActiveWeek}
+                              isWeekComplete={isWeekComplete}
+                              planCreatedAt={planCreatedAt || undefined}
+                              onToggle={() => toggleTask(weekIndex, taskIndex)}
+                              onCalendarStatusChange={triggerCalendarRefresh}
+                              onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
+                              executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
+                              elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
+                              canDrag={canDragResult.allowed}
+                              blockReason={canDragResult.reason}
+                            />
+                          );
+                        })}
+                      </DraggableWeekContainer>
                       
                       {/* Calendar Sync Button - Only for active week */}
                       {isActiveWeek && !isWeekComplete && (
@@ -1174,6 +1386,27 @@ const Plan = () => {
                   </Card>
                 );
               })}
+              
+              {/* Drag Overlay - shows task being dragged */}
+              <DragOverlay>
+                {activeDragData ? (
+                  <DraggableTaskItem
+                    task={activeDragData.task}
+                    taskId={`overlay-${activeDragData.weekIndex}-${activeDragData.taskIndex}`}
+                    weekIndex={activeDragData.weekIndex}
+                    taskIndex={activeDragData.taskIndex}
+                    weekNumber={plan.weeks[activeDragData.weekIndex]?.week || 1}
+                    isActiveWeek={false}
+                    isWeekComplete={false}
+                    onToggle={() => {}}
+                    executionState={getExecutionState(activeDragData.task, activeDragData.weekIndex, activeDragData.taskIndex)}
+                    elapsedSeconds={0}
+                    canDrag={true}
+                    isOverlay={true}
+                  />
+                ) : null}
+              </DragOverlay>
+              </DndContext>
               </TabsContent>
 
               <TabsContent value="flow" className="mt-0">
