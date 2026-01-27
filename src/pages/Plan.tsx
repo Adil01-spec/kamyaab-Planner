@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { TaskItem } from '@/components/TaskItem';
+import { ReorderableTaskList } from '@/components/ReorderableTaskList';
 import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { DynamicBackground } from '@/components/DynamicBackground';
@@ -14,6 +14,7 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
 import { useExecutionTimer } from '@/hooks/useExecutionTimer';
+import { useTaskReorder } from '@/hooks/useTaskReorder';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { 
@@ -296,6 +297,14 @@ const Plan = () => {
   const executionTimer = useExecutionTimer({
     planData: plan,
     planId,
+    onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
+  });
+
+  // Initialize task reorder hook
+  const { reorderTasks } = useTaskReorder({
+    plan,
+    planId,
+    userId: user?.id,
     onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
   });
 
@@ -1107,35 +1116,21 @@ const Plan = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2">
-                        {week.tasks.map((task, taskIndex) => (
-                          <TaskItem
-                            key={taskIndex}
-                            title={task.title}
-                            priority={task.priority}
-                            estimatedHours={task.estimated_hours}
-                            completed={task.completed || false}
-                            onToggle={() => toggleTask(weekIndex, taskIndex)}
-                            explanation={task.explanation}
-                            howTo={task.how_to}
-                            expectedOutcome={task.expected_outcome}
-                            isLocked={isLockedWeek}
-                            weekNumber={week.week}
-                            taskIndex={taskIndex}
-                            showCalendarButton={isActiveWeek && !isWeekComplete}
-                            planCreatedAt={planCreatedAt || undefined}
-                            onCalendarStatusChange={triggerCalendarRefresh}
-                            onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
-                            executionState={
-                              (task as any).execution_state === 'doing' ? 'doing' :
-                              (task as any).execution_state === 'done' ? 'done' :
-                              executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? 'doing' :
-                              'pending'
-                            }
-                            elapsedSeconds={executionTimer.activeTimer?.weekIndex === weekIndex && executionTimer.activeTimer?.taskIndex === taskIndex ? executionTimer.elapsedSeconds : 0}
-                          />
-                        ))}
-                      </div>
+                      <ReorderableTaskList
+                        tasks={week.tasks}
+                        weekIndex={weekIndex}
+                        weekNumber={week.week}
+                        isLockedWeek={isLockedWeek}
+                        isActiveWeek={isActiveWeek}
+                        isWeekComplete={isWeekComplete}
+                        planCreatedAt={planCreatedAt || undefined}
+                        onReorder={reorderTasks}
+                        onToggleTask={toggleTask}
+                        onCalendarStatusChange={triggerCalendarRefresh}
+                        onStartTask={handleStartTaskClick}
+                        activeTimer={executionTimer.activeTimer}
+                        elapsedSeconds={executionTimer.elapsedSeconds}
+                      />
                       
                       {/* Calendar Sync Button - Only for active week */}
                       {isActiveWeek && !isWeekComplete && (
