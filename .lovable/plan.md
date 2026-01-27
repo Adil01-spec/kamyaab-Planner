@@ -1,22 +1,42 @@
 
 
-## Task Reordering on /plan Page
+## Cross-Week Task Movement on /plan Page
 
 ### Overview
-This feature enables users to manually reorder tasks within each week on the `/plan` page using drag-and-drop. The order changes persist immediately and are preserved across page refreshes, navigation, and app reloads.
+This feature extends the existing task reordering to allow users to drag tasks between weeks (locked or unlocked). It enables full manual control over task scheduling while maintaining execution safety and /today view integrity.
 
-**Core Principle:** "This plan is mine. I can shape it."
+**Core Principle:** "I can reshuffle reality when things change."
+
+---
+
+### Current State Analysis
+
+The existing implementation:
+- Uses `framer-motion`'s `Reorder.Group` per week for within-week reordering
+- Each week has its own isolated `Reorder.Group`, preventing cross-week movement
+- Tasks are stored in `plan.weeks[weekIndex].tasks[]` arrays
+- No `week_index` field on tasks - position in array determines week
+
+**Key Insight:** Cross-week movement requires a fundamentally different approach since `Reorder.Group` only handles items within a single list.
 
 ---
 
 ### Architecture Approach
 
-Since `framer-motion` is already installed and used extensively for animations and gestures throughout the app (swipe gestures, parallax effects), we will implement reordering using `framer-motion`'s `Reorder` component family. This approach:
+**Option Selected: Drag-and-Drop with `@dnd-kit` Library**
 
-- Avoids adding new dependencies
-- Maintains consistent animation patterns
-- Provides smooth, native-feeling drag interactions
-- Works well on both desktop and mobile
+Since framer-motion's `Reorder` components are designed for single-list reordering and don't support moving items between groups, we need to either:
+1. Use a dedicated cross-list DnD library (`@dnd-kit`)
+2. Build custom drag-and-drop with framer-motion's low-level APIs
+
+**Decision: Use `@dnd-kit/core` and `@dnd-kit/sortable`**
+
+Reasons:
+- Purpose-built for multi-container drag-and-drop
+- Excellent accessibility support
+- Supports both within-list reordering AND cross-list movement
+- Works well with React state management
+- Touch-friendly with mobile optimizations
 
 ---
 
@@ -24,186 +44,246 @@ Since `framer-motion` is already installed and used extensively for animations a
 
 | File | Description |
 |------|-------------|
-| `src/components/ReorderableTaskList.tsx` | Container component that wraps tasks in `Reorder.Group` |
-| `src/components/ReorderableTaskItem.tsx` | Wrapper for `TaskItem` with drag handle and `Reorder.Item` |
-| `src/hooks/useTaskReorder.ts` | Hook managing reorder logic and persistence |
+| `src/hooks/useCrossWeekTaskMove.ts` | Hook managing cross-week movement logic and persistence |
+| `src/components/DraggableWeekContainer.tsx` | Wrapper for each week that acts as a droppable container |
+| `src/components/DraggableTaskItem.tsx` | Individual draggable task with handle |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/pages/Plan.tsx` | Replace direct `TaskItem` mapping with `ReorderableTaskList` |
+| `src/pages/Plan.tsx` | Replace `ReorderableTaskList` with new DnD components, pass active timer for safety checks |
+| `src/hooks/useTaskReorder.ts` | Extend to handle cross-week moves (move + reorder) |
+| `package.json` | Add `@dnd-kit/core` and `@dnd-kit/sortable` dependencies |
+
+### Files to Remove (Optional)
+
+| File | Reason |
+|------|--------|
+| `src/components/ReorderableTaskList.tsx` | Replaced by new DnD system |
+| `src/components/ReorderableTaskItem.tsx` | Replaced by `DraggableTaskItem.tsx` |
 
 ---
 
 ### Technical Implementation
 
-#### Step 1: Create `useTaskReorder` Hook
+#### Step 1: Install Dependencies
 
-**File:** `src/hooks/useTaskReorder.ts`
-
-This hook encapsulates the reordering logic and handles persistence to the database.
-
-```typescript
-interface UseTaskReorderOptions {
-  plan: PlanData;
-  planId: string | null;
-  userId: string | undefined;
-  onPlanUpdate: (plan: PlanData) => void;
-}
-
-interface UseTaskReorderReturn {
-  reorderTasks: (weekIndex: number, reorderedTasks: Task[]) => Promise<void>;
-  isReordering: boolean;
-}
+```bash
+npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
 ```
-
-**Key Responsibilities:**
-- Accept the new task order for a specific week
-- Update local state immediately (optimistic UI)
-- Persist to Supabase via `plan_json` update
-- Handle errors with rollback
-- Track `isReordering` state for UI feedback
-
-**Guardrails Enforced:**
-- NO modification to `completed`, `execution_state`, or timer data
-- NO triggering of insights/analysis updates
-- Pure array reordering only
 
 ---
 
-#### Step 2: Create `ReorderableTaskItem` Component
+#### Step 2: Create `useCrossWeekTaskMove` Hook
 
-**File:** `src/components/ReorderableTaskItem.tsx`
+**File:** `src/hooks/useCrossWeekTaskMove.ts`
 
-A wrapper component that adds drag functionality to `TaskItem`.
+Extends the existing reorder logic to handle:
+1. Within-week reordering (same as before)
+2. Cross-week movement (new)
 
+```typescript
+interface MoveTaskParams {
+  taskId: string;
+  sourceWeekIndex: number;
+  sourceTaskIndex: number;
+  destinationWeekIndex: number;
+  destinationTaskIndex: number;
+}
+
+interface UseCrossWeekTaskMoveReturn {
+  moveTask: (params: MoveTaskParams) => Promise<MoveResult>;
+  reorderWithinWeek: (weekIndex: number, reorderedTasks: Task[]) => Promise<void>;
+  canMoveTask: (sourceWeekIndex: number, sourceTaskIndex: number) => { allowed: boolean; reason?: string };
+  isMoving: boolean;
+}
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│  ⋮⋮  [Drag Handle]   TaskItem (existing component)                       │
-│      (visible on                                                          │
-│       hover/touch)                                                        │
-└────────────────────────────────────────────────────────────────────────────┘
+
+**Safety Check Implementation:**
+```typescript
+const canMoveTask = (sourceWeekIndex: number, sourceTaskIndex: number) => {
+  const task = plan.weeks[sourceWeekIndex]?.tasks[sourceTaskIndex];
+  
+  // Check if task is currently being worked on
+  if (task?.execution_state === 'doing') {
+    return { allowed: false, reason: 'Complete or pause the task first' };
+  }
+  
+  // Check if active timer is on this task
+  if (activeTimer?.weekIndex === sourceWeekIndex && 
+      activeTimer?.taskIndex === sourceTaskIndex) {
+    return { allowed: false, reason: 'Stop the timer before moving' };
+  }
+  
+  return { allowed: true };
+};
+```
+
+---
+
+#### Step 3: Create `DraggableWeekContainer` Component
+
+**File:** `src/components/DraggableWeekContainer.tsx`
+
+A droppable container for each week that accepts tasks from any week.
+
+```typescript
+interface DraggableWeekContainerProps {
+  weekIndex: number;
+  weekNumber: number;
+  tasks: Task[];
+  isActiveWeek: boolean;
+  isLockedWeek: boolean;
+  isWeekComplete: boolean;
+  // ... other props
+}
 ```
 
 **Features:**
-- Wraps `TaskItem` in `Reorder.Item` from framer-motion
-- Adds drag handle (`GripVertical` icon from lucide-react)
-- Handle visible on hover (desktop) or always visible with touch affordance (mobile)
-- Smooth layout animations during reorder
-- Haptic feedback on drag start/end (mobile)
-- Disabled when task is locked or week is locked
+- Uses `useDroppable` from `@dnd-kit/core`
+- Visual highlight when task is dragged over
+- Different highlight color for cross-week vs same-week drag
+- Accepts tasks even if week is "locked" (user override)
 
-**Props:**
+---
+
+#### Step 4: Create `DraggableTaskItem` Component
+
+**File:** `src/components/DraggableTaskItem.tsx`
+
+Individual task with drag handle and sortable behavior.
+
 ```typescript
-interface ReorderableTaskItemProps {
+interface DraggableTaskItemProps {
   task: Task;
+  taskId: string; // Unique ID for DnD: `week-${weekIndex}-task-${taskIndex}`
   weekIndex: number;
   taskIndex: number;
-  // ... all existing TaskItem props
-  isLocked?: boolean;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
+  canDrag: boolean;
+  blockReason?: string;
+  // ... TaskItem props
 }
 ```
+
+**Features:**
+- Uses `useSortable` from `@dnd-kit/sortable`
+- Shows drag handle (like current implementation)
+- Disables drag if `canDrag === false` (active timer)
+- Shows tooltip with `blockReason` if drag is blocked
+- Haptic feedback on mobile
 
 ---
 
-#### Step 3: Create `ReorderableTaskList` Component
+#### Step 5: Integrate DnD Context in Plan.tsx
 
-**File:** `src/components/ReorderableTaskList.tsx`
+**Location:** Wrap week cards in DnD providers
 
-Container that manages the reorderable list for a single week.
+```tsx
+import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
-```typescript
-interface ReorderableTaskListProps {
-  tasks: Task[];
-  weekIndex: number;
-  weekNumber: number;
-  isLockedWeek: boolean;
-  isActiveWeek: boolean;
-  onReorder: (weekIndex: number, reorderedTasks: Task[]) => void;
-  // ... other props passed through to TaskItem
-}
-```
-
-**Structure:**
-```jsx
-<Reorder.Group
-  axis="y"
-  values={tasks}
-  onReorder={(newOrder) => onReorder(weekIndex, newOrder)}
+// In Plan component:
+<DndContext
+  sensors={sensors}
+  collisionDetection={closestCenter}
+  onDragStart={handleDragStart}
+  onDragOver={handleDragOver}
+  onDragEnd={handleDragEnd}
 >
-  {tasks.map((task, taskIndex) => (
-    <ReorderableTaskItem
-      key={task.title + taskIndex} // Stable key
-      task={task}
-      ...props
-    />
+  {plan.weeks.map((week, weekIndex) => (
+    <DraggableWeekContainer 
+      key={week.week}
+      weekIndex={weekIndex}
+      tasks={week.tasks}
+      // ...
+    >
+      <SortableContext 
+        items={week.tasks.map((t, i) => `week-${weekIndex}-task-${i}`)}
+        strategy={verticalListSortingStrategy}
+      >
+        {week.tasks.map((task, taskIndex) => (
+          <DraggableTaskItem
+            key={`week-${weekIndex}-task-${taskIndex}`}
+            taskId={`week-${weekIndex}-task-${taskIndex}`}
+            task={task}
+            canDrag={canMoveTask(weekIndex, taskIndex).allowed}
+            blockReason={canMoveTask(weekIndex, taskIndex).reason}
+            // ...
+          />
+        ))}
+      </SortableContext>
+    </DraggableWeekContainer>
   ))}
-</Reorder.Group>
+  
+  <DragOverlay>
+    {activeTaskDrag ? (
+      <DraggableTaskItem 
+        task={activeTaskDrag.task}
+        isOverlay={true}
+        // ...
+      />
+    ) : null}
+  </DragOverlay>
+</DndContext>
 ```
-
-**Key Features:**
-- Uses `Reorder.Group` with `axis="y"` for vertical reordering
-- Only enables reordering for unlocked weeks
-- Passes reorder callback to parent
 
 ---
 
-#### Step 4: Integrate into Plan.tsx
+### Data Flow for Cross-Week Move
 
-**Location:** Lines 1111-1137 in `src/pages/Plan.tsx`
-
-**Current Code:**
-```jsx
-<div className="space-y-2">
-  {week.tasks.map((task, taskIndex) => (
-    <TaskItem
-      key={taskIndex}
-      ...props
-    />
-  ))}
-</div>
 ```
-
-**New Code:**
-```jsx
-<ReorderableTaskList
-  tasks={week.tasks}
-  weekIndex={weekIndex}
-  weekNumber={week.week}
-  isLockedWeek={isLockedWeek}
-  isActiveWeek={isActiveWeek}
-  onReorder={reorderTasks}
-  // ... pass through other props
-/>
+User drags task from Week 2 to Week 1
+                    ↓
+         onDragEnd fires with:
+         - active: { id: "week-1-task-2" }
+         - over: { id: "week-0-task-1" } or droppable ID
+                    ↓
+         Parse source/destination indices
+                    ↓
+         canMoveTask() check
+         (if fails → show toast, abort)
+                    ↓
+         useCrossWeekTaskMove.moveTask()
+                    ↓
+    ┌───────────────┴───────────────┐
+    ↓                               ↓
+Remove task from source week    Add task to destination week
+plan.weeks[1].tasks.splice()    plan.weeks[0].tasks.splice()
+                    ↓
+         Optimistic UI update (setPlan)
+                    ↓
+         Persist to Supabase
+                    ↓
+    ┌───────────────┴───────────────┐
+    ↓                               ↓
+Success: clear original ref     Error: rollback + toast
 ```
-
-**Additional Changes:**
-- Import `ReorderableTaskList` and `useTaskReorder`
-- Initialize `useTaskReorder` hook with plan data
-- No changes to the Flow View tab (read-only)
 
 ---
 
-### Data Flow
+### Execution Safety Implementation
 
-```
-User drags task → ReorderableTaskItem triggers Reorder.Group onReorder
-                               ↓
-                    ReorderableTaskList calls onReorder(weekIndex, newTasks)
-                               ↓
-                    useTaskReorder.reorderTasks()
-                               ↓
-              ┌────────────────┴────────────────┐
-              ↓                                  ↓
-    Update local state (setPlan)       Persist to Supabase
-         (immediate)                    (async, background)
-              ↓                                  ↓
-    UI updates instantly              plan_json saved
-                                             ↓
-                               On error: rollback local state
+| Scenario | Check | Behavior |
+|----------|-------|----------|
+| Task has `execution_state: 'doing'` | `canMoveTask()` returns false | Drag handle disabled, tooltip shows reason |
+| Task has active timer | `activeTimer.weekIndex/taskIndex` match | Same as above |
+| Task is completed | No restriction | Allow movement (user can reschedule) |
+| Moving to locked week | No restriction | User override - allow it |
+| Moving from locked week | No restriction | User override - allow it |
+
+**Visual Feedback for Blocked Tasks:**
+```tsx
+{!canDrag && (
+  <Tooltip>
+    <TooltipTrigger>
+      <div className="opacity-30 cursor-not-allowed">
+        <GripVertical />
+      </div>
+    </TooltipTrigger>
+    <TooltipContent>{blockReason}</TooltipContent>
+  </Tooltip>
+)}
 ```
 
 ---
@@ -213,23 +293,97 @@ User drags task → ReorderableTaskItem triggers Reorder.Group onReorder
 #### Desktop
 | State | Behavior |
 |-------|----------|
-| Idle | Drag handle hidden |
-| Hover on task row | Drag handle appears (fade in) |
-| Dragging | Task lifts with subtle shadow, other tasks animate to make space |
+| Idle | Drag handle visible on hover |
+| Dragging within week | Task lifts, siblings animate |
+| Dragging to different week | Destination week highlights with accent border |
+| Hover over blocked task | Tooltip shows "Complete or pause the task first" |
 | Drop | Smooth animation to new position |
 
 #### Mobile
 | State | Behavior |
 |-------|----------|
-| Idle | Drag handle always visible (small, muted) |
-| Long-press on handle | Haptic feedback, task becomes draggable |
-| Dragging | Task lifts, other tasks animate |
-| Drop | Haptic confirmation, smooth settle animation |
+| Idle | Drag handle always visible |
+| Long-press on handle | Haptic feedback, task lifts |
+| Dragging | Other tasks animate, cross-week drop zones visible |
+| Drop | Haptic confirmation |
 
-#### Animation Specs
-- Drag lift: `scale: 1.02`, `boxShadow: "0 8px 25px rgba(0,0,0,0.15)"`, `zIndex: 10`
-- Transition: `type: "spring", stiffness: 400, damping: 30` (matches existing swipe patterns)
-- Layout animation: Automatic via `layout` prop on `Reorder.Item`
+#### Visual Cues for Cross-Week Drag
+- Source week: subtle dim effect
+- Destination week: glow/highlight border
+- Dragged task: elevated shadow, slight scale
+- Drop indicator: line showing insertion point
+
+---
+
+### /today Integrity Guarantee
+
+The `/today` page uses `src/lib/todayTaskSelector.ts`:
+
+```typescript
+function getCurrentWeekIndex(plan: PlanData): number {
+  for (let i = 0; i < plan.weeks.length; i++) {
+    const hasIncompleteTasks = plan.weeks[i].tasks.some(t => !t.completed);
+    if (hasIncompleteTasks) return i;
+  }
+  return plan.weeks.length - 1;
+}
+```
+
+**Impact Analysis:**
+- Moving a task TO the current week → it MAY appear in `/today` (if incomplete and within top 3 by priority)
+- Moving a task FROM the current week → it will NOT appear in `/today`
+- This is correct behavior - tasks show where they're scheduled
+
+**No changes needed to `todayTaskSelector.ts`** - it already uses the task's week position as the source of truth.
+
+---
+
+### Persistence Strategy
+
+**Data Structure (unchanged):**
+```json
+{
+  "weeks": [
+    {
+      "week": 1,
+      "focus": "Foundation",
+      "tasks": [
+        { "title": "Task A", "priority": "High", ... },
+        { "title": "Task B", "priority": "Medium", ... }
+      ]
+    },
+    {
+      "week": 2,
+      "focus": "Build",
+      "tasks": [
+        { "title": "Task C", "priority": "High", ... }
+      ]
+    }
+  ]
+}
+```
+
+**Move Operation:**
+```typescript
+const moveTask = async (params: MoveTaskParams) => {
+  const { sourceWeekIndex, sourceTaskIndex, destinationWeekIndex, destinationTaskIndex } = params;
+  
+  // Clone plan
+  const updatedPlan = JSON.parse(JSON.stringify(plan));
+  
+  // Remove from source
+  const [movedTask] = updatedPlan.weeks[sourceWeekIndex].tasks.splice(sourceTaskIndex, 1);
+  
+  // Insert at destination
+  updatedPlan.weeks[destinationWeekIndex].tasks.splice(destinationTaskIndex, 0, movedTask);
+  
+  // Optimistic update
+  onPlanUpdate(updatedPlan);
+  
+  // Persist
+  await supabase.from('plans').update({ plan_json: updatedPlan }).eq('user_id', userId);
+};
+```
 
 ---
 
@@ -237,132 +391,68 @@ User drags task → ReorderableTaskItem triggers Reorder.Group onReorder
 
 | Constraint | Implementation |
 |------------|----------------|
-| No timer reset | Reorder only changes array order, preserves all task properties |
+| No timer modification | Move preserves all task fields including `execution_started_at`, `time_spent_seconds` |
 | No completion change | `completed`, `execution_state` untouched |
-| No /today impact | `/today` uses `taskIndex` from original plan - reordering updates `taskIndex` naturally |
-| No regeneration | Only `plan_json.weeks[x].tasks` array order changes |
-| No insights trigger | No side effects, pure reorder |
-
----
-
-### Persistence Strategy
-
-**Storage:** Existing `plans.plan_json` column (JSONB)
-
-**Update Logic:**
-```typescript
-const reorderTasks = async (weekIndex: number, newTasks: Task[]) => {
-  // 1. Optimistic update
-  const updatedPlan = { ...plan };
-  updatedPlan.weeks[weekIndex].tasks = newTasks;
-  onPlanUpdate(updatedPlan);
-  
-  // 2. Persist to Supabase
-  const { error } = await supabase
-    .from('plans')
-    .update({ plan_json: updatedPlan })
-    .eq('user_id', userId);
-  
-  // 3. On error, rollback
-  if (error) {
-    onPlanUpdate(originalPlan);
-    toast({ title: "Couldn't save order", variant: "destructive" });
-  }
-};
-```
-
-**No new fields or schema changes required.**
-
----
-
-### /today Logic Verification
-
-The `/today` page uses `src/lib/todayTaskSelector.ts` which:
-
-1. Finds the current active week (first week with incomplete tasks)
-2. Gets tasks from that week
-3. Sorts by priority, then by `taskIndex`
-
-**Impact of Reordering:**
-- When tasks are reordered, their position in the `tasks` array changes
-- `taskIndex` reflects the new array position
-- `/today` will automatically respect the new order within its priority sort
-
-**Example:**
-- Before reorder: `[TaskA (Low), TaskB (High), TaskC (Medium)]`
-- User reorders: `[TaskB (High), TaskC (Medium), TaskA (Low)]`
-- `/today` output (sorted by priority): Same - `[TaskB, TaskC, TaskA]`
-- If same priority, array position wins
-
----
-
-### Mobile Considerations
-
-1. **Scroll Safety:**
-   - Use `touch-action: pan-y` on container
-   - Only initiate drag from handle, not entire row
-   - Prevent scroll during active drag
-
-2. **Long-Press Detection:**
-   - 150ms threshold for drag activation
-   - Visual feedback (subtle background change) during long-press
-   - Cancel if finger moves before threshold
-
-3. **Haptic Feedback:**
-   - `hapticSelection()` on drag start
-   - `hapticLight()` on drop
+| No regeneration | Pure array manipulation only |
+| No insights trigger | No side effects |
+| Block active task move | `canMoveTask()` check before drag allowed |
 
 ---
 
 ### Implementation Order
 
-1. Create `src/hooks/useTaskReorder.ts` - reorder logic and persistence
-2. Create `src/components/ReorderableTaskItem.tsx` - draggable task wrapper
-3. Create `src/components/ReorderableTaskList.tsx` - reorderable container
-4. Modify `src/pages/Plan.tsx` - integrate components
+1. Add `@dnd-kit` dependencies to `package.json`
+2. Create `src/hooks/useCrossWeekTaskMove.ts`
+3. Create `src/components/DraggableTaskItem.tsx`
+4. Create `src/components/DraggableWeekContainer.tsx`
+5. Modify `src/pages/Plan.tsx` to use DnD context and new components
+6. Remove old `ReorderableTaskList.tsx` and `ReorderableTaskItem.tsx`
+7. Test all scenarios
 
 ---
 
 ### Testing Checklist
 
-1. **Reorder persists:**
-   - Reorder tasks in Week 1
-   - Refresh page → order preserved
-   - Navigate away and back → order preserved
+**Cross-Week Movement:**
+- [ ] Drag task from Week 1 to Week 2 → appears in Week 2
+- [ ] Drag task from locked Week 3 to active Week 1 → works
+- [ ] Drag task from active week to locked week → works
+- [ ] Order within destination week respects drop position
 
-2. **No side effects:**
-   - Reorder a task → timer not reset
-   - Reorder a task → completion status unchanged
-   - Reorder a task → no toast about insights/analysis
+**Safety Checks:**
+- [ ] Task with active timer → cannot drag, shows tooltip
+- [ ] Task with `execution_state: 'doing'` → cannot drag
+- [ ] Completed task → can drag freely
 
-3. **UX quality:**
-   - Desktop: handle appears on hover
-   - Mobile: long-press initiates drag
-   - Smooth animations during drag
-   - Haptic feedback on mobile
+**Persistence:**
+- [ ] Move task → refresh page → task in new week
+- [ ] Move task → navigate away → return → task in new week
 
-4. **Edge cases:**
-   - Cannot reorder in locked weeks
-   - Can reorder in active week
-   - Can reorder in completed weeks
-   - Works with 1 task (no-op)
-   - Works with many tasks
+**/today Integrity:**
+- [ ] Move task to current week → appears in /today if eligible
+- [ ] Move task from current week → disappears from /today
+- [ ] No duplicate tasks
+- [ ] No missing tasks
 
-5. **/today unaffected:**
-   - Reorder tasks on /plan
-   - Go to /today → tasks show correctly based on priority + new order
+**UX Quality:**
+- [ ] Desktop: smooth drag animations
+- [ ] Desktop: week highlight on hover
+- [ ] Mobile: long-press to drag
+- [ ] Mobile: haptic feedback
+- [ ] Blocked task shows tooltip reason
 
 ---
 
 ### Summary
 
-This implementation enables manual task reordering on the `/plan` page using framer-motion's `Reorder` components. The feature:
+This implementation enables cross-week task movement using `@dnd-kit`, which is purpose-built for multi-container drag-and-drop scenarios. The feature:
 
-- Uses existing dependencies (framer-motion)
-- Persists order immediately to the existing `plan_json` structure
-- Provides smooth, native-feeling drag interactions
-- Works on both desktop (hover) and mobile (long-press)
-- Has zero side effects on timers, completion, or insights
+- Adds one new dependency (`@dnd-kit`)
+- Supports both within-week reordering AND cross-week movement
+- Blocks movement of actively running tasks
+- Persists changes to existing `plan_json` structure
+- Maintains `/today` integrity automatically
+- Works on both desktop and mobile with appropriate UX patterns
 
-Users will feel: **"This plan is mine. I can shape it."**
+Users will feel: **"I can reshuffle reality when things change."**
 
