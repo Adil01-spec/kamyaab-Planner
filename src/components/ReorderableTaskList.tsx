@@ -73,23 +73,22 @@ export function ReorderableTaskList({
     return (
       <div className="space-y-2">
         {tasks.map((task, taskIndex) => (
-          <div key={`${task.title}-${taskIndex}`} className="group">
-            <ReorderableTaskItem
-              task={task}
-              weekIndex={weekIndex}
-              taskIndex={taskIndex}
-              weekNumber={weekNumber}
-              isLocked={true}
-              isActiveWeek={isActiveWeek}
-              isWeekComplete={isWeekComplete}
-              planCreatedAt={planCreatedAt}
-              onToggle={() => onToggleTask(weekIndex, taskIndex)}
-              onCalendarStatusChange={onCalendarStatusChange}
-              onStartTask={() => onStartTask(weekIndex, taskIndex, task.title, task.estimated_hours)}
-              executionState={getExecutionState(task, weekIndex, taskIndex, activeTimer)}
-              elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex, activeTimer, elapsedSeconds)}
-            />
-          </div>
+          <ReorderableTaskItem
+            key={`${task.title}-${taskIndex}`}
+            task={task}
+            weekIndex={weekIndex}
+            taskIndex={taskIndex}
+            weekNumber={weekNumber}
+            isLocked={true}
+            isActiveWeek={isActiveWeek}
+            isWeekComplete={isWeekComplete}
+            planCreatedAt={planCreatedAt}
+            onToggle={() => onToggleTask(weekIndex, taskIndex)}
+            onCalendarStatusChange={onCalendarStatusChange}
+            onStartTask={() => onStartTask(weekIndex, taskIndex, task.title, task.estimated_hours)}
+            executionState={getExecutionState(task, weekIndex, taskIndex, activeTimer)}
+            elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex, activeTimer, elapsedSeconds)}
+          />
         ))}
       </div>
     );

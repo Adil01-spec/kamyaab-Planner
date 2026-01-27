@@ -77,7 +77,7 @@ export function ReorderableTaskItem({
       "flex items-stretch gap-0",
       isDragging && "opacity-90"
     )}>
-      {/* Drag Handle */}
+      {/* Drag Handle - Always visible for draggable tasks */}
       {!isLocked && (
         <div
           onPointerDown={handlePointerDown}
@@ -85,16 +85,15 @@ export function ReorderableTaskItem({
             "flex items-center justify-center cursor-grab active:cursor-grabbing touch-none",
             "w-8 shrink-0 rounded-l-xl",
             "transition-all duration-200",
-            // Desktop: hidden until hover
-            !isMobile && "opacity-0 group-hover:opacity-100",
-            // Mobile: always visible but muted
-            isMobile && "opacity-40",
+            // Desktop: visible on hover of parent group
+            !isMobile && "opacity-30 group-hover:opacity-100",
+            // Mobile: always visible
+            isMobile && "opacity-50",
             // Hover/active states
             "hover:opacity-100 hover:bg-muted/50",
             "active:bg-primary/10"
           )}
           style={{
-            // Prevent text selection during drag
             userSelect: 'none',
             WebkitUserSelect: 'none',
           }}
@@ -105,8 +104,8 @@ export function ReorderableTaskItem({
 
       {/* Task Item Container */}
       <div className={cn(
-        "flex-1 min-w-0 group",
-        !isLocked && "-ml-2" // Overlap with handle area for seamless look
+        "flex-1 min-w-0",
+        !isLocked && "-ml-2"
       )}>
         <TaskItem
           title={task.title}
@@ -133,7 +132,7 @@ export function ReorderableTaskItem({
 
   // For locked tasks, render without Reorder.Item wrapper
   if (isLocked) {
-    return <div className="relative">{taskContent}</div>;
+    return <div className="relative group">{taskContent}</div>;
   }
 
   // For unlocked tasks, wrap in Reorder.Item for drag functionality
@@ -143,11 +142,11 @@ export function ReorderableTaskItem({
       dragListener={false}
       dragControls={dragControls}
       onDragEnd={handleDragEnd}
-      className="relative"
+      className="relative group"
       whileDrag={{
         scale: 1.02,
         boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-        zIndex: 10,
+        zIndex: 50,
       }}
       transition={{
         type: "spring",
