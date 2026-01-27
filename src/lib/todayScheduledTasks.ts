@@ -6,6 +6,7 @@
 
 import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { startOfDay, endOfDay, parseISO, isWithinInterval } from 'date-fns';
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
 
 interface Task {
   title: string;
@@ -70,6 +71,9 @@ export function getTasksScheduledForToday(plan: PlanData): ScheduledTodayTask[] 
     if (weekIndex < 0 || weekIndex >= plan.weeks.length) continue;
     const week = plan.weeks[weekIndex];
     if (!week?.tasks || taskIndex < 0 || taskIndex >= week.tasks.length) continue;
+
+    // Skip tasks in locked weeks - they should not be actionable on /today
+    if (isTaskInLockedWeek(plan, weekIndex)) continue;
 
     // Check if scheduledAt is today (local time)
     try {

@@ -416,6 +416,14 @@ export function TaskItem({
               </span>
             )}
             
+            {/* Locked task indicator - subtle message */}
+            {isLocked && !completed && (
+              <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                <span>Available when this week unlocks</span>
+              </span>
+            )}
+            
             {/* Expand button for tasks with details - touch optimized */}
             {details.hasDetails && (
               <Collapsible open={isOpen} onOpenChange={setIsOpen}>

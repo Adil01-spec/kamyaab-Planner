@@ -38,6 +38,7 @@ interface DraggableTaskItemProps {
   weekNumber: number;
   isActiveWeek: boolean;
   isWeekComplete: boolean;
+  isLockedWeek: boolean;
   planCreatedAt?: string;
   onToggle: () => void;
   onCalendarStatusChange?: () => void;
@@ -57,6 +58,7 @@ export function DraggableTaskItem({
   weekNumber,
   isActiveWeek,
   isWeekComplete,
+  isLockedWeek,
   planCreatedAt,
   onToggle,
   onCalendarStatusChange,
@@ -167,7 +169,7 @@ export function DraggableTaskItem({
           explanation={task.explanation}
           howTo={task.how_to}
           expectedOutcome={task.expected_outcome}
-          isLocked={false}
+          isLocked={isLockedWeek}
           weekNumber={weekNumber}
           taskIndex={taskIndex}
           showCalendarButton={isActiveWeek && !isWeekComplete}

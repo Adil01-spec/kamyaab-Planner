@@ -2,6 +2,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
 
 export type TaskExecutionStatus = 'idle' | 'doing' | 'done';
 
@@ -221,6 +222,15 @@ export async function startTask(
   weekIndex: number,
   taskIndex: number
 ): Promise<{ success: boolean; updatedPlan: any; error?: string }> {
+  // Guard against starting tasks in locked weeks
+  if (isTaskInLockedWeek(planData, weekIndex)) {
+    return { 
+      success: false, 
+      updatedPlan: planData, 
+      error: 'Cannot start task in locked week' 
+    };
+  }
+
   // First, pause any currently active task
   const activeTask = findActiveTask(planData);
   let currentPlan = planData;
@@ -282,6 +292,16 @@ export async function completeTask(
   weekIndex: number,
   taskIndex: number
 ): Promise<{ success: boolean; updatedPlan: any; timeSpent: number; error?: string }> {
+  // Guard against completing tasks in locked weeks
+  if (isTaskInLockedWeek(planData, weekIndex)) {
+    return { 
+      success: false, 
+      updatedPlan: planData, 
+      timeSpent: 0,
+      error: 'Cannot complete task in locked week' 
+    };
+  }
+
   const task = planData.weeks?.[weekIndex]?.tasks?.[taskIndex];
   
   if (!task) {
