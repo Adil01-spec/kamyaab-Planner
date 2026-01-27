@@ -1331,6 +1331,7 @@ const Plan = () => {
                               weekNumber={week.week}
                               isActiveWeek={isActiveWeek}
                               isWeekComplete={isWeekComplete}
+                              isLockedWeek={isLockedWeek}
                               planCreatedAt={planCreatedAt || undefined}
                               onToggle={() => toggleTask(weekIndex, taskIndex)}
                               onCalendarStatusChange={triggerCalendarRefresh}
@@ -1398,6 +1399,7 @@ const Plan = () => {
                     weekNumber={plan.weeks[activeDragData.weekIndex]?.week || 1}
                     isActiveWeek={false}
                     isWeekComplete={false}
+                    isLockedWeek={false}
                     onToggle={() => {}}
                     executionState={getExecutionState(activeDragData.task, activeDragData.weekIndex, activeDragData.taskIndex)}
                     elapsedSeconds={0}

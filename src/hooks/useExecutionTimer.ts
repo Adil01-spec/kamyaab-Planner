@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
 import {
   ActiveTimerState,
   getLocalActiveTimer,
@@ -117,6 +118,12 @@ export function useExecutionTimer({
   const startTaskTimer = useCallback(
     async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
       if (!user?.id || !planData) return false;
+
+      // Guard against starting tasks in locked weeks
+      if (isTaskInLockedWeek(planData, weekIndex)) {
+        console.warn('Cannot start task in locked week');
+        return false;
+      }
 
       setIsStarting(true);
       try {
