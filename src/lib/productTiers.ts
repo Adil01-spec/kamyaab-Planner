@@ -134,6 +134,13 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     category: 'export',
     description: 'Export progress reports as PDF',
   },
+  'strategic-review-export': {
+    id: 'strategic-review-export',
+    name: 'Strategic Review Export',
+    tier: 'pro',
+    category: 'export',
+    description: 'Export professional plan and insights summary as PDF',
+  },
 };
 
 /**
