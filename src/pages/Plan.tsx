@@ -44,6 +44,7 @@ import { PersonalPatternUpdate } from '@/components/PersonalPatternUpdate';
 import { ProgressProof } from '@/components/ProgressProof';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { PlanFlowView } from '@/components/PlanFlowView';
+import { StrategicReviewExportButton } from '@/components/StrategicReviewExportButton';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { 
   fetchExecutionProfile, 
@@ -911,8 +912,19 @@ const Plan = () => {
           <div className="space-y-6">
             {/* Overview with Identity Statement */}
             <div className="animate-fade-in">
-              <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
-              <p className="text-muted-foreground mb-3">{plan.overview}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
+                  <p className="text-muted-foreground mb-3">{plan.overview}</p>
+                </div>
+                <StrategicReviewExportButton
+                  planData={plan}
+                  planCreatedAt={planCreatedAt || ''}
+                  projectTitle={profile?.projectTitle || 'Untitled Project'}
+                  projectDescription={profile?.projectDescription || undefined}
+                  userName={profile?.fullName || undefined}
+                />
+              </div>
               <IdentityStatementEditor
                 value={plan.identity_statement || ''}
                 onChange={updateIdentityStatement}
