@@ -1,430 +1,431 @@
 
+## Strategic Review Export
 
-## Locked Week Execution Guard
+### Overview
+This feature introduces a professional PDF export capability on the `/plan` page that allows users to generate a comprehensive, shareable document of their plan and execution insights. This is the first feature designed to make the "Pro" tier tangibly valuable.
 
-### Problem Analysis
-
-After enabling cross-week task movement, a critical security gap exists: **tasks in locked weeks can be executed (started/completed)**. This breaks the sequential week progression model.
-
-**Root Cause:** The `DraggableTaskItem` component always passes `isLocked={false}` to `TaskItem`, ignoring the week's locked status.
-
-**Current Broken Behavior:**
-- Checkbox toggles work on locked week tasks
-- "Start Task" button is active on locked week tasks
-- Timer can be started on locked week tasks
-- Locked tasks can appear actionable on /today
+**Core Principle:** "I could show this to a client, manager, or investor."
 
 ---
 
-### Solution Architecture
+### Current State Analysis
+
+**Existing PDF Export:**
+- `src/lib/progressPdfExport.ts` - Exports progress history (historical trends, plan comparisons)
+- Uses `jsPDF` library (already installed)
+- Called from `ProgressProof.tsx` component
+
+**Plan Data Structure (in `plan_json`):**
+- `overview`, `total_weeks`, `weeks[]`, `milestones[]`, `motivation[]`
+- `is_strategic_plan`, `strategy_overview`, `assumptions`, `risks`
+- `reality_check` - cached AI critique (feasibility, risk signals, focus gaps)
+- `execution_insights` - cached execution analysis (diagnosis, patterns, suggestions)
+
+**Pro Feature Gating:**
+- `FEATURE_REGISTRY` in `productTiers.ts` defines feature tiers
+- `ProFeatureIndicator` shows subtle indicators
+- `hasFeatureAccess()` checks if user has access
+- `trackFeatureInterest()` logs interest for analytics
+
+---
+
+### Architecture Approach
 
 ```text
 +-------------------+     +-------------------+     +-------------------+
-|   Plan.tsx        | --> | DraggableTaskItem | --> |    TaskItem       |
-|  (determines      |     | (passes isLocked  |     | (UI enforcement)  |
-|   locked weeks)   |     |  to TaskItem)     |     |                   |
+|   Plan.tsx        | --> | StrategicReview   | --> | strategicReview   |
+|  (Export button   |     | ExportButton      |     | PdfExport.ts      |
+|   in header area) |     | (UI + Pro gate)   |     | (PDF generation)  |
 +-------------------+     +-------------------+     +-------------------+
-         |                                                    |
-         v                                                    v
-+-------------------+                               +-------------------+
-| useExecutionTimer |                               |  /today page      |
-| (core logic guard)|                               | (filter out       |
-+-------------------+                               |  locked tasks)    |
-                                                    +-------------------+
 ```
 
-**Guards implemented at 3 levels:**
-1. **UI Level:** Disable buttons, show tooltip for locked tasks
-2. **Logic Level:** Prevent execution in hooks/libraries
-3. **Data Level:** Filter locked tasks from /today view
+**Key Design Decisions:**
+1. Create a new dedicated PDF export file (`strategicReviewPdfExport.ts`) rather than extending the existing progress export
+2. Add export button near the plan header/overview section (intentional, not flashy)
+3. Use soft Pro gating - visible to all, calm upsell for Free users
+4. Export is strictly read-only - no data modifications
 
 ---
-
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/components/DraggableTaskItem.tsx` | Pass `isLocked` prop based on week status |
-| `src/components/TaskItem.tsx` | Add "Available when unlocked" tooltip, disable Start button for locked tasks |
-| `src/hooks/useExecutionTimer.ts` | Add `isTaskInLockedWeek` check to `startTaskTimer` |
-| `src/lib/executionTimer.ts` | Add `isTaskInLockedWeek` helper function |
-| `src/lib/todayScheduledTasks.ts` | Filter out tasks from locked weeks |
 
 ### Files to Create
 
 | File | Description |
 |------|-------------|
-| `src/lib/weekLockStatus.ts` | Shared utility to determine if a week/task is locked |
+| `src/lib/strategicReviewPdfExport.ts` | Main PDF generation logic for Strategic Review export |
+| `src/components/StrategicReviewExportButton.tsx` | Export button component with Pro gating and loading states |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/lib/productTiers.ts` | Add `strategic-review-export` feature to registry |
+| `src/pages/Plan.tsx` | Add StrategicReviewExportButton in plan overview section |
 
 ---
 
 ### Technical Implementation
 
-#### Step 1: Create Week Lock Status Utility
+#### Step 1: Register Feature in Product Tiers
 
-**File:** `src/lib/weekLockStatus.ts`
+**File:** `src/lib/productTiers.ts`
 
-A shared utility that determines lock status for any week or task:
+Add new feature entry to `FEATURE_REGISTRY`:
 
 ```typescript
-interface Week {
-  week: number;
-  tasks: {
-    completed?: boolean;
-    execution_state?: 'pending' | 'doing' | 'done';
-  }[];
-}
-
-interface PlanData {
-  weeks: Week[];
-}
-
-/**
- * Get the index of the first incomplete week (the "active" week)
- * Returns -1 if all weeks are complete
- */
-export function getActiveWeekIndex(plan: PlanData): number {
-  for (let i = 0; i < plan.weeks.length; i++) {
-    const hasIncompleteTasks = plan.weeks[i].tasks.some(
-      t => t.execution_state !== 'done' && !t.completed
-    );
-    if (hasIncompleteTasks) return i;
-  }
-  return -1; // All complete
-}
-
-/**
- * Check if a specific week is locked
- * Locked = comes after the first incomplete week
- */
-export function isWeekLocked(plan: PlanData, weekIndex: number): boolean {
-  const activeWeekIndex = getActiveWeekIndex(plan);
-  if (activeWeekIndex === -1) return false; // All complete, nothing locked
-  return weekIndex > activeWeekIndex;
-}
-
-/**
- * Check if a specific task is in a locked week
- */
-export function isTaskInLockedWeek(plan: PlanData, weekIndex: number): boolean {
-  return isWeekLocked(plan, weekIndex);
-}
+'strategic-review-export': {
+  id: 'strategic-review-export',
+  name: 'Strategic Review Export',
+  tier: 'pro',
+  category: 'export',
+  description: 'Export professional plan and insights summary as PDF',
+},
 ```
 
 ---
 
-#### Step 2: Update DraggableTaskItem
+#### Step 2: Create PDF Export Logic
 
-**File:** `src/components/DraggableTaskItem.tsx`
+**File:** `src/lib/strategicReviewPdfExport.ts`
 
-Add `isLockedWeek` prop and pass it to TaskItem:
+A comprehensive PDF generator that includes all specified content sections:
 
-**Current (line 170):**
+**Export Configuration Interface:**
 ```typescript
-isLocked={false}
-```
-
-**Updated:**
-```typescript
-isLocked={isLockedWeek}
-```
-
-**Props to add:**
-```typescript
-interface DraggableTaskItemProps {
-  // ... existing props
-  isLockedWeek: boolean; // NEW: whether this task's week is locked
+interface StrategicReviewExportConfig {
+  // Plan metadata
+  projectTitle: string;
+  projectDescription?: string;
+  planningMode: 'Strategic' | 'Standard';
+  createdAt: string;
+  scenarioContext?: ScenarioTag;
+  
+  // User info
+  userName?: string;
+  
+  // Plan data
+  planData: PlanData;
+  
+  // Cached insights (optional)
+  realityCheck?: RealityCritique;
+  executionInsights?: ExecutionInsightsData;
 }
 ```
 
-The `isLockedWeek` value will be passed from `Plan.tsx` (it's already calculated there as `isLockedWeek`).
+**PDF Sections (in order):**
+
+1. **Header**
+   - "Strategic Review" title
+   - Generated date
+   - User name (if available)
+
+2. **Plan Overview**
+   - Project title
+   - Description
+   - Planning mode (Standard / Strategic)
+   - Creation date
+   - Scenario context (if available)
+
+3. **Strategy Section (Strategic Plans Only)**
+   - Strategy overview (objective, why now, success definition)
+   - Key assumptions
+   - Risks & blind spots (with mitigations)
+   - Strategic milestones
+
+4. **Task Structure**
+   - Tasks grouped by week
+   - Shows: task title, priority, completion status, time spent
+   - Respects current user-reordered state
+
+5. **Execution Insights (If Generated)**
+   - Time estimation pattern
+   - Effort distribution insight
+   - Productivity patterns (peak, bottlenecks, strengths)
+   - Forward suggestion
+   - Execution diagnosis (primary mistake, secondary pattern, adjustment)
+
+6. **Reality Check (If Generated)**
+   - Feasibility assessment with badge
+   - Risk signals with severity
+   - Focus gaps
+   - Strategic blind spots (if strategic)
+   - De-prioritization suggestions
+
+7. **Closing Summary**
+   - Generated from execution data if available
+   - "What worked" - derived from strengths/smooth patterns
+   - "What slowed execution" - derived from bottlenecks/diagnosis
+   - "What to adjust next cycle" - derived from forward suggestion/adjustment
+
+8. **Footer**
+   - Page numbers
+   - "Generated by Kaamyab"
+
+**Visual Design:**
+- Use existing brand colors from `progressPdfExport.ts`
+- Primary Green: `[14, 159, 110]` (#0E9F6E)
+- Text: `[15, 23, 42]` (#0F172A)
+- Muted: `[71, 85, 105]` (#475569)
+- Clean section headers with accent bar
+- Alternating row colors for task tables
+- Professional typography (Helvetica)
 
 ---
 
-#### Step 3: Update TaskItem Component
+#### Step 3: Create Export Button Component
 
-**File:** `src/components/TaskItem.tsx`
+**File:** `src/components/StrategicReviewExportButton.tsx`
 
-Modify the component to:
-1. Hide the "Start Task" button for locked tasks
-2. Show a subtle "Available when unlocked" tooltip
-3. Disable checkbox for locked tasks (already partially implemented)
+A button component that handles:
+- Pro gating with soft upsell
+- Loading state during PDF generation
+- Error handling with toast notifications
+- Interest tracking for Free users
 
-**Add to TaskItem (after line 131):**
+**Component Structure:**
 ```typescript
-// Determine if execution actions should be blocked
-const executionBlocked = isLocked;
-```
-
-**Update the Start Task button section (around line 178-203 area):**
-```typescript
-{/* Start Task button - only for unlocked, non-completed tasks */}
-{onStartTask && !isLocked && !isDone && executionState === 'pending' && (
-  <Button
-    onClick={(e) => {
-      e.stopPropagation();
-      onStartTask?.();
-    }}
-    // ... rest of button
-  />
-)}
-
-{/* Locked task indicator */}
-{isLocked && !isDone && (
-  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-    <Lock className="w-3.5 h-3.5" />
-    <span>Available when this week unlocks</span>
-  </div>
-)}
-```
-
-**Ensure checkbox click is blocked (already partially done around line 179-186):**
-```typescript
-const handleClick = () => {
-  if (isLocked) return; // Already exists
-  onToggle();
-};
-```
-
----
-
-#### Step 4: Add Logic Guard in useExecutionTimer
-
-**File:** `src/hooks/useExecutionTimer.ts`
-
-Add a guard in `startTaskTimer` to prevent starting tasks in locked weeks:
-
-```typescript
-import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
-
-// Inside startTaskTimer function (around line 117-146):
-const startTaskTimer = useCallback(
-  async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
-    if (!user?.id || !planData) return false;
-
-    // NEW: Guard against starting tasks in locked weeks
-    if (isTaskInLockedWeek(planData, weekIndex)) {
-      console.warn('Cannot start task in locked week');
-      return false;
-    }
-
-    // ... rest of existing logic
-  },
-  [user?.id, planData, onPlanUpdate]
-);
-```
-
----
-
-#### Step 5: Add Logic Guard in executionTimer.ts
-
-**File:** `src/lib/executionTimer.ts`
-
-Add check in `startTask` function as a secondary guard:
-
-```typescript
-import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
-
-// Inside startTask function (around line 217-268):
-export async function startTask(
-  userId: string,
-  planData: any,
-  weekIndex: number,
-  taskIndex: number
-): Promise<{ success: boolean; updatedPlan: any; error?: string }> {
-  // NEW: Guard against starting tasks in locked weeks
-  if (isTaskInLockedWeek(planData, weekIndex)) {
-    return { 
-      success: false, 
-      updatedPlan: planData, 
-      error: 'Cannot start task in locked week' 
-    };
-  }
-
-  // ... rest of existing logic
-}
-
-// Similarly for completeTask function (around line 270):
-export async function completeTask(
-  userId: string,
-  planData: any,
-  weekIndex: number,
-  taskIndex: number
-): Promise<{ success: boolean; updatedPlan: any; timeSpent: number; error?: string }> {
-  // NEW: Guard against completing tasks in locked weeks
-  if (isTaskInLockedWeek(planData, weekIndex)) {
-    return { 
-      success: false, 
-      updatedPlan: planData, 
-      timeSpent: 0,
-      error: 'Cannot complete task in locked week' 
-    };
-  }
-
-  // ... rest of existing logic
+interface StrategicReviewExportButtonProps {
+  planData: PlanData;
+  planCreatedAt: string;
+  projectTitle: string;
+  projectDescription?: string;
+  userName?: string;
+  className?: string;
 }
 ```
 
----
+**Behavior:**
+- **Pro Users:** Click generates PDF immediately
+- **Free Users:** Click shows calm tooltip/toast with upsell message
+- Shows `FileDown` or `Download` icon from Lucide
+- Label: "Export Strategic Review"
+- Subtext (on hover/tooltip): "Creates a professional summary of your plan and execution"
 
-#### Step 6: Filter Locked Tasks from /today
-
-**File:** `src/lib/todayScheduledTasks.ts`
-
-Modify `getTasksScheduledForToday` to exclude tasks from locked weeks:
-
+**Pro Gating UI:**
 ```typescript
-import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
+const { hasAccess, isPro, trackInterest } = useFeatureAccess('strategic-review-export', planData);
 
-export function getTasksScheduledForToday(plan: PlanData): ScheduledTodayTask[] {
-  if (!plan?.weeks || plan.weeks.length === 0) {
-    return [];
-  }
-
-  const scheduledTasks = getScheduledCalendarTasks();
-  const today = new Date();
-  const todayStart = startOfDay(today);
-  const todayEnd = endOfDay(today);
-
-  const tasksForToday: ScheduledTodayTask[] = [];
-
-  for (const scheduled of scheduledTasks) {
-    const { weekNumber, taskIndex, scheduledAt } = scheduled;
-    const weekIndex = weekNumber - 1;
-
-    // Validate week and task exist
-    if (weekIndex < 0 || weekIndex >= plan.weeks.length) continue;
-    const week = plan.weeks[weekIndex];
-    if (!week?.tasks || taskIndex < 0 || taskIndex >= week.tasks.length) continue;
-
-    // NEW: Skip tasks in locked weeks
-    if (isTaskInLockedWeek(plan, weekIndex)) continue;
-
-    // Check if scheduledAt is today (local time)
-    try {
-      const scheduledDate = parseISO(scheduledAt);
-      if (isWithinInterval(scheduledDate, { start: todayStart, end: todayEnd })) {
-        tasksForToday.push({
-          task: week.tasks[taskIndex],
-          weekIndex,
-          taskIndex,
-          weekFocus: week.focus,
-          scheduledAt,
-        });
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  // Sort by scheduled time
-  tasksForToday.sort((a, b) => {
-    return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+// If Free user clicks:
+if (!hasAccess) {
+  trackInterest('attempted');
+  toast({
+    title: "Pro Feature",
+    description: "Strategic Review Export is available with Strategic Planning. Upgrade to create professional plan summaries.",
   });
-
-  return tasksForToday;
+  return;
 }
 ```
 
 ---
 
-#### Step 7: Update Plan.tsx to Pass isLockedWeek
+#### Step 4: Add Export Button to Plan Page
 
 **File:** `src/pages/Plan.tsx`
 
-In the `DraggableTaskItem` render (around lines 1325-1342), add the `isLockedWeek` prop:
+Add the export button in the plan overview section (after the identity statement editor, before strategy section):
 
 ```tsx
-<DraggableTaskItem
-  key={taskId}
-  task={task as Task}
-  taskId={taskId}
-  weekIndex={weekIndex}
-  taskIndex={taskIndex}
-  weekNumber={week.week}
-  isActiveWeek={isActiveWeek}
-  isWeekComplete={isWeekComplete}
-  isLockedWeek={isLockedWeek}  // NEW PROP
-  planCreatedAt={planCreatedAt || undefined}
-  onToggle={() => toggleTask(weekIndex, taskIndex)}
-  onCalendarStatusChange={triggerCalendarRefresh}
-  onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
-  executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
-  elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
-  canDrag={canDragResult.allowed}
-  blockReason={canDragResult.reason}
-/>
+{/* Overview with Identity Statement */}
+<div className="animate-fade-in">
+  <div className="flex items-start justify-between gap-4">
+    <div className="flex-1">
+      <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
+      <p className="text-muted-foreground mb-3">{plan.overview}</p>
+    </div>
+    {/* Export Button - intentional placement */}
+    <StrategicReviewExportButton
+      planData={plan}
+      planCreatedAt={planCreatedAt || ''}
+      projectTitle={profile?.projectTitle || 'Untitled Project'}
+      projectDescription={profile?.projectDescription}
+      userName={profile?.fullName}
+    />
+  </div>
+  <IdentityStatementEditor
+    value={plan.identity_statement || ''}
+    onChange={updateIdentityStatement}
+  />
+</div>
 ```
 
 ---
 
-### Drag Behavior (Unchanged)
+### Closing Summary Generation Logic
 
-The following remains exactly as-is:
-- Locked tasks can still be dragged
-- Locked tasks can be moved across weeks
-- Moving a locked task to the current week makes it executable
-- Moving an unlocked task to a locked week makes it non-executable
+The closing summary is derived from existing data without AI regeneration:
 
-This is enforced by the fact that `isLockedWeek` is calculated per-week, not stored on the task. After a move, the task's executability is determined by its new position.
+```typescript
+function generateClosingSummary(
+  executionInsights: ExecutionInsightsData | undefined,
+  realityCheck: RealityCritique | undefined
+): ClosingSummary {
+  return {
+    what_worked: deriveWhatWorked(executionInsights),
+    what_slowed: deriveWhatSlowed(executionInsights, realityCheck),
+    what_to_adjust: deriveWhatToAdjust(executionInsights),
+  };
+}
+
+function deriveWhatWorked(insights: ExecutionInsightsData | undefined): string[] {
+  if (!insights) return [];
+  const items: string[] = [];
+  
+  // From strengths
+  if (insights.productivity_patterns?.strengths) {
+    items.push(...insights.productivity_patterns.strengths.slice(0, 2));
+  }
+  
+  // From effort pattern if positive
+  if (insights.effort_distribution_insight?.pattern === 'smooth-sailing') {
+    items.push('Maintained balanced effort distribution');
+  }
+  
+  // From time estimation if accurate
+  if (insights.time_estimation_insight?.pattern === 'accurate') {
+    items.push('Estimation accuracy was consistent');
+  }
+  
+  return items.slice(0, 3);
+}
+
+function deriveWhatSlowed(
+  insights: ExecutionInsightsData | undefined,
+  realityCheck: RealityCritique | undefined
+): string[] {
+  const items: string[] = [];
+  
+  // From bottlenecks
+  if (insights?.productivity_patterns?.bottlenecks) {
+    items.push(...insights.productivity_patterns.bottlenecks.slice(0, 2));
+  }
+  
+  // From execution diagnosis
+  if (insights?.execution_diagnosis?.primary_mistake) {
+    items.push(insights.execution_diagnosis.primary_mistake.label);
+  }
+  
+  // From high-severity risks
+  const highRisks = realityCheck?.risk_signals?.items
+    ?.filter(r => r.severity === 'high')
+    .slice(0, 1);
+  if (highRisks?.length) {
+    items.push(highRisks[0].signal);
+  }
+  
+  return items.slice(0, 3);
+}
+
+function deriveWhatToAdjust(insights: ExecutionInsightsData | undefined): string[] {
+  const items: string[] = [];
+  
+  // From forward suggestion
+  if (insights?.forward_suggestion) {
+    items.push(insights.forward_suggestion.title);
+  }
+  
+  // From adjustment
+  if (insights?.execution_diagnosis?.adjustment) {
+    items.push(insights.execution_diagnosis.adjustment.action);
+  }
+  
+  return items.slice(0, 2);
+}
+```
 
 ---
 
-### UX Summary
+### UX Specifications
 
-| Task State | Checkbox | Start Button | Timer | Drag |
-|------------|----------|--------------|-------|------|
-| Unlocked, pending | Enabled | "Start Task" shown | Can start | Yes |
-| Unlocked, doing | Enabled | Hidden (timer active) | Running | No (blocked) |
-| Unlocked, done | Enabled | Hidden | N/A | Yes |
-| Locked, pending | Disabled | Hidden, shows "Available when unlocked" | Cannot start | Yes |
-| Locked, done | Disabled | Hidden | N/A | Yes |
+| Element | Specification |
+|---------|---------------|
+| Button Label | "Export Strategic Review" |
+| Button Style | `variant="outline"`, subtle appearance |
+| Button Icon | `FileDown` from Lucide |
+| Loading State | Shows `Loader2` spinner with "Generating..." text |
+| Error State | Toast with "Export failed" message |
+| Success State | Toast with "Report downloaded" message |
+| Pro Indicator | Small star icon via `ProFeatureIndicator` |
+| Free User Click | Toast with calm upsell copy |
+
+**Button Placement:**
+- Right side of plan overview header
+- Aligns with the title row
+- Does not compete with primary actions
+
+---
+
+### Guardrails (Enforced)
+
+| Constraint | Implementation |
+|------------|----------------|
+| Read-only | Export reads current state, no mutations |
+| No regeneration | Uses cached insights/reality check only |
+| No plan modification | Purely client-side PDF generation |
+| No timer/today impact | Isolated export logic in separate file |
+| Error isolation | Try-catch around all PDF operations |
+
+---
+
+### Pro Gating Summary
+
+| User Tier | Button Visible | Click Behavior |
+|-----------|---------------|----------------|
+| Pro (Strategic Plan) | Yes | Generates PDF immediately |
+| Free (Standard Plan) | Yes | Shows tooltip upsell, tracks interest |
+| No Plan | N/A | Button not rendered |
+
+**Upsell Message (Toast):**
+> "Strategic Review Export is available with Strategic Planning. Create professional summaries of your plans and execution insights."
 
 ---
 
 ### Implementation Order
 
-1. Create `src/lib/weekLockStatus.ts` - shared utility
-2. Update `src/components/DraggableTaskItem.tsx` - add `isLockedWeek` prop, pass to TaskItem
-3. Update `src/components/TaskItem.tsx` - add locked state UI enforcement
-4. Update `src/hooks/useExecutionTimer.ts` - add logic guard
-5. Update `src/lib/executionTimer.ts` - add secondary logic guards
-6. Update `src/lib/todayScheduledTasks.ts` - filter locked tasks
-7. Update `src/pages/Plan.tsx` - pass `isLockedWeek` to DraggableTaskItem
+1. Add `strategic-review-export` to `FEATURE_REGISTRY` in `productTiers.ts`
+2. Create `src/lib/strategicReviewPdfExport.ts` with full PDF generation logic
+3. Create `src/components/StrategicReviewExportButton.tsx` with Pro gating
+4. Integrate button into `src/pages/Plan.tsx` in the overview section
+5. Test with both Strategic and Standard plans
 
 ---
 
 ### Testing Checklist
 
-**Execution Blocked:**
-- [ ] Locked task checkbox does nothing when clicked
-- [ ] Locked task shows no "Start Task" button
-- [ ] Locked task shows "Available when this week unlocks" text
-- [ ] Timer cannot be started on locked task (even via direct call)
+**Export Content Accuracy:**
+- [ ] Plan overview section includes all metadata
+- [ ] Strategy section appears only for strategic plans
+- [ ] Tasks grouped correctly by week with current order
+- [ ] Completion status and time spent displayed
+- [ ] Execution insights included if generated
+- [ ] Reality check included if generated
+- [ ] Closing summary derived correctly
 
-**Drag Still Works:**
-- [ ] Locked tasks can still be dragged
-- [ ] Locked tasks can move to unlocked weeks (become executable)
-- [ ] Unlocked tasks can move to locked weeks (become non-executable)
+**Pro Gating:**
+- [ ] Pro users can export immediately
+- [ ] Free users see upsell toast on click
+- [ ] Interest tracked when Free user attempts
+- [ ] ProFeatureIndicator shows star icon
 
-**/today Safety:**
-- [ ] Locked tasks never appear as actionable on /today
-- [ ] If locked task is scheduled for today, it doesn't show
-- [ ] No duplicate tasks, no missing unlocked tasks
+**No Side Effects:**
+- [ ] /today page unaffected
+- [ ] Timers continue normally
+- [ ] Task state unchanged
+- [ ] No API calls except PDF generation
 
-**After Moving:**
-- [ ] Task moved to current week can be started immediately
-- [ ] Task moved to locked week cannot be started
+**Error Handling:**
+- [ ] Graceful failure with toast on error
+- [ ] Loading state displayed during generation
+- [ ] Success toast on completion
 
 ---
 
 ### Summary
 
-This implementation adds execution guards at three levels (UI, logic, data) to ensure locked week tasks cannot be executed while preserving the cross-week drag functionality. The guards are:
+This implementation introduces a Strategic Review Export feature that:
 
-1. **UI:** TaskItem shows "Available when unlocked" instead of Start button
-2. **Logic:** useExecutionTimer and executionTimer.ts reject locked task execution
-3. **Data:** /today filters out tasks from locked weeks
+- Creates a professional, shareable PDF of the user's plan and insights
+- Uses existing cached data (no AI regeneration required)
+- Implements soft Pro gating with interest tracking
+- Maintains strict read-only behavior with no side effects
+- Positions the export as a calm, intentional action fitting the executive tone
 
-The user experience becomes: **"I can reorganize the future, but I can't cheat time."**
-
+The export will feel credible and professional - something users would confidently share with clients, managers, or investors.
