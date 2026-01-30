@@ -79,12 +79,98 @@ export type Database = {
         }
         Relationships: []
       }
+      review_feedback: {
+        Row: {
+          challenge_areas: string[] | null
+          feels_realistic: string | null
+          id: string
+          shared_review_id: string
+          submitted_at: string | null
+          unclear_or_risky: string | null
+        }
+        Insert: {
+          challenge_areas?: string[] | null
+          feels_realistic?: string | null
+          id?: string
+          shared_review_id: string
+          submitted_at?: string | null
+          unclear_or_risky?: string | null
+        }
+        Update: {
+          challenge_areas?: string[] | null
+          feels_realistic?: string | null
+          id?: string
+          shared_review_id?: string
+          submitted_at?: string | null
+          unclear_or_risky?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_feedback_shared_review_id_fkey"
+            columns: ["shared_review_id"]
+            isOneToOne: false
+            referencedRelation: "shared_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_reviews: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          plan_id: string
+          plan_snapshot: Json
+          revoked: boolean | null
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          plan_id: string
+          plan_snapshot: Json
+          revoked?: boolean | null
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          plan_id?: string
+          plan_snapshot?: Json
+          revoked?: boolean | null
+          token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_reviews_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      owns_shared_review: {
+        Args: { _shared_review_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -15,6 +15,7 @@ import Today from "./pages/Today";
 import PlanNew from "./pages/PlanNew";
 import Plan from "./pages/Plan";
 import PlanReset from "./pages/PlanReset";
+import SharedReview from "./pages/SharedReview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,8 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* Public shared review - no auth required */}
+            <Route path="/review/:token" element={<SharedReview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -34,7 +34,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { 
   Rocket, LogOut, Target, Calendar, CalendarPlus,
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight,
-  GitBranch, List, ChevronDown, Lightbulb, AlertTriangle
+  GitBranch, List, ChevronDown, Lightbulb, AlertTriangle, Scissors
 } from 'lucide-react';
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
 import { PlanRealityCheck } from '@/components/PlanRealityCheck';
@@ -45,7 +45,13 @@ import { ProgressProof } from '@/components/ProgressProof';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { PlanFlowView } from '@/components/PlanFlowView';
 import { StrategicReviewExportButton } from '@/components/StrategicReviewExportButton';
+import { ShareReviewButton } from '@/components/ShareReviewButton';
+import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
+import { AddTaskModal } from '@/components/AddTaskModal';
+import { SplitTaskModal } from '@/components/SplitTaskModal';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
+import { useTaskMutations, NewTask } from '@/hooks/useTaskMutations';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { 
   fetchExecutionProfile, 
   extractProfileFromPlan,
@@ -173,6 +179,13 @@ const Plan = () => {
     taskIndex: number;
     title: string;
     estimatedHours: number;
+  } | null>(null);
+  // Manual task control state
+  const [addTaskModalWeek, setAddTaskModalWeek] = useState<number | null>(null);
+  const [splitTaskData, setSplitTaskData] = useState<{
+    weekIndex: number;
+    taskIndex: number;
+    task: Task;
   } | null>(null);
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
@@ -325,6 +338,19 @@ const Plan = () => {
     activeTimer: executionTimer.activeTimer,
     onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
   });
+
+  // Initialize task mutations hook for manual add/split
+  const { addTask, splitTask, canSplitTask, isMutating: isTaskMutating } = useTaskMutations({
+    plan,
+    planId,
+    userId: user?.id,
+    activeTimer: executionTimer.activeTimer,
+    onPlanUpdate: (updatedPlan) => setPlan(updatedPlan as PlanData),
+  });
+
+  // Feature access for manual task controls
+  const { hasAccess: canAddTasks, trackInterest: trackAddInterest } = useFeatureAccess('manual-task-add', plan);
+  const { hasAccess: canSplitTasks, trackInterest: trackSplitInterest } = useFeatureAccess('task-split', plan);
 
   // DnD state for cross-week drag
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -917,13 +943,21 @@ const Plan = () => {
                   <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
                   <p className="text-muted-foreground mb-3">{plan.overview}</p>
                 </div>
-                <StrategicReviewExportButton
-                  planData={plan}
-                  planCreatedAt={planCreatedAt || ''}
-                  projectTitle={profile?.projectTitle || 'Untitled Project'}
-                  projectDescription={profile?.projectDescription || undefined}
-                  userName={profile?.fullName || undefined}
-                />
+                <div className="flex items-center gap-2 shrink-0">
+                  {planId && (
+                    <ShareReviewButton
+                      planId={planId}
+                      planData={plan}
+                    />
+                  )}
+                  <StrategicReviewExportButton
+                    planData={plan}
+                    planCreatedAt={planCreatedAt || ''}
+                    projectTitle={profile?.projectTitle || 'Untitled Project'}
+                    projectDescription={profile?.projectDescription || undefined}
+                    userName={profile?.fullName || undefined}
+                  />
+                </div>
               </div>
               <IdentityStatementEditor
                 value={plan.identity_statement || ''}
@@ -1050,6 +1084,11 @@ const Plan = () => {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
+            )}
+
+            {/* External Feedback Section - Shows aggregated feedback from shared reviews */}
+            {planId && (
+              <ExternalFeedbackSection planId={planId} />
             )}
 
             {/* Plan Reality Check - AI-powered critique */}
@@ -1395,6 +1434,32 @@ const Plan = () => {
                           </p>
                         </div>
                       )}
+                      
+                      {/* Add Task Button - Active weeks only */}
+                      {isActiveWeek && !isWeekComplete && (
+                        <div className="mt-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (!canAddTasks) {
+                                trackAddInterest('attempted');
+                                toast({
+                                  title: 'Pro Feature',
+                                  description: 'Add Tasks is available with Strategic Planning.',
+                                });
+                                return;
+                              }
+                              setAddTaskModalWeek(weekIndex);
+                            }}
+                            className="w-full border-dashed border-2 border-muted-foreground/20 hover:border-primary/30 hover:bg-primary/5"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Task
+                            {!canAddTasks && <ProFeatureIndicator featureId="manual-task-add" variant="star" className="ml-2" />}
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -1591,6 +1656,26 @@ const Plan = () => {
             totalTimeSpent: plan ? compileExecutionMetrics(plan).totalTimeSpent : 0,
             averageVariance: plan ? compileExecutionMetrics(plan).estimationAccuracy.averageVariance : 0,
           }}
+        />
+      )}
+
+      {/* Add Task Modal */}
+      {addTaskModalWeek !== null && plan && (
+        <AddTaskModal
+          open={addTaskModalWeek !== null}
+          onOpenChange={(open) => !open && setAddTaskModalWeek(null)}
+          weekNumber={plan.weeks[addTaskModalWeek]?.week || addTaskModalWeek + 1}
+          onAddTask={(task) => addTask(addTaskModalWeek, task)}
+        />
+      )}
+
+      {/* Split Task Modal */}
+      {splitTaskData && (
+        <SplitTaskModal
+          open={!!splitTaskData}
+          onOpenChange={(open) => !open && setSplitTaskData(null)}
+          task={splitTaskData.task}
+          onSplit={(task1, task2) => splitTask(splitTaskData.weekIndex, splitTaskData.taskIndex, task1, task2)}
         />
       )}
     </div>
