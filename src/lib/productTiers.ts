@@ -141,6 +141,34 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     category: 'export',
     description: 'Export professional plan and insights summary as PDF',
   },
+  'share-review': {
+    id: 'share-review',
+    name: 'Share Review',
+    tier: 'pro',
+    category: 'export',
+    description: 'Generate shareable read-only review links',
+  },
+  'external-feedback': {
+    id: 'external-feedback',
+    name: 'External Feedback',
+    tier: 'pro',
+    category: 'insights',
+    description: 'Collect structured feedback from reviewers',
+  },
+  'manual-task-add': {
+    id: 'manual-task-add',
+    name: 'Add Tasks Manually',
+    tier: 'pro',
+    category: 'planning',
+    description: 'Add new tasks directly to your plan',
+  },
+  'task-split': {
+    id: 'task-split',
+    name: 'Split Tasks',
+    tier: 'pro',
+    category: 'planning',
+    description: 'Split existing tasks into smaller parts',
+  },
 };
 
 /**
