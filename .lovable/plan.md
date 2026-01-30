@@ -1,49 +1,101 @@
 
-## Strategic Review Export
+
+## Shareable Review & Manual Event Control
 
 ### Overview
-This feature introduces a professional PDF export capability on the `/plan` page that allows users to generate a comprehensive, shareable document of their plan and execution insights. This is the first feature designed to make the "Pro" tier tangibly valuable.
 
-**Core Principle:** "I could show this to a client, manager, or investor."
+This implementation adds two major capabilities:
 
----
+**Part A — Shareable Review & Feedback Loop**
+- Generate secure, read-only shareable links for plan reviews
+- Collect structured feedback from external viewers
+- Display aggregated feedback to plan owners
 
-### Current State Analysis
+**Part B — Manual Event Control**
+- Split existing tasks into two
+- Add new tasks manually to any week
 
-**Existing PDF Export:**
-- `src/lib/progressPdfExport.ts` - Exports progress history (historical trends, plan comparisons)
-- Uses `jsPDF` library (already installed)
-- Called from `ProgressProof.tsx` component
-
-**Plan Data Structure (in `plan_json`):**
-- `overview`, `total_weeks`, `weeks[]`, `milestones[]`, `motivation[]`
-- `is_strategic_plan`, `strategy_overview`, `assumptions`, `risks`
-- `reality_check` - cached AI critique (feasibility, risk signals, focus gaps)
-- `execution_insights` - cached execution analysis (diagnosis, patterns, suggestions)
-
-**Pro Feature Gating:**
-- `FEATURE_REGISTRY` in `productTiers.ts` defines feature tiers
-- `ProFeatureIndicator` shows subtle indicators
-- `hasFeatureAccess()` checks if user has access
-- `trackFeatureInterest()` logs interest for analytics
+Both feature sets respect Pro gating (soft), plan integrity, and never auto-modify execution state.
 
 ---
 
-### Architecture Approach
+### Architecture Overview
 
 ```text
 +-------------------+     +-------------------+     +-------------------+
-|   Plan.tsx        | --> | StrategicReview   | --> | strategicReview   |
-|  (Export button   |     | ExportButton      |     | PdfExport.ts      |
-|   in header area) |     | (UI + Pro gate)   |     | (PDF generation)  |
+|   /plan page      | --> | ShareReviewModal  | --> | shared_reviews    |
+|  (Owner controls) |     | (Generate links)  |     | (Supabase table)  |
++-------------------+     +-------------------+     +-------------------+
+                                                            |
+                                                            v
++-------------------+     +-------------------+     +-------------------+
+| /review/:token    | --> | SharedReviewPage  | --> | review_feedback   |
+| (Public view)     |     | (Read-only view)  |     | (Supabase table)  |
 +-------------------+     +-------------------+     +-------------------+
 ```
 
-**Key Design Decisions:**
-1. Create a new dedicated PDF export file (`strategicReviewPdfExport.ts`) rather than extending the existing progress export
-2. Add export button near the plan header/overview section (intentional, not flashy)
-3. Use soft Pro gating - visible to all, calm upsell for Free users
-4. Export is strictly read-only - no data modifications
+---
+
+## Part A: Shareable Review & Feedback
+
+### Database Schema Changes
+
+**Table: `shared_reviews`**
+```sql
+CREATE TABLE public.shared_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  
+  -- Snapshot of plan at share time (for stability)
+  plan_snapshot JSONB NOT NULL
+);
+
+-- RLS: Owners can manage their shares
+CREATE POLICY "Owners can manage their shares"
+  ON shared_reviews FOR ALL
+  USING (auth.uid() = user_id);
+
+-- Allow public select by token (for viewers)
+CREATE POLICY "Anyone can view by token"
+  ON shared_reviews FOR SELECT
+  USING (true);
+```
+
+**Table: `review_feedback`**
+```sql
+CREATE TABLE public.review_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_review_id UUID NOT NULL REFERENCES shared_reviews(id) ON DELETE CASCADE,
+  
+  -- Structured feedback
+  feels_realistic TEXT, -- 'yes' | 'somewhat' | 'no'
+  challenge_areas TEXT[], -- ['timeline', 'scope', 'resources', 'priorities']
+  unclear_or_risky TEXT, -- short text (max 500 chars)
+  
+  -- Metadata
+  submitted_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS: Anyone can insert feedback (no auth required)
+CREATE POLICY "Anyone can submit feedback"
+  ON review_feedback FOR INSERT
+  WITH CHECK (true);
+
+-- Owners can read feedback for their reviews
+CREATE POLICY "Owners can read their feedback"
+  ON review_feedback FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM shared_reviews sr
+      WHERE sr.id = shared_review_id AND sr.user_id = auth.uid()
+    )
+  );
+```
 
 ---
 
@@ -51,381 +103,411 @@ This feature introduces a professional PDF export capability on the `/plan` page
 
 | File | Description |
 |------|-------------|
-| `src/lib/strategicReviewPdfExport.ts` | Main PDF generation logic for Strategic Review export |
-| `src/components/StrategicReviewExportButton.tsx` | Export button component with Pro gating and loading states |
+| `src/components/ShareReviewModal.tsx` | Modal for generating/managing share links |
+| `src/components/ShareReviewButton.tsx` | Button to open share modal (with Pro gating) |
+| `src/components/ExternalFeedbackSection.tsx` | Collapsible section showing feedback on /plan |
+| `src/pages/SharedReview.tsx` | Public read-only view at /review/:token |
+| `src/components/SharedReviewContent.tsx` | The actual review content (reusable) |
+| `src/components/SharedReviewFeedbackForm.tsx` | Structured feedback form for viewers |
+| `src/lib/shareReview.ts` | Utilities for token generation, link management |
+| `src/hooks/useSharedReview.ts` | Hook for fetching shared review data |
+| `src/hooks/useReviewFeedback.ts` | Hook for fetching/aggregating feedback |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/lib/productTiers.ts` | Add `strategic-review-export` feature to registry |
-| `src/pages/Plan.tsx` | Add StrategicReviewExportButton in plan overview section |
+| `src/lib/productTiers.ts` | Add `share-review` and `external-feedback` features |
+| `src/pages/Plan.tsx` | Add ShareReviewButton and ExternalFeedbackSection |
+| `src/App.tsx` | Add `/review/:token` route |
+| `supabase/config.toml` | No edge functions needed (client-side operations) |
 
 ---
 
-### Technical Implementation
+### Technical Implementation Details
 
-#### Step 1: Register Feature in Product Tiers
-
-**File:** `src/lib/productTiers.ts`
-
-Add new feature entry to `FEATURE_REGISTRY`:
+#### 1. Token Generation
 
 ```typescript
-'strategic-review-export': {
-  id: 'strategic-review-export',
-  name: 'Strategic Review Export',
-  tier: 'pro',
-  category: 'export',
-  description: 'Export professional plan and insights summary as PDF',
-},
-```
+// src/lib/shareReview.ts
+export function generateShareToken(): string {
+  // 16 bytes = 128 bits of entropy, URL-safe base64
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(36)).join('');
+}
 
----
+export function getShareUrl(token: string): string {
+  return `${window.location.origin}/review/${token}`;
+}
 
-#### Step 2: Create PDF Export Logic
-
-**File:** `src/lib/strategicReviewPdfExport.ts`
-
-A comprehensive PDF generator that includes all specified content sections:
-
-**Export Configuration Interface:**
-```typescript
-interface StrategicReviewExportConfig {
-  // Plan metadata
-  projectTitle: string;
-  projectDescription?: string;
-  planningMode: 'Strategic' | 'Standard';
-  createdAt: string;
-  scenarioContext?: ScenarioTag;
-  
-  // User info
-  userName?: string;
-  
-  // Plan data
-  planData: PlanData;
-  
-  // Cached insights (optional)
-  realityCheck?: RealityCritique;
-  executionInsights?: ExecutionInsightsData;
+export function getExpiryDate(days: 7 | 14 | 30): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
 }
 ```
 
-**PDF Sections (in order):**
+#### 2. Share Modal Flow
 
-1. **Header**
-   - "Strategic Review" title
-   - Generated date
-   - User name (if available)
+```typescript
+// ShareReviewModal.tsx
+interface ShareReviewModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  planId: string;
+  planData: PlanData;
+  existingShares?: SharedReview[];
+}
 
-2. **Plan Overview**
-   - Project title
-   - Description
-   - Planning mode (Standard / Strategic)
-   - Creation date
-   - Scenario context (if available)
+// States:
+// 1. No active share → Show "Generate Link" with expiry options
+// 2. Active share → Show link, copy button, revoke option
+// 3. Multiple shares → List with management controls
+```
 
-3. **Strategy Section (Strategic Plans Only)**
-   - Strategy overview (objective, why now, success definition)
-   - Key assumptions
-   - Risks & blind spots (with mitigations)
-   - Strategic milestones
+#### 3. Shared Review Page Structure
 
-4. **Task Structure**
-   - Tasks grouped by week
-   - Shows: task title, priority, completion status, time spent
-   - Respects current user-reordered state
+```typescript
+// src/pages/SharedReview.tsx
+const SharedReview = () => {
+  const { token } = useParams();
+  const { data, loading, error } = useSharedReview(token);
+  
+  if (loading) return <LoadingState />;
+  if (error || !data) return <NotFoundState />;
+  if (data.revoked) return <RevokedState />;
+  if (new Date(data.expires_at) < new Date()) return <ExpiredState />;
+  
+  return (
+    <div className="min-h-screen bg-background">
+      <SharedReviewContent planSnapshot={data.plan_snapshot} />
+      <SharedReviewFeedbackForm sharedReviewId={data.id} />
+    </div>
+  );
+};
+```
 
-5. **Execution Insights (If Generated)**
-   - Time estimation pattern
-   - Effort distribution insight
-   - Productivity patterns (peak, bottlenecks, strengths)
-   - Forward suggestion
-   - Execution diagnosis (primary mistake, secondary pattern, adjustment)
+#### 4. Shared Review Content (Read-Only)
 
-6. **Reality Check (If Generated)**
-   - Feasibility assessment with badge
-   - Risk signals with severity
-   - Focus gaps
-   - Strategic blind spots (if strategic)
-   - De-prioritization suggestions
+The shared view includes:
+- Plan overview, project title, description
+- Strategy section (if strategic plan)
+- Task structure grouped by week (completion status visible)
+- Execution insights (if generated)
+- Reality check summary (if generated)
 
-7. **Closing Summary**
-   - Generated from execution data if available
-   - "What worked" - derived from strengths/smooth patterns
-   - "What slowed execution" - derived from bottlenecks/diagnosis
-   - "What to adjust next cycle" - derived from forward suggestion/adjustment
+**Excluded from shared view:**
+- Timers
+- Start/Done buttons
+- Internal effort logs
+- Any editable controls
+- Owner's name (privacy)
 
-8. **Footer**
-   - Page numbers
-   - "Generated by Kaamyab"
+#### 5. Feedback Form Structure
 
-**Visual Design:**
-- Use existing brand colors from `progressPdfExport.ts`
-- Primary Green: `[14, 159, 110]` (#0E9F6E)
-- Text: `[15, 23, 42]` (#0F172A)
-- Muted: `[71, 85, 105]` (#475569)
-- Clean section headers with accent bar
-- Alternating row colors for task tables
-- Professional typography (Helvetica)
+```typescript
+interface FeedbackFormData {
+  feels_realistic: 'yes' | 'somewhat' | 'no';
+  challenge_areas: Array<'timeline' | 'scope' | 'resources' | 'priorities'>;
+  unclear_or_risky: string; // max 500 chars
+}
+```
+
+**UI Components:**
+- Radio group for realism question
+- Multi-select chips for challenge areas
+- Short text input (500 char limit) for unclear/risky notes
+- Single submit button, one submission per session (localStorage tracking)
+
+#### 6. Feedback Aggregation (Owner View)
+
+```typescript
+// src/hooks/useReviewFeedback.ts
+interface AggregatedFeedback {
+  totalResponses: number;
+  realism: { yes: number; somewhat: number; no: number };
+  challengeAreas: Record<string, number>; // counts by area
+  unclearNotes: string[]; // raw responses
+}
+
+// Displayed in ExternalFeedbackSection on /plan page
+```
 
 ---
 
-#### Step 3: Create Export Button Component
+## Part B: Manual Event Control
 
-**File:** `src/components/StrategicReviewExportButton.tsx`
+### Task Structure (Unchanged)
 
-A button component that handles:
-- Pro gating with soft upsell
-- Loading state during PDF generation
-- Error handling with toast notifications
-- Interest tracking for Free users
+Tasks remain stored in `plan_json.weeks[].tasks[]` with existing fields:
+- `title`, `priority`, `estimated_hours`, `completed`, `execution_state`, etc.
 
-**Component Structure:**
+### Files to Create
+
+| File | Description |
+|------|-------------|
+| `src/components/AddTaskModal.tsx` | Modal for adding new tasks |
+| `src/components/SplitTaskModal.tsx` | Modal for splitting existing tasks |
+| `src/components/TaskQuickActionsMenu.tsx` | Context menu with Split/Edit options |
+| `src/hooks/useTaskMutations.ts` | Hook for add/split task operations |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/lib/productTiers.ts` | Add `manual-task-add` and `task-split` features |
+| `src/pages/Plan.tsx` | Add "Add Task" button per week, integrate split action |
+| `src/components/DraggableTaskItem.tsx` | Add context menu trigger |
+
+---
+
+### Technical Implementation Details
+
+#### 1. Add Task Flow
+
 ```typescript
-interface StrategicReviewExportButtonProps {
-  planData: PlanData;
-  planCreatedAt: string;
-  projectTitle: string;
-  projectDescription?: string;
-  userName?: string;
-  className?: string;
+// AddTaskModal.tsx
+interface AddTaskModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  weekIndex: number;
+  onAddTask: (task: NewTask) => Promise<void>;
+}
+
+interface NewTask {
+  title: string;
+  description?: string;
+  priority: 'High' | 'Medium' | 'Low';
+  estimated_hours: number;
 }
 ```
 
 **Behavior:**
-- **Pro Users:** Click generates PDF immediately
-- **Free Users:** Click shows calm tooltip/toast with upsell message
-- Shows `FileDown` or `Download` icon from Lucide
-- Label: "Export Strategic Review"
-- Subtext (on hover/tooltip): "Creates a professional summary of your plan and execution"
+- User clicks "Add Task" button (per week or global)
+- Modal opens with form: title, priority, estimated hours
+- On submit: task added to `plan.weeks[weekIndex].tasks[]`
+- New task starts as `execution_state: 'pending'`
+- No timer, no AI assumptions
 
-**Pro Gating UI:**
+#### 2. Split Task Flow
+
 ```typescript
-const { hasAccess, isPro, trackInterest } = useFeatureAccess('strategic-review-export', planData);
-
-// If Free user clicks:
-if (!hasAccess) {
-  trackInterest('attempted');
-  toast({
-    title: "Pro Feature",
-    description: "Strategic Review Export is available with Strategic Planning. Upgrade to create professional plan summaries.",
-  });
-  return;
+// SplitTaskModal.tsx
+interface SplitTaskModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: Task;
+  weekIndex: number;
+  taskIndex: number;
+  onSplit: (task1: Task, task2: Task) => Promise<void>;
 }
 ```
 
----
+**Behavior:**
+- User selects "Split" from task context menu
+- Modal shows original task with split point selector
+- Options:
+  - Even split (50/50 estimated time)
+  - Custom split (user adjusts time allocation)
+  - Title editing for both resulting tasks
+- On confirm: original task removed, two new tasks inserted at same position
+- Both inherit: week, priority, pending state
+- Neither inherits: timer data, completion status
 
-#### Step 4: Add Export Button to Plan Page
+**Guards:**
+- Cannot split if `execution_state === 'doing'`
+- Cannot split if `completed === true`
+- Cannot split if task has active timer
 
-**File:** `src/pages/Plan.tsx`
+#### 3. Task Mutations Hook
 
-Add the export button in the plan overview section (after the identity statement editor, before strategy section):
+```typescript
+// src/hooks/useTaskMutations.ts
+interface UseTaskMutationsReturn {
+  addTask: (weekIndex: number, task: NewTask) => Promise<void>;
+  splitTask: (weekIndex: number, taskIndex: number, task1: Task, task2: Task) => Promise<void>;
+  canSplitTask: (weekIndex: number, taskIndex: number) => { allowed: boolean; reason?: string };
+  isMutating: boolean;
+}
+```
 
+**Implementation pattern:**
+- Follows existing `useCrossWeekTaskMove` pattern
+- Optimistic updates with rollback
+- Persists to Supabase `plan_json`
+- No AI regeneration triggered
+
+#### 4. Integration Points
+
+**Add Task Button (per week):**
 ```tsx
-{/* Overview with Identity Statement */}
-<div className="animate-fade-in">
-  <div className="flex items-start justify-between gap-4">
-    <div className="flex-1">
-      <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
-      <p className="text-muted-foreground mb-3">{plan.overview}</p>
-    </div>
-    {/* Export Button - intentional placement */}
-    <StrategicReviewExportButton
-      planData={plan}
-      planCreatedAt={planCreatedAt || ''}
-      projectTitle={profile?.projectTitle || 'Untitled Project'}
-      projectDescription={profile?.projectDescription}
-      userName={profile?.fullName}
-    />
-  </div>
-  <IdentityStatementEditor
-    value={plan.identity_statement || ''}
-    onChange={updateIdentityStatement}
-  />
-</div>
+// In Plan.tsx, inside each week's CardContent
+{isActiveWeek && (
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => setAddTaskModalWeek(weekIndex)}
+    className="w-full border-dashed border-2 border-muted-foreground/20 mt-2"
+  >
+    <Plus className="w-4 h-4 mr-2" />
+    Add Task
+  </Button>
+)}
+```
+
+**Split Action (task context menu):**
+```tsx
+// In DraggableTaskItem.tsx or via TaskQuickActionsMenu
+<DropdownMenu>
+  <DropdownMenuItem onClick={() => onSplitTask()}>
+    <Scissors className="w-4 h-4 mr-2" />
+    Split Task
+  </DropdownMenuItem>
+</DropdownMenu>
 ```
 
 ---
 
-### Closing Summary Generation Logic
+## Pro Gating Strategy
 
-The closing summary is derived from existing data without AI regeneration:
+| Feature | Pro Gate | Behavior |
+|---------|----------|----------|
+| Share Review | Yes | Free users see upsell toast on click |
+| External Feedback | Yes | Same as above |
+| Add Task Manually | Yes | Free users see upsell toast |
+| Split Task | Yes | Free users see upsell toast |
+
+**No hard paywalls.** All features visible, gated via soft messaging.
 
 ```typescript
-function generateClosingSummary(
-  executionInsights: ExecutionInsightsData | undefined,
-  realityCheck: RealityCritique | undefined
-): ClosingSummary {
-  return {
-    what_worked: deriveWhatWorked(executionInsights),
-    what_slowed: deriveWhatSlowed(executionInsights, realityCheck),
-    what_to_adjust: deriveWhatToAdjust(executionInsights),
-  };
-}
+// Example gating pattern (consistent with existing)
+const { hasAccess, trackInterest } = useFeatureAccess('share-review', planData);
 
-function deriveWhatWorked(insights: ExecutionInsightsData | undefined): string[] {
-  if (!insights) return [];
-  const items: string[] = [];
-  
-  // From strengths
-  if (insights.productivity_patterns?.strengths) {
-    items.push(...insights.productivity_patterns.strengths.slice(0, 2));
+const handleShare = () => {
+  if (!hasAccess) {
+    trackInterest('attempted');
+    toast({
+      title: 'Pro Feature',
+      description: 'Share Review is available with Strategic Planning.',
+    });
+    return;
   }
-  
-  // From effort pattern if positive
-  if (insights.effort_distribution_insight?.pattern === 'smooth-sailing') {
-    items.push('Maintained balanced effort distribution');
-  }
-  
-  // From time estimation if accurate
-  if (insights.time_estimation_insight?.pattern === 'accurate') {
-    items.push('Estimation accuracy was consistent');
-  }
-  
-  return items.slice(0, 3);
-}
-
-function deriveWhatSlowed(
-  insights: ExecutionInsightsData | undefined,
-  realityCheck: RealityCritique | undefined
-): string[] {
-  const items: string[] = [];
-  
-  // From bottlenecks
-  if (insights?.productivity_patterns?.bottlenecks) {
-    items.push(...insights.productivity_patterns.bottlenecks.slice(0, 2));
-  }
-  
-  // From execution diagnosis
-  if (insights?.execution_diagnosis?.primary_mistake) {
-    items.push(insights.execution_diagnosis.primary_mistake.label);
-  }
-  
-  // From high-severity risks
-  const highRisks = realityCheck?.risk_signals?.items
-    ?.filter(r => r.severity === 'high')
-    .slice(0, 1);
-  if (highRisks?.length) {
-    items.push(highRisks[0].signal);
-  }
-  
-  return items.slice(0, 3);
-}
-
-function deriveWhatToAdjust(insights: ExecutionInsightsData | undefined): string[] {
-  const items: string[] = [];
-  
-  // From forward suggestion
-  if (insights?.forward_suggestion) {
-    items.push(insights.forward_suggestion.title);
-  }
-  
-  // From adjustment
-  if (insights?.execution_diagnosis?.adjustment) {
-    items.push(insights.execution_diagnosis.adjustment.action);
-  }
-  
-  return items.slice(0, 2);
-}
+  setShareModalOpen(true);
+};
 ```
 
 ---
 
-### UX Specifications
+## Routing Changes
 
-| Element | Specification |
-|---------|---------------|
-| Button Label | "Export Strategic Review" |
-| Button Style | `variant="outline"`, subtle appearance |
-| Button Icon | `FileDown` from Lucide |
-| Loading State | Shows `Loader2` spinner with "Generating..." text |
-| Error State | Toast with "Export failed" message |
-| Success State | Toast with "Report downloaded" message |
-| Pro Indicator | Small star icon via `ProFeatureIndicator` |
-| Free User Click | Toast with calm upsell copy |
-
-**Button Placement:**
-- Right side of plan overview header
-- Aligns with the title row
-- Does not compete with primary actions
+**New route in App.tsx:**
+```tsx
+// Public route (no auth required)
+<Route path="/review/:token" element={<SharedReview />} />
+```
 
 ---
 
-### Guardrails (Enforced)
+## Guardrails (Enforced)
 
 | Constraint | Implementation |
 |------------|----------------|
-| Read-only | Export reads current state, no mutations |
-| No regeneration | Uses cached insights/reality check only |
-| No plan modification | Purely client-side PDF generation |
-| No timer/today impact | Isolated export logic in separate file |
-| Error isolation | Try-catch around all PDF operations |
+| Read-only shared views | No mutation endpoints exposed on shared review page |
+| No timer/execution modification | Share creates snapshot, mutations use plan_json only |
+| No AI regeneration | All operations are pure array manipulations |
+| Locked week respect | Add/split only allowed on active week |
+| /today integrity | No changes to today task selector logic |
+| Execution state preserved | Split creates two `pending` tasks, never `doing` or `done` |
 
 ---
 
-### Pro Gating Summary
+## Feedback → Future Planning (Subtle)
 
-| User Tier | Button Visible | Click Behavior |
-|-----------|---------------|----------------|
-| Pro (Strategic Plan) | Yes | Generates PDF immediately |
-| Free (Standard Plan) | Yes | Shows tooltip upsell, tracks interest |
-| No Plan | N/A | Button not rendered |
+When user resets plan or creates new strategic plan, optionally show:
 
-**Upsell Message (Toast):**
-> "Strategic Review Export is available with Strategic Planning. Create professional summaries of your plans and execution insights."
+```typescript
+// In PlanReset.tsx, after loading existing feedback
+{previousFeedback?.length > 0 && (
+  <Card className="bg-muted/30 border-muted">
+    <CardContent className="py-3 flex items-center gap-2">
+      <AlertCircle className="w-4 h-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">
+        Previous reviewers flagged: {summarizeFeedback(previousFeedback)}
+      </span>
+      <Button variant="ghost" size="sm" onClick={() => setShowHint(false)}>
+        Dismiss
+      </Button>
+    </CardContent>
+  </Card>
+)}
+```
 
----
-
-### Implementation Order
-
-1. Add `strategic-review-export` to `FEATURE_REGISTRY` in `productTiers.ts`
-2. Create `src/lib/strategicReviewPdfExport.ts` with full PDF generation logic
-3. Create `src/components/StrategicReviewExportButton.tsx` with Pro gating
-4. Integrate button into `src/pages/Plan.tsx` in the overview section
-5. Test with both Strategic and Standard plans
-
----
-
-### Testing Checklist
-
-**Export Content Accuracy:**
-- [ ] Plan overview section includes all metadata
-- [ ] Strategy section appears only for strategic plans
-- [ ] Tasks grouped correctly by week with current order
-- [ ] Completion status and time spent displayed
-- [ ] Execution insights included if generated
-- [ ] Reality check included if generated
-- [ ] Closing summary derived correctly
-
-**Pro Gating:**
-- [ ] Pro users can export immediately
-- [ ] Free users see upsell toast on click
-- [ ] Interest tracked when Free user attempts
-- [ ] ProFeatureIndicator shows star icon
-
-**No Side Effects:**
-- [ ] /today page unaffected
-- [ ] Timers continue normally
-- [ ] Task state unchanged
-- [ ] No API calls except PDF generation
-
-**Error Handling:**
-- [ ] Graceful failure with toast on error
-- [ ] Loading state displayed during generation
-- [ ] Success toast on completion
+This is skippable, non-blocking, and purely informational.
 
 ---
 
-### Summary
+## Implementation Order
 
-This implementation introduces a Strategic Review Export feature that:
+### Phase A: Shareable Review
+1. Database migration: Create `shared_reviews` and `review_feedback` tables
+2. Register new features in `productTiers.ts`
+3. Create `src/lib/shareReview.ts` with token utilities
+4. Create `ShareReviewButton.tsx` and `ShareReviewModal.tsx`
+5. Create `SharedReview.tsx` page and `SharedReviewContent.tsx`
+6. Create `SharedReviewFeedbackForm.tsx`
+7. Create `ExternalFeedbackSection.tsx` for /plan page
+8. Add route to `App.tsx`
+9. Integrate components into `Plan.tsx`
 
-- Creates a professional, shareable PDF of the user's plan and insights
-- Uses existing cached data (no AI regeneration required)
-- Implements soft Pro gating with interest tracking
-- Maintains strict read-only behavior with no side effects
-- Positions the export as a calm, intentional action fitting the executive tone
+### Phase B: Manual Event Control
+10. Register new features in `productTiers.ts`
+11. Create `useTaskMutations.ts` hook
+12. Create `AddTaskModal.tsx`
+13. Create `SplitTaskModal.tsx`
+14. Create or extend task context menu
+15. Integrate into `Plan.tsx` and `DraggableTaskItem.tsx`
 
-The export will feel credible and professional - something users would confidently share with clients, managers, or investors.
+---
+
+## Testing Checklist
+
+**Shareable Review:**
+- [ ] Generate share link with 7/14/30 day expiry
+- [ ] Access shared review without authentication
+- [ ] Shared view shows plan structure, no edit controls
+- [ ] Submit feedback as viewer (one per session)
+- [ ] Owner sees aggregated feedback in collapsible section
+- [ ] Revoke link makes it inaccessible
+- [ ] Expired link shows appropriate message
+- [ ] Free users see Pro upsell on share attempt
+
+**Manual Event Control:**
+- [ ] Add task to active week
+- [ ] New task appears in correct position
+- [ ] New task participates in reordering/execution
+- [ ] Split task into two with time allocation
+- [ ] Split disabled for in-progress/completed tasks
+- [ ] Both new tasks inherit week/priority
+- [ ] Neither new task inherits timer data
+- [ ] Free users see Pro upsell on add/split attempt
+
+**Integrity:**
+- [ ] /today continues to work correctly
+- [ ] Timers unaffected
+- [ ] Execution insights not regenerated
+- [ ] No data loss on rollback scenarios
+
+---
+
+## Summary
+
+This implementation delivers:
+
+1. **External Validation** — Shareable, professional review links with structured feedback collection
+2. **Internal Correction** — Manual task add/split for user control over plan structure
+3. **Pro Value** — Features that make Strategic Planning tangibly worth paying for
+4. **User Agency** — "The AI helps — but I'm in control"
+
+All operations are read-only for viewers, non-destructive for owners, and maintain full compatibility with existing execution, timer, and insight systems.
+
