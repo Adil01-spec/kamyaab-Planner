@@ -18,7 +18,7 @@ export function generateShareToken(): string {
  * Get the full shareable URL for a review token
  */
 export function getShareUrl(token: string): string {
-  return `${window.location.origin}/review/${token}`;
+  return `${window.location.origin}/shared-review/${token}`;
 }
 
 /**

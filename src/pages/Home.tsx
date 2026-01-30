@@ -15,7 +15,8 @@ import {
   Clock,
   Check,
   Sun,
-  Settings
+  Settings,
+  BarChart3
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -815,7 +816,7 @@ const Home = () => {
                 Go to Today's Focus
               </CursorExplosionButton>
 
-              {/* Secondary CTA - with cursor explosion effect */}
+              {/* Secondary CTA - View Full Plan */}
               <CursorExplosionButton
                 variant="ghost"
                 className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
@@ -823,6 +824,17 @@ const Home = () => {
               >
                 View Full Plan
                 <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
+              </CursorExplosionButton>
+
+              {/* Plan Review Entry */}
+              <CursorExplosionButton
+                variant="outline"
+                className="w-full h-9 text-sm font-medium text-muted-foreground hover:text-foreground border-dashed"
+                onClick={() => navigate('/review')}
+              >
+                <BarChart3 className="mr-2 w-4 h-4" />
+                Plan Review
+                <span className="ml-2 text-xs opacity-60">Strategy & insights</span>
               </CursorExplosionButton>
             </div>
           </section>

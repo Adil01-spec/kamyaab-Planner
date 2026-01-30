@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 
 /**
  * Public shared review page
- * Accessible without authentication at /review/:token
+ * Accessible without authentication at /shared-review/:token
  */
 export default function SharedReview() {
   const { token } = useParams<{ token: string }>();
