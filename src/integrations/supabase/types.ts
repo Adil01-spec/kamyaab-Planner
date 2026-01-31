@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      plan_history: {
+        Row: {
+          comparison_insights: Json | null
+          completed_at: string
+          completed_tasks: number
+          created_at: string | null
+          id: string
+          is_strategic: boolean | null
+          plan_description: string | null
+          plan_snapshot: Json
+          plan_title: string
+          scenario_tag: string | null
+          started_at: string
+          total_tasks: number
+          total_time_seconds: number | null
+          total_weeks: number
+          user_id: string
+        }
+        Insert: {
+          comparison_insights?: Json | null
+          completed_at: string
+          completed_tasks: number
+          created_at?: string | null
+          id?: string
+          is_strategic?: boolean | null
+          plan_description?: string | null
+          plan_snapshot: Json
+          plan_title: string
+          scenario_tag?: string | null
+          started_at: string
+          total_tasks: number
+          total_time_seconds?: number | null
+          total_weeks: number
+          user_id: string
+        }
+        Update: {
+          comparison_insights?: Json | null
+          completed_at?: string
+          completed_tasks?: number
+          created_at?: string | null
+          id?: string
+          is_strategic?: boolean | null
+          plan_description?: string | null
+          plan_snapshot?: Json
+          plan_title?: string
+          scenario_tag?: string | null
+          started_at?: string
+          total_tasks?: number
+          total_time_seconds?: number | null
+          total_weeks?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string

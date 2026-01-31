@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.execution-insights]
 verify_jwt = false
+
+[functions.plan-comparison-insights]
+verify_jwt = false
+
+[functions.strategic-discovery]
+verify_jwt = false

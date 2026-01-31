@@ -64,6 +64,7 @@ import {
   createPlanCycleSnapshot, 
   appendSnapshotToHistory 
 } from '@/lib/progressProof';
+import { archiveCurrentPlan } from '@/hooks/usePlanHistory';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { compileExecutionMetrics } from '@/lib/executionAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -542,10 +543,21 @@ const Plan = () => {
 
   // Delete plan and redirect to reset flow
   const handleDeletePlan = async () => {
-    if (!user) return;
+    if (!user || !plan) return;
     
     setIsDeleting(true);
     try {
+      // Archive the current plan to history before deleting
+      if (planCreatedAt) {
+        await archiveCurrentPlan(
+          user.id,
+          plan,
+          planCreatedAt,
+          profile?.projectTitle || 'Untitled Plan',
+          profile?.projectDescription || undefined
+        );
+      }
+
       const { error } = await supabase
         .from('plans')
         .delete()
@@ -554,8 +566,8 @@ const Plan = () => {
       if (error) throw error;
 
       toast({
-        title: "Plan deleted",
-        description: "You can now create a fresh plan.",
+        title: "Plan archived",
+        description: "Your plan has been saved to history. Creating a fresh one...",
       });
 
       setShowDeleteDialog(false);
