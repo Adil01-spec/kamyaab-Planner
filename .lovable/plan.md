@@ -1,60 +1,101 @@
 
-## Plan Review Page - Separation of Doing from Thinking
+## Plan History and Comparison Layer
 
 ### Overview
 
-This implementation creates a dedicated `/review` page that consolidates all reflective, analytical, and shareable features from `/plan`, leaving `/plan` focused solely on execution control.
+This implementation adds a Plan History section to `/review` that allows users to view past plans and compare them with the current plan. The feature is strictly read-only and observational - no execution changes, no AI plan modifications.
 
 **Core Concept:**
-- `/plan` = "What am I doing?" (execution-focused)
-- `/review` = "How is this going?" (insight-focused)
+- View past completed plans
+- Select one for comparison with current plan
+- See metric deltas and AI-generated observational insights
+- Pattern signals surface only with repeated data
 
 ---
 
 ### Current State Analysis
 
-**Components Currently on /plan to Move:**
+**Existing Infrastructure:**
+- `plans` table: Stores ONE active plan per user
+- `progress_history` in `profiles.profession_details`: Contains `PlanCycleSnapshot[]` with metrics only (no full plan data)
+- `ProgressProof.tsx`: Already shows trends and comparisons using snapshots
+- `progressProof.ts`: Has comparison and trend detection logic
 
-| Component | Lines in Plan.tsx | Purpose |
-|-----------|------------------|---------|
-| Strategy Overview Section | 968-1087 | Strategic context (strategic plans only) |
-| ExternalFeedbackSection | 1089-1092 | Aggregated feedback from shared reviews |
-| PlanRealityCheck | 1094-1102 | AI-powered feasibility critique |
-| ExecutionInsights | 1125-1133 | Post-execution analysis |
-| CalibrationInsights | 1135-1141 | Personalized historical patterns |
-| ProgressProof | 1143-1151 | Evidence of improvement over time |
-| NextCycleGuidance | 1153-1159 | Data-backed suggestions |
-| ShareReviewButton | 947-951 | Generate shareable links |
-| StrategicReviewExportButton | 952-959 | Export PDF |
+**Gap:**
+- No storage for full historical plan data (tasks, structure, title)
+- Need a `plan_history` table to archive completed plans
 
-**What Remains on /plan:**
-- Plan overview (title, description - brief)
-- Identity statement editor
-- Progress overview card
-- Quick stats (project, weeks, deadline)
-- Weekly calendar view
-- Weekly breakdown with task list (DnD enabled)
-- Milestones
-- Add Task functionality
-- Split Task functionality
-- Calendar sync buttons
+---
+
+### Database Schema Changes
+
+**Table: `plan_history`**
+```sql
+CREATE TABLE public.plan_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  
+  -- Plan identification
+  plan_title TEXT NOT NULL,
+  plan_description TEXT,
+  is_strategic BOOLEAN DEFAULT false,
+  scenario_tag TEXT,
+  
+  -- Date range
+  started_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ NOT NULL,
+  
+  -- Summary metrics (denormalized for quick display)
+  total_tasks INTEGER NOT NULL,
+  completed_tasks INTEGER NOT NULL,
+  total_weeks INTEGER NOT NULL,
+  total_time_seconds BIGINT DEFAULT 0,
+  
+  -- Full plan snapshot for detailed comparison
+  plan_snapshot JSONB NOT NULL,
+  
+  -- Cached comparison insights (AI-generated)
+  comparison_insights JSONB,
+  
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS: Users can only access their own history
+CREATE POLICY "Users can view their own plan history"
+  ON plan_history FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own plan history"
+  ON plan_history FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Index for efficient user lookups
+CREATE INDEX idx_plan_history_user_id ON plan_history(user_id);
+CREATE INDEX idx_plan_history_completed_at ON plan_history(user_id, completed_at DESC);
+```
 
 ---
 
 ### Architecture
 
 ```text
-+-------------------+     +-------------------+     +-------------------+
-|   /home           | --> |     /plan         | --> |    /review        |
-| (Dashboard)       |     | (Execution)       |     | (Reflection)      |
-+-------------------+     +-------------------+     +-------------------+
-        |                         |                         |
-        |                    No insights               All insights
-        |                    No export                 Export/Share
-        |                    Task controls             Read-only
-        v                         v                         v
-   "View Plan"              "View Review"            All analytics
-   "Plan Review"            (subtle link)            Pro gated
+/review page
+    |
+    v
++------------------------+
+|  Plan History Section  |
++------------------------+
+    |
+    ├── Plan History List (always visible)
+    |   └── Past plans with summary metrics
+    |
+    ├── Plan Selector (Pro only)
+    |   └── Dropdown to select comparison plan
+    |
+    └── Comparison View (Pro only)
+        ├── Metric Deltas (task count, completion, time)
+        ├── Comparative Insights (AI-generated, cached)
+        └── Pattern Signals (if repeated across plans)
 ```
 
 ---
@@ -63,304 +104,241 @@ This implementation creates a dedicated `/review` page that consolidates all ref
 
 | File | Description |
 |------|-------------|
-| `src/pages/Review.tsx` | New dedicated review page with all insight components |
+| `src/components/PlanHistorySection.tsx` | Main section component for /review |
+| `src/components/PlanHistoryList.tsx` | List of past plans with summary cards |
+| `src/components/PlanComparisonView.tsx` | Side-by-side comparison display |
+| `src/components/PatternSignals.tsx` | Subtle pattern indicators |
+| `src/hooks/usePlanHistory.ts` | Hook for fetching/managing plan history |
+| `src/lib/planHistoryComparison.ts` | Comparison logic and metric calculations |
+| `supabase/functions/plan-comparison-insights/index.ts` | AI edge function for comparative insights |
 
 ### Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/pages/Plan.tsx` | Remove insight components, add "View Review" link |
-| `src/pages/Home.tsx` | Add "Plan Review" entry point card |
-| `src/App.tsx` | Add `/review` route (protected, requireProfile) |
-
----
-
-### New Route: /review
-
-**Route Configuration (App.tsx):**
-```tsx
-<Route 
-  path="/review" 
-  element={
-    <ProtectedRoute requireProfile>
-      <Review />
-    </ProtectedRoute>
-  } 
-/>
-```
-
----
-
-### Review Page Structure (Order Matters)
-
-The `/review` page renders sections in this specific order, all collapsible and collapsed by default except the overview:
-
-1. **Plan Overview** (defaultOpen={true})
-   - Project title
-   - Description
-   - Planning mode badge (Standard/Strategic)
-   - Creation date
-   - Scenario context (if available)
-   - Overall progress indicator
-
-2. **Strategy Section** (Strategic Plans Only)
-   - Strategy overview (objective, why now, success definition)
-   - Key assumptions
-   - Risks & mitigations
-   - Strategic milestones
-
-3. **Reality Check** (if generated)
-   - Feasibility assessment
-   - Risk signals with severity badges
-   - Focus gaps
-   - Strategic blind spots
-   - De-prioritization suggestions
-
-4. **Execution Insights** (if generated)
-   - Time estimation patterns
-   - Effort distribution
-   - Productivity patterns
-   - Forward suggestions
-   - Execution diagnosis
-
-5. **Progress Review**
-   - Progress trends
-   - Progress timeline
-   - Compared to previous plan
-   - Why this improved
-   - Strategic vs Standard comparison
-   - Scenario patterns
-
-6. **Calibration Insights**
-   - Personalized historical patterns
-   - Based on your history insights
-
-7. **Next Cycle Guidance** (if plan completed)
-   - Data-backed suggestions for next plan
-
-8. **External Feedback** (if any)
-   - Aggregated responses from shared reviews
-   - Realism breakdown
-   - Challenge areas
-   - Comments
-
-9. **Actions Section** (sticky or at bottom)
-   - Export Strategic Review button
-   - Share Review button
-   - Both Pro-gated with soft upsell
+| File | Description |
+|------|-------------|
+| `src/pages/Review.tsx` | Add PlanHistorySection below existing sections |
+| `src/lib/productTiers.ts` | Add `plan-history-list` (free) and `plan-comparison` (pro) features |
+| `src/pages/PlanReset.tsx` | Archive current plan to history when resetting |
 
 ---
 
 ### Technical Implementation
 
-#### Step 1: Create Review.tsx Page
+#### 1. Plan History Hook
 
-The Review page will:
-- Fetch plan data and profile (same pattern as Plan.tsx)
-- Render all insight components in order
-- All sections collapsible, collapsed by default (except overview)
-- No execution controls (no timers, no start buttons, no DnD)
-- Read-only presentation
+```typescript
+// src/hooks/usePlanHistory.ts
+interface PlanHistorySummary {
+  id: string;
+  plan_title: string;
+  is_strategic: boolean;
+  scenario_tag?: string;
+  started_at: string;
+  completed_at: string;
+  total_tasks: number;
+  completed_tasks: number;
+  total_weeks: number;
+  total_time_seconds: number;
+  completion_percent: number;
+}
 
-**Key Props passed to components:**
-- `planData`, `planId`, `userId` for data fetching
-- `cachedCritique`, `cachedInsights` from plan_json
-- Callbacks for cache updates (same as Plan.tsx)
-
-**Header:**
-- "Plan Review" title
-- Back to Plan button
-- Back to Home button
-
-**Layout:**
-- Same max-width as /plan (max-w-5xl)
-- Same glass-card styling
-- Same animation patterns
-
-#### Step 2: Modify Plan.tsx
-
-Remove these components/sections:
-- Strategy Overview collapsible section (lines 968-1087)
-- ExternalFeedbackSection (lines 1089-1092)
-- PlanRealityCheck (lines 1094-1102)
-- ExecutionInsights (lines 1125-1133)
-- CalibrationInsights (lines 1135-1141)
-- ProgressProof (lines 1143-1151)
-- NextCycleGuidance (lines 1153-1159)
-- ShareReviewButton from header (lines 947-951)
-- StrategicReviewExportButton from header (lines 952-959)
-
-Keep these imports but remove the component usages.
-
-Add "View Review" link near the overview section:
-```tsx
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={() => navigate('/review')}
-  className="text-muted-foreground hover:text-foreground"
->
-  View Review
-  <ArrowRight className="w-4 h-4 ml-1" />
-</Button>
+interface UsePlanHistoryReturn {
+  history: PlanHistorySummary[];
+  loading: boolean;
+  error: string | null;
+  selectedPlan: PlanHistoryFull | null;
+  selectPlanForComparison: (id: string) => Promise<void>;
+  clearSelection: () => void;
+}
 ```
 
-#### Step 3: Modify Home.tsx
+#### 2. Plan History List Component
 
-Add a "Plan Review" entry point card after the main "View Full Plan" CTA:
+Displays past plans in a compact list format:
+- Plan title
+- Date range (e.g., "Jan 5 - Feb 2, 2026")
+- Strategic vs Standard badge
+- Completion percentage
+- Total execution time
 
-```tsx
-{/* Plan Review Entry */}
-<CursorExplosionButton
-  variant="outline"
-  className="w-full h-10 text-sm font-medium"
-  onClick={() => navigate('/review')}
->
-  <BarChart3 className="mr-2 w-4 h-4" />
-  Plan Review
-  <span className="ml-2 text-xs text-muted-foreground">Strategy & insights</span>
-</CursorExplosionButton>
+Sorted: Most recent first
+
+#### 3. Plan Selector (Pro-gated)
+
+Simple dropdown or radio selector:
+- Lists past plans by title + date
+- Single selection only
+- Clear selection option
+- Pro indicator for free users
+
+#### 4. Comparison Metrics
+
+When a plan is selected, display deltas:
+
+| Metric | Display |
+|--------|---------|
+| Task count | Current: 24 / Previous: 18 (+6 ↑) |
+| Completion rate | 87% / 72% (+15% ↑) |
+| Total time | 32h / 28h (+4h) |
+| Execution drift | On-time / Late (Improved ↑) |
+
+Delta indicators:
+- ↑ Green = improvement
+- ↓ Muted = decline
+- ─ Neutral = stable
+
+#### 5. Comparative Insights (AI, Cached)
+
+Edge function generates observational insights:
+
+**Input:**
+- Current plan metrics
+- Selected historical plan metrics
+- Comparison deltas
+
+**Output:**
+```typescript
+interface ComparativeInsights {
+  observations: string[]; // 2-3 observational statements
+  pattern_note?: string;  // Only if pattern detected across plans
+  generated_at: string;
+  plans_compared: [string, string]; // IDs
+}
 ```
 
-#### Step 4: Add Route to App.tsx
+**Example observations:**
+- "Fewer tasks led to higher completion rate"
+- "Execution time improved compared to previous plan"
+- "Strategic plans show more consistent pacing"
 
-Add the protected route for `/review`:
-```tsx
-<Route 
-  path="/review" 
-  element={
-    <ProtectedRoute requireProfile>
-      <Review />
-    </ProtectedRoute>
-  } 
-/>
+**Rules:**
+- No advice or commands
+- No AI adjustments
+- Cached in `plan_history.comparison_insights`
+- Regenerated only if underlying data changes
+
+#### 6. Pattern Signals (Conservative)
+
+Shown only if pattern appears across 3+ plans:
+
+```typescript
+interface PatternSignal {
+  id: string;
+  label: string;
+  detail: string;
+  frequency: number; // How many plans show this
+  severity: 'info' | 'observation';
+}
 ```
 
----
+**Example patterns:**
+- "Time underestimation" - appeared in 4 of 5 plans
+- "Task fragmentation impact" - appeared in 3 of 5 plans
 
-### Review Page Component Structure
+Display:
+- Subtle, collapsible
+- Non-judgmental tone
+- Only after sufficient data
 
-```tsx
-// src/pages/Review.tsx
-const Review = () => {
-  // State management (similar to Plan.tsx)
-  const { user, profile } = useAuth();
-  const navigate = useNavigate();
-  const [plan, setPlan] = useState<PlanData | null>(null);
-  const [planId, setPlanId] = useState<string | null>(null);
-  const [planCreatedAt, setPlanCreatedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+#### 7. Archive Plan on Reset
 
-  // Fetch plan (identical to Plan.tsx)
-  useEffect(() => { ... }, [user]);
+Modify `PlanReset.tsx` to archive current plan before generating new:
 
-  // Handlers for updating cached critiques/insights
-  const handleCritiqueGenerated = useCallback(...);
-  const handleInsightsGenerated = useCallback(...);
-
-  // Progress calculation
+```typescript
+async function archiveCurrentPlan(userId: string, plan: PlanData, profile: Profile) {
+  const metrics = compileExecutionMetrics(plan);
   const progress = calculatePlanProgress(plan);
-
-  return (
-    <div className="min-h-screen bg-background pb-20 sm:pb-0">
-      {/* Dynamic Background */}
-      <DynamicBackground ... />
-
-      {/* Header */}
-      <header>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => navigate('/plan')}>
-            <ArrowLeft /> Back to Plan
-          </Button>
-        </div>
-        <h1>Plan Review</h1>
-        <span>Strategy, insights, and progress</span>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* 1. Plan Overview */}
-        <PlanOverviewCard plan={plan} profile={profile} planCreatedAt={planCreatedAt} />
-
-        {/* 2. Strategy Section (Strategic Only) */}
-        {plan?.is_strategic_plan && <StrategyOverviewSection plan={plan} />}
-
-        {/* 3. Reality Check */}
-        {planId && <PlanRealityCheck ... />}
-
-        {/* 4. Execution Insights */}
-        {planId && <ExecutionInsights ... />}
-
-        {/* 5. Progress Proof */}
-        {user && <ProgressProof ... />}
-
-        {/* 6. Calibration Insights */}
-        {user && <CalibrationInsights ... />}
-
-        {/* 7. Next Cycle Guidance */}
-        {user && progress.percent === 100 && <NextCycleGuidance ... />}
-
-        {/* 8. External Feedback */}
-        {planId && <ExternalFeedbackSection planId={planId} />}
-
-        {/* 9. Export/Share Actions */}
-        <Card className="glass-card">
-          <CardContent className="py-6 flex flex-col sm:flex-row gap-3 items-center justify-center">
-            <StrategicReviewExportButton ... />
-            <ShareReviewButton ... />
-          </CardContent>
-        </Card>
-      </main>
-
-      <BottomNav currentRoute="/review" />
-    </div>
-  );
-};
+  
+  await supabase.from('plan_history').insert({
+    user_id: userId,
+    plan_title: profile.projectTitle || 'Untitled Plan',
+    plan_description: plan.overview,
+    is_strategic: plan.is_strategic_plan || false,
+    scenario_tag: plan.plan_context?.scenario || null,
+    started_at: // calculated from plan creation
+    completed_at: new Date().toISOString(),
+    total_tasks: progress.total,
+    completed_tasks: progress.completed,
+    total_weeks: plan.total_weeks,
+    total_time_seconds: metrics.totalTimeSpent,
+    plan_snapshot: plan,
+  });
+}
 ```
 
 ---
 
-### Pro Gating on /review
+### Edge Function: plan-comparison-insights
 
-| Feature | Gating |
-|---------|--------|
-| Page Access | All users can view |
-| Strategy Section | Visible to all (content requires Strategic Plan) |
-| Reality Check | Visible to all (generate requires Pro) |
-| Execution Insights | Visible to all |
-| Progress Proof | Visible to all |
-| Export Review | Pro only (soft upsell) |
-| Share Review | Pro only (soft upsell) |
-| External Feedback | Pro only (soft upsell) |
+```typescript
+// supabase/functions/plan-comparison-insights/index.ts
 
-Free users see all sections but export/share/feedback actions show calm upsell toasts.
+// Input: current plan metrics, historical plan metrics
+// Output: 2-3 observational insights, optional pattern note
 
----
-
-### Navigation Flow
-
-```text
-/home
-  ├── "Go to Today's Focus" → /today
-  ├── "View Full Plan" → /plan
-  └── "Plan Review" → /review (NEW)
-
-/plan
-  ├── "View Review" → /review (NEW)
-  ├── "Back to Home" → /home
-  └── Task execution controls
-
-/review (NEW)
-  ├── "Back to Plan" → /plan
-  ├── "Back to Home" → /home
-  └── Export/Share actions
+// Uses Lovable AI (google/gemini-3-flash-preview)
+// Cached in plan_history.comparison_insights
+// Only regenerated if comparison pair changes
 ```
 
+**Prompt Design:**
+- Observational only
+- No advice, no commands
+- Focus on behavioral patterns
+- Brief, professional tone
+
 ---
 
-### BottomNav Updates
+### Pro Gating
 
-The BottomNav already supports custom routes. The `/review` page should highlight appropriately or show as a sub-page of `/plan`.
+| Feature | Tier | Behavior |
+|---------|------|----------|
+| View Plan History List | Free | See all past plans |
+| Select for Comparison | Pro | Dropdown enabled |
+| View Comparison Metrics | Pro | Deltas shown |
+| Comparative Insights | Pro | AI observations |
+| Pattern Signals | Pro | Cross-plan patterns |
+
+Free users see:
+- Full plan history list
+- Subtle Pro indicator on comparison features
+- Calm upsell on click
+
+---
+
+### Review Page Integration
+
+Add after External Feedback section:
+
+```tsx
+{/* 9. Plan History & Comparison */}
+{user && (
+  <PlanHistorySection
+    userId={user.id}
+    currentPlanId={planId}
+    currentPlan={plan}
+  />
+)}
+```
+
+Section structure:
+- Collapsible (collapsed by default)
+- Title: "Plan History"
+- Subtitle: "Compare with past plans"
+- Pro indicator on comparison features
+
+---
+
+### Placement Rules (Enforced)
+
+| Location | Allowed |
+|----------|---------|
+| /review | Yes |
+| /plan | No |
+| /today | No |
+| /home | No |
+| Onboarding | No |
+| Plan reset | Only archiving logic |
 
 ---
 
@@ -368,61 +346,66 @@ The BottomNav already supports custom routes. The `/review` page should highligh
 
 | Constraint | Implementation |
 |------------|----------------|
-| No execution modification | /review has no toggleTask, no startTimer, no DnD |
-| No /today impact | Review page doesn't touch timer state |
-| No plan mutation | All components remain read-only |
-| No new AI generation | Uses cached critiques/insights only |
-| No collaboration | Single-user view only |
+| No execution changes | Read-only components |
+| No task mutations | No edit handlers |
+| No timer impact | No timer state access |
+| No AI plan rewriting | Insights are observational only |
+| No gamification | No scores, badges, or achievements |
+| Cached insights | Regenerate only on data change |
 
 ---
 
 ### Implementation Order
 
-1. Create `src/pages/Review.tsx` with all insight components
-2. Update `src/App.tsx` to add `/review` route
-3. Update `src/pages/Plan.tsx` to remove insight sections, add "View Review" link
-4. Update `src/pages/Home.tsx` to add "Plan Review" entry point
-5. Test navigation flow and component rendering
-6. Verify no regressions in /plan, /today, timers
+1. Database migration: Create `plan_history` table
+2. Register new features in `productTiers.ts`
+3. Create `usePlanHistory.ts` hook
+4. Create `src/lib/planHistoryComparison.ts` utilities
+5. Create `PlanHistoryList.tsx` component
+6. Create `PlanComparisonView.tsx` component
+7. Create `PatternSignals.tsx` component
+8. Create `PlanHistorySection.tsx` wrapper
+9. Create edge function `plan-comparison-insights`
+10. Update `PlanReset.tsx` to archive plans
+11. Integrate into `Review.tsx`
 
 ---
 
 ### Testing Checklist
 
-**Navigation:**
-- [ ] /home shows "Plan Review" entry point
-- [ ] /plan shows "View Review" link
-- [ ] /review loads with all insight sections
-- [ ] Back navigation works correctly
+**Plan History Display:**
+- [ ] Past plans appear in list (most recent first)
+- [ ] Title, dates, metrics displayed correctly
+- [ ] Strategic vs Standard badges work
+- [ ] Empty state for no history
 
-**/plan Execution (No Regressions):**
-- [ ] Task toggling still works
-- [ ] DnD reordering still works
-- [ ] Timer start/stop still works
-- [ ] Add Task still works
-- [ ] Calendar sync still works
-- [ ] No insight sections visible
+**Comparison (Pro):**
+- [ ] Selector shows past plans
+- [ ] Selection loads comparison view
+- [ ] Metric deltas calculated correctly
+- [ ] Delta indicators (↑↓─) display correctly
+- [ ] Comparative insights load/cache
 
-**/review Content:**
-- [ ] Plan overview displays correctly
-- [ ] Strategy section shows for strategic plans only
-- [ ] Reality Check displays (uses cached data)
-- [ ] Execution Insights displays (uses cached data)
-- [ ] Progress Proof shows history
-- [ ] Calibration Insights shows patterns
-- [ ] External Feedback aggregates responses
-- [ ] Export/Share buttons visible and Pro-gated
+**Pattern Signals:**
+- [ ] Only show after 3+ plans with pattern
+- [ ] Collapsible and subtle
+- [ ] Non-judgmental language
 
 **Pro Gating:**
-- [ ] Free users see insight sections
-- [ ] Free users see upsell on Export click
-- [ ] Free users see upsell on Share click
-- [ ] Pro users can export/share successfully
+- [ ] Free users see history list
+- [ ] Free users see upsell on comparison click
+- [ ] Pro users can compare freely
 
-**Mobile:**
-- [ ] /review is mobile-responsive
-- [ ] Collapsibles work on touch
-- [ ] BottomNav navigates correctly
+**Guardrails:**
+- [ ] No execution state changes
+- [ ] No timer interference
+- [ ] No auto-regeneration loops
+- [ ] Works correctly on mobile
+
+**Data Integrity:**
+- [ ] Plans archived on reset
+- [ ] Snapshots preserve full plan data
+- [ ] Comparison insights cached correctly
 
 ---
 
@@ -430,11 +413,15 @@ The BottomNav already supports custom routes. The `/review` page should highligh
 
 This implementation:
 
-1. **Creates /review** - A calm, analytical space for reflection
-2. **Streamlines /plan** - Pure execution focus, lighter and faster
-3. **Adds clear entry points** - From /home and /plan
-4. **Preserves all functionality** - Components moved, not removed
-5. **Maintains Pro gating** - Export/Share remain premium features
-6. **No execution side effects** - Read-only review experience
+1. **Creates `plan_history` table** for archiving completed plans
+2. **Shows Plan History list** (free for all users)
+3. **Enables comparison selection** (Pro feature)
+4. **Displays metric deltas** with clear indicators
+5. **Generates observational insights** (AI, cached)
+6. **Surfaces pattern signals** only with repeated data
+7. **Archives plans on reset** to build history
 
-The separation makes `/plan` feel snappier and more focused while giving insights a proper home where users can reflect without distraction.
+Users will feel:
+> "This app isn't tracking me - it's helping me understand myself."
+
+The feature is calm, observational, and never judgmental.
