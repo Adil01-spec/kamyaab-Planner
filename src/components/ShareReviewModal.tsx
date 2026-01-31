@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Copy, Check, Link2, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Copy, Check, Link2, Trash2, Loader2, RefreshCw, Briefcase, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -52,6 +53,7 @@ export function ShareReviewModal({
   const [generating, setGenerating] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [expiryDays, setExpiryDays] = useState<'7' | '14' | '30'>('14');
+  const [linkType, setLinkType] = useState<'review' | 'advisor'>('advisor');
   const [copied, setCopied] = useState(false);
 
   // Fetch existing shares
@@ -94,6 +96,13 @@ export function ShareReviewModal({
       const token = generateShareToken();
       const expiresAt = getExpiryDate(parseInt(expiryDays) as 7 | 14 | 30);
 
+      // Prepare snapshot with planning style profile if available
+      const snapshot = {
+        ...planData,
+        // Include planning style profile if it exists in the user's profile
+        planning_style_profile: planData.planning_style_profile || null,
+      };
+
       const { data, error } = await supabase
         .from('shared_reviews')
         .insert({
@@ -101,7 +110,7 @@ export function ShareReviewModal({
           plan_id: planId,
           token,
           expires_at: expiresAt.toISOString(),
-          plan_snapshot: planData,
+          plan_snapshot: snapshot,
         })
         .select('id, token, expires_at, revoked, created_at')
         .single();
@@ -110,15 +119,15 @@ export function ShareReviewModal({
 
       setShares(prev => [data as SharedReview, ...prev]);
       
-      // Copy to clipboard
-      const url = getShareUrl(token);
+      // Copy to clipboard with selected link type
+      const url = getShareUrl(token, linkType);
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
 
       toast({
         title: 'Link created and copied!',
-        description: `Expires in ${expiryDays} days`,
+        description: `${linkType === 'advisor' ? 'Advisor' : 'Standard'} link expires in ${expiryDays} days`,
       });
     } catch (error) {
       console.error('Error generating share link:', error);
@@ -132,7 +141,7 @@ export function ShareReviewModal({
     }
   };
 
-  // Revoke a share link
+  // Revoke a share link (invalidates both link types)
   const handleRevoke = async (shareId: string) => {
     setRevoking(shareId);
     try {
@@ -149,7 +158,7 @@ export function ShareReviewModal({
 
       toast({
         title: 'Link revoked',
-        description: 'This link can no longer be accessed.',
+        description: 'Both advisor and standard links are now invalid.',
       });
     } catch (error) {
       console.error('Error revoking share:', error);
@@ -164,14 +173,14 @@ export function ShareReviewModal({
   };
 
   // Copy link to clipboard
-  const handleCopy = async (token: string) => {
-    const url = getShareUrl(token);
+  const handleCopy = async (token: string, type: 'review' | 'advisor') => {
+    const url = getShareUrl(token, type);
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({
       title: 'Link copied',
-      description: 'Share link copied to clipboard.',
+      description: `${type === 'advisor' ? 'Advisor' : 'Standard'} link copied to clipboard.`,
     });
   };
 
@@ -185,17 +194,40 @@ export function ShareReviewModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-primary" />
-            Share Review
+            Share for Review
           </DialogTitle>
           <DialogDescription>
-            Create a read-only link to share your plan for feedback.
+            Create read-only links to share your plan with advisors or colleagues.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Generate new link section */}
-          <div className="space-y-4">
-            <Label>Create New Link</Label>
+          {/* Link Type Selection */}
+          <div className="space-y-3">
+            <Label>Link Type</Label>
+            <Tabs value={linkType} onValueChange={(v) => setLinkType(v as 'review' | 'advisor')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="advisor" className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  Advisor View
+                </TabsTrigger>
+                <TabsTrigger value="review" className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Standard View
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="advisor" className="text-sm text-muted-foreground mt-2">
+                Professional view with strategy, insights, and planning style. Ideal for mentors and managers.
+              </TabsContent>
+              <TabsContent value="review" className="text-sm text-muted-foreground mt-2">
+                Basic view with plan structure and feedback form. Good for peer review.
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Expiry Selection */}
+          <div className="space-y-3">
+            <Label>Link Expiry</Label>
             <div className="flex items-center gap-3">
               <RadioGroup
                 value={expiryDays}
@@ -222,24 +254,26 @@ export function ShareReviewModal({
                 </div>
               </RadioGroup>
             </div>
-            <Button
-              onClick={handleGenerateLink}
-              disabled={generating}
-              className="w-full"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Generate Link
-                </>
-              )}
-            </Button>
           </div>
+
+          {/* Generate Button */}
+          <Button
+            onClick={handleGenerateLink}
+            disabled={generating}
+            className="w-full"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Generate {linkType === 'advisor' ? 'Advisor' : 'Standard'} Link
+              </>
+            )}
+          </Button>
 
           {/* Active links */}
           {loading ? (
@@ -252,41 +286,47 @@ export function ShareReviewModal({
               {activeShares.map((share) => (
                 <div
                   key={share.id}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border"
+                  className="p-3 rounded-lg bg-muted/50 border space-y-2"
                 >
-                  <Input
-                    value={getShareUrl(share.token)}
-                    readOnly
-                    className="text-xs bg-transparent border-0 focus-visible:ring-0"
-                  />
-                  <Badge variant="outline" className="shrink-0 text-xs">
-                    {getDaysUntilExpiry(share.expires_at)}d left
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(share.token)}
-                    className="shrink-0"
-                  >
-                    {copied ? (
-                      <Check className="w-4 h-4 text-primary" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRevoke(share.id)}
-                    disabled={revoking === share.id}
-                    className="shrink-0 text-destructive hover:text-destructive"
-                  >
-                    {revoking === share.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </Button>
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-xs">
+                      {getDaysUntilExpiry(share.expires_at)}d left
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRevoke(share.id)}
+                      disabled={revoking === share.id}
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                    >
+                      {revoking === share.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopy(share.token, 'advisor')}
+                      className="flex-1 text-xs"
+                    >
+                      <Briefcase className="w-3 h-3 mr-1" />
+                      Advisor
+                      {copied && <Check className="w-3 h-3 ml-1 text-primary" />}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopy(share.token, 'review')}
+                      className="flex-1 text-xs"
+                    >
+                      <Users className="w-3 h-3 mr-1" />
+                      Standard
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -315,10 +355,12 @@ export function ShareReviewModal({
             </div>
           )}
 
-          {/* Info text */}
-          <p className="text-xs text-muted-foreground">
-            Shared links are read-only. Viewers can leave structured feedback without editing your plan.
-          </p>
+          {/* Privacy info */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>• No personal identifiers are exposed to viewers</p>
+            <p>• Links are not indexed by search engines</p>
+            <p>• Revoking a link invalidates both view types</p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

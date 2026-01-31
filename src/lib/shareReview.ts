@@ -16,9 +16,12 @@ export function generateShareToken(): string {
 
 /**
  * Get the full shareable URL for a review token
+ * @param token - The share token
+ * @param type - 'review' for standard shared review, 'advisor' for professional advisor view
  */
-export function getShareUrl(token: string): string {
-  return `${window.location.origin}/shared-review/${token}`;
+export function getShareUrl(token: string, type: 'review' | 'advisor' = 'review'): string {
+  const path = type === 'advisor' ? 'advisor' : 'shared-review';
+  return `${window.location.origin}/${path}/${token}`;
 }
 
 /**

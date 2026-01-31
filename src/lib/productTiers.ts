@@ -155,6 +155,13 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     category: 'export',
     description: 'Generate shareable read-only review links',
   },
+  'advisor-view': {
+    id: 'advisor-view',
+    name: 'Advisor View',
+    tier: 'pro',
+    category: 'export',
+    description: 'Professional read-only view for mentors and advisors',
+  },
   'external-feedback': {
     id: 'external-feedback',
     name: 'External Feedback',

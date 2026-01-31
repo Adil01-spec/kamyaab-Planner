@@ -16,6 +16,7 @@ import PlanNew from "./pages/PlanNew";
 import Plan from "./pages/Plan";
 import PlanReset from "./pages/PlanReset";
 import SharedReview from "./pages/SharedReview";
+import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
 import NotFound from "./pages/NotFound";
 
@@ -102,6 +103,8 @@ const App = () => (
             />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
+            {/* Professional advisor view - no auth required, enhanced content */}
+            <Route path="/advisor/:shareId" element={<AdvisorView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
