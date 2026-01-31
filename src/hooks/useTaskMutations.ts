@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { isWeekLocked } from '@/lib/weekLockStatus';
 
 interface Task {
   title: string;
@@ -166,6 +167,11 @@ export function useTaskMutations({
     const task = week.tasks[taskIndex];
     if (!task) {
       return { allowed: false, reason: 'Task not found' };
+    }
+
+    // Cannot split tasks in locked weeks
+    if (isWeekLocked(plan, weekIndex)) {
+      return { allowed: false, reason: 'Cannot split tasks in locked weeks' };
     }
 
     // Cannot split completed tasks

@@ -1205,6 +1205,7 @@ const Plan = () => {
                         {week.tasks.map((task, taskIndex) => {
                           const taskId = `week-${weekIndex}-task-${taskIndex}`;
                           const canDragResult = canMoveTask(weekIndex, taskIndex);
+                          const canSplitResult = canSplitTask(weekIndex, taskIndex);
                           
                           return (
                             <DraggableTaskItem
@@ -1223,6 +1224,23 @@ const Plan = () => {
                               onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
                               executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
                               elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
+                              onSplit={() => {
+                                if (!canSplitTasks) {
+                                  trackSplitInterest('attempted');
+                                  toast({
+                                    title: 'Pro Feature',
+                                    description: 'Split Tasks is available with Strategic Planning.',
+                                  });
+                                  return;
+                                }
+                                setSplitTaskData({
+                                  weekIndex,
+                                  taskIndex,
+                                  task: task as Task,
+                                });
+                              }}
+                              canSplit={canSplitResult.allowed}
+                              splitBlockReason={canSplitResult.reason}
                               canDrag={canDragResult.allowed}
                               blockReason={canDragResult.reason}
                             />
