@@ -19,6 +19,7 @@ import { StrategicReviewExportButton } from '@/components/StrategicReviewExportB
 import { ShareReviewButton } from '@/components/ShareReviewButton';
 import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { PlanHistorySection } from '@/components/PlanHistorySection';
+import { PlanningStyleProfile } from '@/components/PlanningStyleProfile';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
@@ -433,7 +434,15 @@ const Review = () => {
           />
         )}
 
-        {/* 7. Next-Cycle Guidance - After plan completion */}
+        {/* 7. Planning Style Profile (Pro only) */}
+        {user && (
+          <PlanningStyleProfile
+            userId={user.id}
+            planData={plan}
+          />
+        )}
+
+        {/* 8. Next-Cycle Guidance - After plan completion */}
         {user && progress.percent === 100 && (
           <NextCycleGuidance
             userId={user.id}

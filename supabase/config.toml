@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.strategic-discovery]
 verify_jwt = false
+
+[functions.planning-style-summary]
+verify_jwt = false
