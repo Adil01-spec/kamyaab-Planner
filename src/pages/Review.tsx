@@ -18,6 +18,7 @@ import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { StrategicReviewExportButton } from '@/components/StrategicReviewExportButton';
 import { ShareReviewButton } from '@/components/ShareReviewButton';
 import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
+import { PlanHistorySection } from '@/components/PlanHistorySection';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
@@ -443,6 +444,17 @@ const Review = () => {
         {/* 8. External Feedback */}
         {planId && (
           <ExternalFeedbackSection planId={planId} />
+        )}
+
+        {/* 9. Plan History & Comparison */}
+        {user && planId && (
+          <PlanHistorySection
+            userId={user.id}
+            currentPlanId={planId}
+            currentPlan={plan}
+            currentPlanCreatedAt={planCreatedAt || undefined}
+            planData={plan}
+          />
         )}
 
         {/* 9. Export/Share Actions */}

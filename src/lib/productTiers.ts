@@ -69,6 +69,13 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     category: 'insights',
     description: 'Track progress on your current plan',
   },
+  'plan-history-list': {
+    id: 'plan-history-list',
+    name: 'Plan History List',
+    tier: 'free',
+    category: 'insights',
+    description: 'View past completed plans',
+  },
 
   // Pro features - require Strategic Planning
   'strategic-planning': {
@@ -154,6 +161,27 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     tier: 'pro',
     category: 'insights',
     description: 'Collect structured feedback from reviewers',
+  },
+  'plan-comparison': {
+    id: 'plan-comparison',
+    name: 'Plan Comparison',
+    tier: 'pro',
+    category: 'insights',
+    description: 'Compare current plan with past plans',
+  },
+  'comparison-insights': {
+    id: 'comparison-insights',
+    name: 'Comparative Insights',
+    tier: 'pro',
+    category: 'insights',
+    description: 'AI-generated observational insights across plans',
+  },
+  'pattern-signals': {
+    id: 'pattern-signals',
+    name: 'Pattern Signals',
+    tier: 'pro',
+    category: 'insights',
+    description: 'Cross-plan pattern detection',
   },
   'manual-task-add': {
     id: 'manual-task-add',
