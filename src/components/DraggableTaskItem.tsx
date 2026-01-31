@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Scissors } from 'lucide-react';
 import { TaskItem } from '@/components/TaskItem';
 import { cn } from '@/lib/utils';
 import { hapticSelection, hapticLight } from '@/lib/hapticFeedback';
@@ -48,6 +48,10 @@ interface DraggableTaskItemProps {
   canDrag: boolean;
   blockReason?: string;
   isOverlay?: boolean;
+  // Split task props
+  onSplit?: () => void;
+  canSplit?: boolean;
+  splitBlockReason?: string;
 }
 
 export function DraggableTaskItem({
@@ -68,6 +72,9 @@ export function DraggableTaskItem({
   canDrag,
   blockReason,
   isOverlay = false,
+  onSplit,
+  canSplit = true,
+  splitBlockReason,
 }: DraggableTaskItemProps) {
   const isMobile = useIsMobile();
 
@@ -147,6 +154,38 @@ export function DraggableTaskItem({
     </TooltipProvider>
   );
 
+  // Split button component
+  const splitButton = onSplit && (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canSplit) onSplit();
+            }}
+            disabled={!canSplit}
+            className={cn(
+              "p-1.5 rounded-md transition-all shrink-0",
+              // Desktop: show on hover
+              !isMobile && "opacity-0 group-hover:opacity-100",
+              // Mobile: always visible but subtle
+              isMobile && "opacity-60",
+              canSplit 
+                ? "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                : "cursor-not-allowed opacity-30"
+            )}
+          >
+            <Scissors className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p className="text-sm">{canSplit ? 'Split task' : splitBlockReason || 'Cannot split this task'}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   const content = (
     <div
       className={cn(
@@ -180,6 +219,9 @@ export function DraggableTaskItem({
           elapsedSeconds={elapsedSeconds}
         />
       </div>
+
+      {/* Split Button */}
+      {splitButton}
     </div>
   );
 
