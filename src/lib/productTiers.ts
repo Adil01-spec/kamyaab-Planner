@@ -183,6 +183,13 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     category: 'insights',
     description: 'Cross-plan pattern detection',
   },
+  'planning-style-profile': {
+    id: 'planning-style-profile',
+    name: 'Planning Style Profile',
+    tier: 'pro',
+    category: 'insights',
+    description: 'Personal planning style derived from behavior',
+  },
   'manual-task-add': {
     id: 'manual-task-add',
     name: 'Add Tasks Manually',
