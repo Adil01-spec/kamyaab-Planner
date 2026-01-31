@@ -1,244 +1,387 @@
 
 
-## Phase 9.2.1 — Manual Task Division (Split Event)
+## Personal Planning Style Profile
 
 ### Overview
 
-Add a "Split Task" action to each task on `/plan` that allows users to divide an existing task into two smaller tasks while preserving execution integrity.
+A new read-only, observational feature on `/review` that helps Pro users understand their planning style across multiple completed plans. The profile is derived entirely from historical behavior - never from user declarations or quizzes.
 
-**Current State:**
-- `SplitTaskModal` component already exists with full UI (slider for time allocation, title inputs)
-- `useTaskMutations` hook has `splitTask` and `canSplitTask` functions implemented
-- `splitTaskData` state exists in Plan.tsx but is never triggered
-- Task splitting logic prevents split on completed/in-progress tasks
-
-**What's Missing:**
-- No trigger/action button on tasks to open the split modal
-- Need to wire up `setSplitTaskData` when user clicks "Split Task"
+**Core Principle:** This is a mirror, not a coach. No advice, no recommendations, no behavioral pressure.
 
 ---
 
-### Implementation Approach
+### Data Sources
 
-**Strategy: Add inline action to DraggableTaskItem**
+**Existing Infrastructure:**
+- `plan_history` table contains full plan snapshots with metrics
+- `profiles.profession_details` stores `execution_profile` - can add `planning_style_profile`
+- Pattern detection already exists in `planHistoryComparison.ts`
 
-Rather than modifying TaskItem (which is complex and used elsewhere), add the split action at the `DraggableTaskItem` level in Plan.tsx where we have full context (weekIndex, taskIndex, canSplit logic).
+**Derived Signals:**
+| Signal | Source |
+|--------|--------|
+| Task count vs completion | `plan_history.total_tasks`, `completed_tasks` |
+| Planned vs actual time | `plan_history.total_time_seconds`, task estimates in snapshot |
+| Task reordering frequency | Track in snapshot (new field) |
+| Task splitting behavior | Track in snapshot (new field) |
+| Strategic vs Standard usage | `plan_history.is_strategic` |
+| Execution drift patterns | Completion timing relative to weeks |
 
 ---
+
+### Style Dimensions
+
+Each dimension is a spectrum, not a score:
+
+```text
+Planner ←────────────→ Improviser
+(Follows plan closely)    (Adapts during execution)
+
+Optimistic ←────────────→ Conservative
+(Underestimates time)     (Adds buffers)
+
+Linear ←────────────→ Iterative  
+(Sequential execution)    (Revisits and adjusts)
+
+Strategic-leaning ←────────────→ Tactical-leaning
+(Long-term focus)         (Near-term execution)
+```
+
+**Display:** Qualitative descriptors only. No percentages, no scores, no "good/bad" labels.
+
+---
+
+### Architecture
+
+```text
+plan_history (existing)
+       |
+       v
++------------------------------+
+| planningStyleAnalysis.ts     |  <- NEW utility
+| - Aggregate history metrics  |
+| - Infer style dimensions     |
+| - Generate summary           |
++------------------------------+
+       |
+       v
++------------------------------+
+| usePlanningStyle.ts          |  <- NEW hook
+| - Fetch profile from storage |
+| - Calculate stability hash   |
+| - Trigger regeneration only  |
+|   when significant change    |
++------------------------------+
+       |
+       v
++------------------------------+
+| PlanningStyleProfile.tsx     |  <- NEW component
+| - Collapsible section        |
+| - Style dimensions display   |
+| - Summary paragraph          |
+| - Evolution history (Pro)    |
++------------------------------+
+       |
+       v
++------------------------------+
+| planning-style-summary       |  <- NEW edge function
+| - Generate human-readable    |
+|   summary via AI             |
+| - Observational tone only    |
++------------------------------+
+```
+
+---
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/lib/planningStyleAnalysis.ts` | Style inference logic from history data |
+| `src/hooks/usePlanningStyle.ts` | Hook for profile management and caching |
+| `src/components/PlanningStyleProfile.tsx` | UI component for /review |
+| `supabase/functions/planning-style-summary/index.ts` | AI-generated summary |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/DraggableTaskItem.tsx` | Add `onSplit` prop and subtle split button |
-| `src/pages/Plan.tsx` | Pass `onSplit` handler to DraggableTaskItem |
+| `src/lib/productTiers.ts` | Add `planning-style-profile` feature (Pro) |
+| `src/pages/Review.tsx` | Add PlanningStyleProfile section |
 
 ---
 
-### Technical Details
+### Technical Implementation
 
-#### 1. Update DraggableTaskItem Props
-
-Add a new optional `onSplit` prop:
+#### 1. Planning Style Analysis (`planningStyleAnalysis.ts`)
 
 ```typescript
-interface DraggableTaskItemProps {
-  // ... existing props
-  onSplit?: () => void;      // Callback to trigger split
-  canSplit?: boolean;        // Whether split is allowed
-  splitBlockReason?: string; // Reason if split is blocked
+interface PlanningStyleDimensions {
+  // Planner vs Improviser (0 = planner, 1 = improviser)
+  planAdherence: number; // Derived from completion rate variance
+  
+  // Optimistic vs Conservative (0 = optimistic, 1 = conservative)
+  estimationBias: number; // Derived from time variance
+  
+  // Linear vs Iterative (0 = linear, 1 = iterative)
+  executionPattern: number; // Derived from reordering/splitting
+  
+  // Strategic vs Tactical (0 = strategic, 1 = tactical)
+  planningScope: number; // Derived from strategic plan usage
+}
+
+interface PlanningStyleProfile {
+  dimensions: PlanningStyleDimensions;
+  summary: string; // AI-generated, cached
+  summary_generated_at: string;
+  data_version_hash: string; // For stability detection
+  plans_analyzed: number;
+  first_analyzed_at: string;
+  last_analyzed_at: string;
+  evolution_history?: StyleSnapshot[]; // Track changes over time
 }
 ```
 
-#### 2. Add Split Action UI to DraggableTaskItem
+**Inference Logic:**
+- Aggregate metrics from all plans in `plan_history`
+- Calculate dimension values based on weighted patterns
+- Minimum 3 completed plans required to surface profile
+- Changes require significant data shift to trigger regeneration
 
-Add a subtle split button that appears:
-- Desktop: On hover (using existing `group` class)
-- Mobile: As a small inline icon button
+#### 2. Style Inference Rules
 
-Location: After the task title area, before the drag handle section
+| Dimension | Planner (0) | Improviser (1) |
+|-----------|-------------|----------------|
+| Plan Adherence | >85% completion, low variance | <60% completion, high variance |
 
-```tsx
-{/* Split Task Action */}
-{onSplit && (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canSplit) onSplit();
-          }}
-          disabled={!canSplit}
-          className={cn(
-            "p-1.5 rounded-md transition-all",
-            // Desktop: show on hover
-            !isMobile && "opacity-0 group-hover:opacity-100",
-            // Mobile: always visible but subtle
-            isMobile && "opacity-60",
-            canSplit 
-              ? "hover:bg-primary/10 text-muted-foreground hover:text-primary"
-              : "cursor-not-allowed opacity-30"
-          )}
-        >
-          <Scissors className="w-3.5 h-3.5" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-sm">{canSplit ? 'Split task' : splitBlockReason}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-)}
-```
+| Dimension | Optimistic (0) | Conservative (1) |
+|-----------|----------------|------------------|
+| Estimation | Actual > Planned by >20% | Actual < Planned by >10% |
 
-#### 3. Wire Up in Plan.tsx
+| Dimension | Linear (0) | Iterative (1) |
+|-----------|------------|---------------|
+| Execution | Few reorders/splits | Frequent adjustments |
 
-In the task mapping loop (around line 1210), pass the split handler:
+| Dimension | Strategic (0) | Tactical (1) |
+|-----------|---------------|--------------|
+| Scope | >50% strategic plans | <20% strategic plans |
 
-```tsx
-<DraggableTaskItem
-  key={taskId}
-  task={task as Task}
-  // ... existing props
-  onSplit={() => {
-    if (!canSplitTasks) {
-      trackSplitInterest('attempted');
-      toast({
-        title: 'Pro Feature',
-        description: 'Split Tasks is available with Strategic Planning.',
-      });
-      return;
-    }
-    setSplitTaskData({
-      weekIndex,
-      taskIndex,
-      task: task as Task,
-    });
-  }}
-  canSplit={canSplitTask(weekIndex, taskIndex).allowed}
-  splitBlockReason={canSplitTask(weekIndex, taskIndex).reason}
-/>
-```
-
----
-
-### Restriction Enforcement
-
-The existing `canSplitTask` function in `useTaskMutations.ts` already enforces:
-
-| Restriction | Status |
-|-------------|--------|
-| Completed tasks cannot be split | Checked (execution_state === 'done' or completed) |
-| In-progress tasks cannot be split | Checked (execution_state === 'doing') |
-| Tasks with active timer cannot be split | Checked (activeTimer match) |
-| Locked week tasks cannot be split | Needs to be added |
-
-**Addition needed:** Add locked week check to `canSplitTask`:
+#### 3. Stability Rules (Critical)
 
 ```typescript
-// Cannot split tasks in locked weeks
-const isLocked = isWeekLocked(plan, weekIndex);
-if (isLocked) {
-  return { allowed: false, reason: 'Cannot split tasks in locked weeks' };
+function shouldRegenerateProfile(
+  existingProfile: PlanningStyleProfile | null,
+  newDataHash: string
+): boolean {
+  // Never regenerate if no existing profile and insufficient data
+  if (!existingProfile) return true;
+  
+  // Skip if hash matches (no new data)
+  if (existingProfile.data_version_hash === newDataHash) return false;
+  
+  // Require at least 2 new plans since last analysis
+  const plansSinceLast = countNewPlansSince(existingProfile.last_analyzed_at);
+  if (plansSinceLast < 2) return false;
+  
+  return true;
 }
 ```
 
+**Hash calculation:** Based on plan count, total tasks, total completion, strategic ratio.
+
+#### 4. AI Summary Generation
+
+**Edge Function: `planning-style-summary`**
+
+Input: Style dimensions + plan history metrics
+Output: 1-2 sentence observational summary
+
+**Prompt Rules:**
+- Observational tone only
+- No advice or commands
+- No "you should" or "try to"
+- Factual pattern description
+
+**Example outputs:**
+- "You tend to plan ambitiously and execute best when tasks are broken into smaller units."
+- "Your planning style leans toward front-loaded execution with consistent pacing."
+- "You adapt plans frequently during execution, showing a flexible approach."
+
+#### 5. UI Component
+
+```typescript
+// PlanningStyleProfile.tsx structure
+<Collapsible defaultOpen={false}>
+  <Card>
+    <CollapsibleTrigger>
+      {/* Header with icon, title, Pro badge */}
+      Planning Style
+      <Badge>Pro</Badge>
+    </CollapsibleTrigger>
+    
+    <CollapsibleContent>
+      {/* Insufficient data state */}
+      {plansAnalyzed < 3 && (
+        <EmptyState message="Complete 3+ plans to see your style" />
+      )}
+      
+      {/* Style Dimensions - visual spectrum bars */}
+      <DimensionBar label="Plan Adherence" left="Planner" right="Improviser" />
+      <DimensionBar label="Estimation" left="Optimistic" right="Conservative" />
+      <DimensionBar label="Execution" left="Linear" right="Iterative" />
+      <DimensionBar label="Scope" left="Strategic" right="Tactical" />
+      
+      {/* AI Summary */}
+      <SummaryParagraph text={profile.summary} />
+      
+      {/* Evolution History (Pro) */}
+      <StyleEvolution snapshots={profile.evolution_history} />
+      
+      {/* Disclaimer */}
+      <Disclaimer>
+        This reflects your historical patterns. It does not affect your plan.
+      </Disclaimer>
+    </CollapsibleContent>
+  </Card>
+</Collapsible>
+```
+
+#### 6. Dimension Bar Component
+
+Simple visual spectrum without scores:
+```text
+Planner  ●──────────────○  Improviser
+          ^marker position
+```
+
+- No numbers shown
+- Marker position indicates tendency
+- Neutral styling (no red/green)
+
 ---
 
-### Execution Safety
+### Storage
 
-| Safety Check | Implementation |
-|--------------|----------------|
-| No auto-start timers | Split creates tasks with `execution_state: 'pending'` |
-| /today logic remains correct | Split tasks inherit same week, appear in /today if active week |
-| No AI regeneration | Pure array manipulation in plan_json |
-| Order preserved | `splice()` inserts at original position |
+**Location:** `profiles.profession_details.planning_style_profile`
+
+Same pattern as `execution_profile`:
+
+```typescript
+const PROFILE_KEY = 'planning_style_profile';
+
+async function savePlanningStyleProfile(
+  userId: string,
+  profile: PlanningStyleProfile
+): Promise<void> {
+  // Merge into existing profession_details
+}
+```
 
 ---
 
 ### Pro Gating
 
-Already configured in `productTiers.ts`:
-- `task-split` feature is pro-gated
-- Check happens in Plan.tsx before calling `setSplitTaskData`
-- Free users see toast upsell
+| Feature | Free | Pro |
+|---------|------|-----|
+| See Planning Style section | No | Yes |
+| View style dimensions | No | Yes |
+| View AI summary | No | Yes |
+| Evolution history | No | Yes |
+
+**Free user experience:**
+- Section does not appear at all
+- No preview, no upsell modal
+- Clean, uncluttered review page
 
 ---
 
-### UI/UX Summary
+### Placement Rules
 
-**Desktop:**
-- Scissors icon appears on task hover (right side, near drag handle)
-- Tooltip shows "Split task" or block reason
-- Click opens SplitTaskModal
+| Location | Shown |
+|----------|-------|
+| /review | Yes (Pro only) |
+| /plan | No |
+| /today | No |
+| /home | No |
+| Onboarding | No |
+| Plan reset | No |
 
-**Mobile:**
-- Scissors icon always visible (subtle opacity)
-- Tap opens SplitTaskModal
-- Same restrictions apply
+**Position on /review:** After Calibration Insights, before Next-Cycle Guidance.
 
-**Modal (already implemented):**
-- Shows original task details
-- Slider for time allocation (10-90%)
-- Two title inputs with defaults "(Part 1)" / "(Part 2)"
-- Both new tasks inherit original priority
-- Both start as pending
+---
+
+### Guardrails (Non-Negotiable)
+
+| Rule | Implementation |
+|------|----------------|
+| No plan modifications | Read-only component, no mutation handlers |
+| No execution influence | No integration with timer or task state |
+| No improvement suggestions | AI prompt explicitly forbids advice |
+| No future task generation | No plan creation triggers |
+| No auto-adjustments | Profile is passive observation only |
+| Slow evolution | Require 2+ new plans for regeneration |
+| User can hide | Collapsible, collapsed by default |
 
 ---
 
 ### Implementation Order
 
-1. Update `useTaskMutations.ts` - Add locked week check to `canSplitTask`
-2. Update `DraggableTaskItem.tsx` - Add `onSplit` prop and split button UI
-3. Update `Plan.tsx` - Wire up `onSplit` handler in task loop
+1. Add `planning-style-profile` to `productTiers.ts`
+2. Create `planningStyleAnalysis.ts` with inference logic
+3. Create `usePlanningStyle.ts` hook
+4. Create `PlanningStyleProfile.tsx` component
+5. Create `planning-style-summary` edge function
+6. Integrate into `Review.tsx`
 
 ---
 
 ### Testing Checklist
 
-**Visibility:**
-- [ ] Split icon visible on task hover (desktop)
-- [ ] Split icon visible on tasks (mobile, subtle)
-- [ ] Icon hidden/disabled for blocked tasks
+**Data Requirements:**
+- [ ] Profile appears only after 3+ completed plans
+- [ ] Profile regenerates only after 2+ new plans
+- [ ] Hash-based caching prevents unnecessary regeneration
 
-**Restrictions:**
-- [ ] Cannot split completed tasks (shows reason in tooltip)
-- [ ] Cannot split in-progress tasks
-- [ ] Cannot split tasks in locked weeks
-- [ ] Cannot split if timer is active on task
+**Style Dimensions:**
+- [ ] All 4 dimensions display correctly
+- [ ] Spectrum bars render neutrally
+- [ ] No numeric scores visible
 
-**Functionality:**
-- [ ] Clicking split opens modal with correct task data
-- [ ] Slider adjusts time allocation
-- [ ] Title inputs work
-- [ ] Submit creates two new tasks
-- [ ] Original task is removed
-- [ ] New tasks appear in same position
-- [ ] New tasks have pending state
-- [ ] New tasks inherit priority
+**AI Summary:**
+- [ ] Summary is observational, not prescriptive
+- [ ] Summary regenerates only on significant change
+- [ ] Cached summary persists across sessions
 
 **Pro Gating:**
-- [ ] Free users see upsell toast
-- [ ] Pro users can split freely
+- [ ] Section hidden for Free users
+- [ ] Full access for Pro users
+- [ ] No blocking modals or paywalls
 
 **Guardrails:**
-- [ ] No timer auto-start after split
-- [ ] /today still works correctly
-- [ ] No AI regeneration triggered
-- [ ] Plan persists correctly to database
+- [ ] No execution state changes
+- [ ] No plan mutations
+- [ ] No timer interference
+- [ ] Collapsed by default
+- [ ] Works on mobile
+
+**Tone:**
+- [ ] Language is neutral and respectful
+- [ ] No judgment or pressure
+- [ ] Feels like understanding, not tracking
 
 ---
 
 ### Summary
 
-This implementation:
+This implementation introduces a Personal Planning Style Profile that:
 
-1. **Adds split action to each task** via subtle icon button
-2. **Uses existing SplitTaskModal** - no new UI needed
-3. **Enforces all restrictions** - completed, in-progress, locked weeks blocked
-4. **Preserves execution safety** - no timer impact, no AI changes
-5. **Respects Pro gating** - free users see calm upsell
+1. **Derives style from behavior** - no quizzes or declarations
+2. **Uses 4 descriptive dimensions** - neutral spectrums, no scores
+3. **Generates AI summary** - observational, cached, respectful
+4. **Evolves slowly** - requires significant new data
+5. **Is Pro-only** - clean experience for free users
+6. **Appears on /review only** - no execution interference
+7. **Respects user agency** - collapsible, no pressure
 
-The change is minimal and focused: just wiring up the existing infrastructure that was already built.
+**Product Intent:** Users feel understood, not judged.
 
