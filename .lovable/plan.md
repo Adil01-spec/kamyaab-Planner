@@ -1,94 +1,311 @@
 
 
-## Personal Planning Style Profile
+## Phase 9.6 — Adaptive Execution Control (Reality-First Execution)
 
 ### Overview
 
-A new read-only, observational feature on `/review` that helps Pro users understand their planning style across multiple completed plans. The profile is derived entirely from historical behavior - never from user declarations or quizzes.
+Add execution-time flexibility features that allow users to defer tasks, track partial progress, and add optional notes — all without breaking plan integrity or triggering AI regeneration.
 
-**Core Principle:** This is a mirror, not a coach. No advice, no recommendations, no behavioral pressure.
-
----
-
-### Data Sources
-
-**Existing Infrastructure:**
-- `plan_history` table contains full plan snapshots with metrics
-- `profiles.profession_details` stores `execution_profile` - can add `planning_style_profile`
-- Pattern detection already exists in `planHistoryComparison.ts`
-
-**Derived Signals:**
-| Signal | Source |
-|--------|--------|
-| Task count vs completion | `plan_history.total_tasks`, `completed_tasks` |
-| Planned vs actual time | `plan_history.total_time_seconds`, task estimates in snapshot |
-| Task reordering frequency | Track in snapshot (new field) |
-| Task splitting behavior | Track in snapshot (new field) |
-| Strategic vs Standard usage | `plan_history.is_strategic` |
-| Execution drift patterns | Completion timing relative to weeks |
+**Core Principle:** "This plan adapts when my day doesn't go as expected — without judging me."
 
 ---
 
-### Style Dimensions
+### Current Task Structure
 
-Each dimension is a spectrum, not a score:
+The existing task object in `plan_json`:
 
-```text
-Planner ←────────────→ Improviser
-(Follows plan closely)    (Adapts during execution)
-
-Optimistic ←────────────→ Conservative
-(Underestimates time)     (Adds buffers)
-
-Linear ←────────────→ Iterative  
-(Sequential execution)    (Revisits and adjusts)
-
-Strategic-leaning ←────────────→ Tactical-leaning
-(Long-term focus)         (Near-term execution)
+```typescript
+interface Task {
+  title: string;
+  priority: 'High' | 'Medium' | 'Low';
+  estimated_hours: number;
+  completed?: boolean;
+  completed_at?: string;
+  scheduled_at?: string;
+  execution_state?: 'pending' | 'doing' | 'done';
+  execution_started_at?: string;
+  time_spent_seconds?: number;
+  explanation?: { how: string; why: string; expected_outcome: string };
+}
 ```
 
-**Display:** Qualitative descriptors only. No percentages, no scores, no "good/bad" labels.
+---
+
+### New Task Fields (Additive, Backward-Compatible)
+
+```typescript
+interface Task {
+  // ... existing fields
+
+  // Phase 9.6: Adaptive Execution
+  deferred_to?: string;           // ISO datetime of new scheduled time
+  deferred_from?: string;         // Original scheduled time before defer
+  deferred_reason?: string;       // Optional preset reason
+  deferred_count?: number;        // How many times deferred (quiet tracking)
+  
+  partial_progress?: 'some' | 'most' | 'almost';  // Qualitative state
+  partial_time_seconds?: number;  // Time spent before partial marking
+  
+  execution_notes?: string;       // Optional short notes (visible in /review only)
+  notes_added_at?: string;        // When note was added
+}
+```
+
+All new fields are optional and won't affect existing task data.
 
 ---
 
-### Architecture
+### Feature 1: Task Defer / Reschedule
+
+**Where:** `/today` page (primary interactions)
+
+**UI Flow:**
+1. Add "Defer" action to task cards (both `TodayTaskCard` and `PrimaryTaskCard`)
+2. On tap, show a bottom sheet/dropdown with preset options:
+   - "Later today" (reschedules +3 hours or to evening slot)
+   - "Tomorrow" (reschedules to next day, 9 AM)
+   - "Next available day" (finds next unscheduled day)
+3. Optional: One-tap preset reasons (no typing required):
+   - "Interrupted"
+   - "No energy"
+   - "Higher priority came up"
+   - "Need more info"
+   - (Skip reason) — default, no selection needed
+
+**Implementation:**
+
+| File | Change |
+|------|--------|
+| `src/lib/taskDefer.ts` | NEW: Defer logic (calculate new times, update calendar) |
+| `src/hooks/useTaskDefer.ts` | NEW: Hook for defer operations with persistence |
+| `src/components/TaskDeferSheet.tsx` | NEW: Bottom sheet UI for defer options |
+| `src/components/TodayTaskCard.tsx` | Add defer button/action |
+| `src/components/PrimaryTaskCard.tsx` | Add defer button/action |
+| `src/components/SecondaryTaskCard.tsx` | Add defer button/action |
+| `src/pages/Today.tsx` | Wire defer handlers and state |
+
+**Defer Logic:**
+
+```typescript
+// taskDefer.ts
+interface DeferOption {
+  id: 'later-today' | 'tomorrow' | 'next-available';
+  label: string;
+  calculateNewTime: (currentScheduledAt: string) => Date;
+}
+
+const DEFER_OPTIONS: DeferOption[] = [
+  {
+    id: 'later-today',
+    label: 'Later today',
+    calculateNewTime: (current) => {
+      const now = new Date();
+      const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // +3 hours
+      // Cap at 8 PM if too late
+      if (later.getHours() >= 20) {
+        later.setHours(20, 0, 0, 0);
+      }
+      return later;
+    },
+  },
+  {
+    id: 'tomorrow',
+    label: 'Tomorrow',
+    calculateNewTime: () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      return tomorrow;
+    },
+  },
+  {
+    id: 'next-available',
+    label: 'Next available day',
+    calculateNewTime: (current, scheduledTasks) => {
+      // Find next day without scheduled tasks
+      // Implementation finds gap in calendar
+    },
+  },
+];
+
+const DEFER_REASONS = [
+  'Interrupted',
+  'No energy',
+  'Higher priority',
+  'Need more info',
+];
+```
+
+**Persistence:**
+- Update `plan_json` immediately with new `deferred_to`, `deferred_from`, `deferred_reason`
+- Update calendar status via `useCalendarStatus` to reflect new scheduled time
+- Increment `deferred_count` silently (for future pattern analysis)
+
+**Guardrails:**
+- Defer does NOT mark task as done or failed
+- Defer preserves all original task data
+- Deferred tasks remain visible in `/today` if rescheduled to today
+- No AI regeneration triggered
+
+---
+
+### Feature 2: Partial Completion Support
+
+**Where:** `/today` page (during or after execution)
+
+**UI Flow:**
+1. When user pauses a task (or when actively working), show "Mark partial progress" option
+2. Partial progress modal/sheet offers qualitative states:
+   - "Some progress" — started but early
+   - "Most done" — significant progress
+   - "Almost there" — nearly complete
+3. Captures time spent so far
+4. Task remains in `pending` state (not `done`)
+5. Visual indicator shows partial progress on task card
+
+**Implementation:**
+
+| File | Change |
+|------|--------|
+| `src/components/PartialProgressSheet.tsx` | NEW: UI for marking partial progress |
+| `src/hooks/usePartialProgress.ts` | NEW: Hook for partial progress management |
+| `src/components/TodayTaskCard.tsx` | Add partial progress indicator and action |
+| `src/components/PrimaryTaskCard.tsx` | Add partial progress indicator and action |
+| `src/pages/Today.tsx` | Wire partial progress handlers |
+
+**UI Design:**
 
 ```text
-plan_history (existing)
-       |
-       v
-+------------------------------+
-| planningStyleAnalysis.ts     |  <- NEW utility
-| - Aggregate history metrics  |
-| - Infer style dimensions     |
-| - Generate summary           |
-+------------------------------+
-       |
-       v
-+------------------------------+
-| usePlanningStyle.ts          |  <- NEW hook
-| - Fetch profile from storage |
-| - Calculate stability hash   |
-| - Trigger regeneration only  |
-|   when significant change    |
-+------------------------------+
-       |
-       v
-+------------------------------+
-| PlanningStyleProfile.tsx     |  <- NEW component
-| - Collapsible section        |
-| - Style dimensions display   |
-| - Summary paragraph          |
-| - Evolution history (Pro)    |
-+------------------------------+
-       |
-       v
-+------------------------------+
-| planning-style-summary       |  <- NEW edge function
-| - Generate human-readable    |
-|   summary via AI             |
-| - Observational tone only    |
-+------------------------------+
+┌─────────────────────────────────────────┐
+│ How much did you get done?              │
+│                                         │
+│ ○ Some progress   (just getting started)│
+│ ○ Most done       (good chunk complete) │
+│ ○ Almost there    (minor work left)     │
+│                                         │
+│ Time logged: 45 min                     │
+│                                         │
+│ [Save Progress]  [Continue Working]     │
+└─────────────────────────────────────────┘
+```
+
+**Task Card Indicator:**
+
+```typescript
+// Show partial progress badge on task card
+{task.partial_progress && (
+  <Badge variant="outline" className="text-xs">
+    {task.partial_progress === 'some' && '🔵 Started'}
+    {task.partial_progress === 'most' && '🟡 Most done'}
+    {task.partial_progress === 'almost' && '🟢 Almost there'}
+  </Badge>
+)}
+```
+
+**Guardrails:**
+- Partial completion does NOT trigger plan completion
+- Task remains actionable (can still be started/resumed)
+- Partial progress is reversible until task is fully completed
+- No execution scoring based on partial progress
+
+---
+
+### Feature 3: Task Execution Notes
+
+**Where:** 
+- Entry: `/today` (via task details panel, NOT during active execution)
+- Display: `/review` only
+
+**UI Flow:**
+1. In task details panel (desktop) or after pausing/completing (mobile), show "Add note" option
+2. Simple text input (max 200 characters) — optional
+3. Notes are saved with task
+4. Notes are visible ONLY in `/review` page's Progress Proof or Execution Insights sections
+
+**Implementation:**
+
+| File | Change |
+|------|--------|
+| `src/components/TaskNoteInput.tsx` | NEW: Simple note input component |
+| `src/components/TodayTaskDetailsPanel.tsx` | Add note input (post-execution only) |
+| `src/components/TaskEffortFeedback.tsx` | Optionally add note prompt after effort feedback |
+| `src/pages/Review.tsx` | Display notes in relevant sections |
+| `src/components/ProgressProof.tsx` | Show notes alongside completed tasks |
+
+**Note Input:**
+
+```typescript
+// Simple, non-intrusive note input
+<div className="mt-4 pt-4 border-t border-border/20">
+  <p className="text-xs text-muted-foreground mb-2">Optional note</p>
+  <Textarea
+    placeholder="What happened? (optional)"
+    value={note}
+    onChange={(e) => setNote(e.target.value)}
+    maxLength={200}
+    className="resize-none h-16 text-sm"
+  />
+  <Button 
+    size="sm" 
+    variant="ghost" 
+    onClick={handleSaveNote}
+    className="mt-2"
+  >
+    Save note
+  </Button>
+</div>
+```
+
+**Guardrails:**
+- Notes do NOT appear during active execution (no distraction)
+- Notes are never required
+- Notes are visible only in `/review` (reflection context)
+- Notes do not affect execution or planning logic
+
+---
+
+### Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                      /today page                             │
+│                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │ PrimaryTask │  │ SecondaryTa │  │ TodayTaskDetailsPanel│ │
+│  │   Card      │  │   skCard    │  │                     │ │
+│  │             │  │             │  │  [Add Note]         │ │
+│  │ [Start]     │  │ [Start]     │  │  (post-execution)   │ │
+│  │ [Defer ▼]   │  │ [Defer ▼]   │  │                     │ │
+│  │             │  │             │  └─────────────────────┘ │
+│  │ 🟡 Most done│  │             │                          │
+│  └─────────────┘  └─────────────┘                          │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ TaskDeferSheet (bottom sheet)                         │  │
+│  │  ○ Later today  ○ Tomorrow  ○ Next available         │  │
+│  │  Optional reason: [Interrupted] [No energy] ...      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ PartialProgressSheet                                  │  │
+│  │  ○ Some ○ Most ○ Almost   Time: 45m  [Save]          │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+
+                            │
+                            ▼
+                      
+┌─────────────────────────────────────────────────────────────┐
+│                      /review page                            │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Progress Proof                                        │  │
+│  │  ✓ Task 1                                            │  │
+│  │    Note: "Had to restart after interruption"         │  │
+│  │  ✓ Task 2 (deferred once)                            │  │
+│  │  ◐ Task 3 (most done)                                │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -97,216 +314,51 @@ plan_history (existing)
 
 | File | Purpose |
 |------|---------|
-| `src/lib/planningStyleAnalysis.ts` | Style inference logic from history data |
-| `src/hooks/usePlanningStyle.ts` | Hook for profile management and caching |
-| `src/components/PlanningStyleProfile.tsx` | UI component for /review |
-| `supabase/functions/planning-style-summary/index.ts` | AI-generated summary |
+| `src/lib/taskDefer.ts` | Defer time calculation and options |
+| `src/hooks/useTaskDefer.ts` | Hook for defer operations |
+| `src/components/TaskDeferSheet.tsx` | Bottom sheet for defer options |
+| `src/components/PartialProgressSheet.tsx` | Sheet for partial progress selection |
+| `src/hooks/usePartialProgress.ts` | Hook for partial progress management |
+| `src/components/TaskNoteInput.tsx` | Simple note input component |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/lib/productTiers.ts` | Add `planning-style-profile` feature (Pro) |
-| `src/pages/Review.tsx` | Add PlanningStyleProfile section |
+| `src/components/TodayTaskCard.tsx` | Add defer button, partial indicator |
+| `src/components/PrimaryTaskCard.tsx` | Add defer button, partial indicator |
+| `src/components/SecondaryTaskCard.tsx` | Add defer button |
+| `src/components/TodayTaskDetailsPanel.tsx` | Add note input (post-execution) |
+| `src/pages/Today.tsx` | Wire defer and partial handlers |
+| `src/components/ProgressProof.tsx` | Display notes, partial, defer info |
+| `src/lib/executionTimer.ts` | Add partial progress support |
 
 ---
 
-### Technical Implementation
+### Tier Gating
 
-#### 1. Planning Style Analysis (`planningStyleAnalysis.ts`)
+These are **free tier** features — available to all users:
 
-```typescript
-interface PlanningStyleDimensions {
-  // Planner vs Improviser (0 = planner, 1 = improviser)
-  planAdherence: number; // Derived from completion rate variance
-  
-  // Optimistic vs Conservative (0 = optimistic, 1 = conservative)
-  estimationBias: number; // Derived from time variance
-  
-  // Linear vs Iterative (0 = linear, 1 = iterative)
-  executionPattern: number; // Derived from reordering/splitting
-  
-  // Strategic vs Tactical (0 = strategic, 1 = tactical)
-  planningScope: number; // Derived from strategic plan usage
-}
+| Feature | Tier |
+|---------|------|
+| Task Defer | Free |
+| Partial Progress | Free |
+| Execution Notes | Free |
 
-interface PlanningStyleProfile {
-  dimensions: PlanningStyleDimensions;
-  summary: string; // AI-generated, cached
-  summary_generated_at: string;
-  data_version_hash: string; // For stability detection
-  plans_analyzed: number;
-  first_analyzed_at: string;
-  last_analyzed_at: string;
-  evolution_history?: StyleSnapshot[]; // Track changes over time
-}
-```
-
-**Inference Logic:**
-- Aggregate metrics from all plans in `plan_history`
-- Calculate dimension values based on weighted patterns
-- Minimum 3 completed plans required to surface profile
-- Changes require significant data shift to trigger regeneration
-
-#### 2. Style Inference Rules
-
-| Dimension | Planner (0) | Improviser (1) |
-|-----------|-------------|----------------|
-| Plan Adherence | >85% completion, low variance | <60% completion, high variance |
-
-| Dimension | Optimistic (0) | Conservative (1) |
-|-----------|----------------|------------------|
-| Estimation | Actual > Planned by >20% | Actual < Planned by >10% |
-
-| Dimension | Linear (0) | Iterative (1) |
-|-----------|------------|---------------|
-| Execution | Few reorders/splits | Frequent adjustments |
-
-| Dimension | Strategic (0) | Tactical (1) |
-|-----------|---------------|--------------|
-| Scope | >50% strategic plans | <20% strategic plans |
-
-#### 3. Stability Rules (Critical)
-
-```typescript
-function shouldRegenerateProfile(
-  existingProfile: PlanningStyleProfile | null,
-  newDataHash: string
-): boolean {
-  // Never regenerate if no existing profile and insufficient data
-  if (!existingProfile) return true;
-  
-  // Skip if hash matches (no new data)
-  if (existingProfile.data_version_hash === newDataHash) return false;
-  
-  // Require at least 2 new plans since last analysis
-  const plansSinceLast = countNewPlansSince(existingProfile.last_analyzed_at);
-  if (plansSinceLast < 2) return false;
-  
-  return true;
-}
-```
-
-**Hash calculation:** Based on plan count, total tasks, total completion, strategic ratio.
-
-#### 4. AI Summary Generation
-
-**Edge Function: `planning-style-summary`**
-
-Input: Style dimensions + plan history metrics
-Output: 1-2 sentence observational summary
-
-**Prompt Rules:**
-- Observational tone only
-- No advice or commands
-- No "you should" or "try to"
-- Factual pattern description
-
-**Example outputs:**
-- "You tend to plan ambitiously and execute best when tasks are broken into smaller units."
-- "Your planning style leans toward front-loaded execution with consistent pacing."
-- "You adapt plans frequently during execution, showing a flexible approach."
-
-#### 5. UI Component
-
-```typescript
-// PlanningStyleProfile.tsx structure
-<Collapsible defaultOpen={false}>
-  <Card>
-    <CollapsibleTrigger>
-      {/* Header with icon, title, Pro badge */}
-      Planning Style
-      <Badge>Pro</Badge>
-    </CollapsibleTrigger>
-    
-    <CollapsibleContent>
-      {/* Insufficient data state */}
-      {plansAnalyzed < 3 && (
-        <EmptyState message="Complete 3+ plans to see your style" />
-      )}
-      
-      {/* Style Dimensions - visual spectrum bars */}
-      <DimensionBar label="Plan Adherence" left="Planner" right="Improviser" />
-      <DimensionBar label="Estimation" left="Optimistic" right="Conservative" />
-      <DimensionBar label="Execution" left="Linear" right="Iterative" />
-      <DimensionBar label="Scope" left="Strategic" right="Tactical" />
-      
-      {/* AI Summary */}
-      <SummaryParagraph text={profile.summary} />
-      
-      {/* Evolution History (Pro) */}
-      <StyleEvolution snapshots={profile.evolution_history} />
-      
-      {/* Disclaimer */}
-      <Disclaimer>
-        This reflects your historical patterns. It does not affect your plan.
-      </Disclaimer>
-    </CollapsibleContent>
-  </Card>
-</Collapsible>
-```
-
-#### 6. Dimension Bar Component
-
-Simple visual spectrum without scores:
-```text
-Planner  ●──────────────○  Improviser
-          ^marker position
-```
-
-- No numbers shown
-- Marker position indicates tendency
-- Neutral styling (no red/green)
+No Pro gating needed. These are execution fundamentals.
 
 ---
 
-### Storage
+### Data Integrity Guarantees
 
-**Location:** `profiles.profession_details.planning_style_profile`
-
-Same pattern as `execution_profile`:
-
-```typescript
-const PROFILE_KEY = 'planning_style_profile';
-
-async function savePlanningStyleProfile(
-  userId: string,
-  profile: PlanningStyleProfile
-): Promise<void> {
-  // Merge into existing profession_details
-}
-```
-
----
-
-### Pro Gating
-
-| Feature | Free | Pro |
-|---------|------|-----|
-| See Planning Style section | No | Yes |
-| View style dimensions | No | Yes |
-| View AI summary | No | Yes |
-| Evolution history | No | Yes |
-
-**Free user experience:**
-- Section does not appear at all
-- No preview, no upsell modal
-- Clean, uncluttered review page
-
----
-
-### Placement Rules
-
-| Location | Shown |
-|----------|-------|
-| /review | Yes (Pro only) |
-| /plan | No |
-| /today | No |
-| /home | No |
-| Onboarding | No |
-| Plan reset | No |
-
-**Position on /review:** After Calibration Insights, before Next-Cycle Guidance.
+| Concern | Mitigation |
+|---------|------------|
+| Existing timers unaffected | New fields are additive; timer logic unchanged |
+| Completion logic unchanged | `done` state only set by explicit completion |
+| Insights remain accurate | New fields are informational, not used in calculations (yet) |
+| Plan structure preserved | No task reordering, no week modifications |
+| Calendar sync works | `deferred_to` updates calendar status automatically |
+| Backward compatible | All new fields optional with sensible defaults |
 
 ---
 
@@ -314,74 +366,83 @@ async function savePlanningStyleProfile(
 
 | Rule | Implementation |
 |------|----------------|
-| No plan modifications | Read-only component, no mutation handlers |
-| No execution influence | No integration with timer or task state |
-| No improvement suggestions | AI prompt explicitly forbids advice |
-| No future task generation | No plan creation triggers |
-| No auto-adjustments | Profile is passive observation only |
-| Slow evolution | Require 2+ new plans for regeneration |
-| User can hide | Collapsible, collapsed by default |
+| No AI suggestions | No AI calls triggered by defer/partial/notes |
+| No plan regeneration | Pure field updates in plan_json |
+| No strategy updates | Strategy layer untouched |
+| No automatic task movement | User explicitly chooses defer target |
+| No execution scoring | Partial progress is qualitative only |
+| No notifications | No push/banner for deferred tasks |
 
 ---
 
 ### Implementation Order
 
-1. Add `planning-style-profile` to `productTiers.ts`
-2. Create `planningStyleAnalysis.ts` with inference logic
-3. Create `usePlanningStyle.ts` hook
-4. Create `PlanningStyleProfile.tsx` component
-5. Create `planning-style-summary` edge function
-6. Integrate into `Review.tsx`
+1. **Core defer logic** — `taskDefer.ts` with time calculations
+2. **Defer hook** — `useTaskDefer.ts` with persistence
+3. **Defer UI** — `TaskDeferSheet.tsx` bottom sheet
+4. **Wire defer to task cards** — TodayTaskCard, PrimaryTaskCard, SecondaryTaskCard
+5. **Partial progress hook** — `usePartialProgress.ts`
+6. **Partial progress UI** — `PartialProgressSheet.tsx`
+7. **Wire partial progress** — Today.tsx and task cards
+8. **Task note input** — `TaskNoteInput.tsx`
+9. **Wire notes** — TodayTaskDetailsPanel, TaskEffortFeedback
+10. **Display in Review** — ProgressProof.tsx updates
 
 ---
 
 ### Testing Checklist
 
-**Data Requirements:**
-- [ ] Profile appears only after 3+ completed plans
-- [ ] Profile regenerates only after 2+ new plans
-- [ ] Hash-based caching prevents unnecessary regeneration
+**Defer:**
+- [ ] Can defer pending task to later today
+- [ ] Can defer pending task to tomorrow
+- [ ] Can defer active task (pauses timer, then defers)
+- [ ] Deferred task appears at new scheduled time
+- [ ] Original scheduled time preserved in deferred_from
+- [ ] Optional reason is saved
+- [ ] Calendar status updates correctly
+- [ ] Deferred task can still be completed normally
 
-**Style Dimensions:**
-- [ ] All 4 dimensions display correctly
-- [ ] Spectrum bars render neutrally
-- [ ] No numeric scores visible
+**Partial Progress:**
+- [ ] Can mark partial progress on paused task
+- [ ] Partial progress indicator shows on task card
+- [ ] Time spent is preserved
+- [ ] Task remains actionable (can resume)
+- [ ] Partial task is NOT counted as complete
+- [ ] Plan completion does NOT trigger with partial tasks
+- [ ] Can upgrade partial to full completion
 
-**AI Summary:**
-- [ ] Summary is observational, not prescriptive
-- [ ] Summary regenerates only on significant change
-- [ ] Cached summary persists across sessions
-
-**Pro Gating:**
-- [ ] Section hidden for Free users
-- [ ] Full access for Pro users
-- [ ] No blocking modals or paywalls
+**Notes:**
+- [ ] Can add note after task completion
+- [ ] Can add note after pausing task
+- [ ] Note does NOT appear during active execution
+- [ ] Note visible in /review only
+- [ ] Note is optional (can skip)
+- [ ] Max 200 characters enforced
 
 **Guardrails:**
-- [ ] No execution state changes
-- [ ] No plan mutations
-- [ ] No timer interference
-- [ ] Collapsed by default
-- [ ] Works on mobile
-
-**Tone:**
-- [ ] Language is neutral and respectful
-- [ ] No judgment or pressure
-- [ ] Feels like understanding, not tracking
+- [ ] No AI regeneration triggered
+- [ ] No plan structure changes
+- [ ] No strategy updates
+- [ ] Timer logic unaffected
+- [ ] Existing completion flow unchanged
+- [ ] Mobile and desktop both work
 
 ---
 
 ### Summary
 
-This implementation introduces a Personal Planning Style Profile that:
+This implementation adds three execution-time flexibility features:
 
-1. **Derives style from behavior** - no quizzes or declarations
-2. **Uses 4 descriptive dimensions** - neutral spectrums, no scores
-3. **Generates AI summary** - observational, cached, respectful
-4. **Evolves slowly** - requires significant new data
-5. **Is Pro-only** - clean experience for free users
-6. **Appears on /review only** - no execution interference
-7. **Respects user agency** - collapsible, no pressure
+1. **Task Defer** — Reschedule with one tap, optional reason
+2. **Partial Progress** — Acknowledge progress without completing
+3. **Execution Notes** — Optional context for reflection
 
-**Product Intent:** Users feel understood, not judged.
+All features are:
+- Free tier (no Pro gating)
+- Additive (no breaking changes)
+- Non-judgmental (no scoring or pressure)
+- Reflection-focused (notes visible only in /review)
+- User-controlled (explicit actions only)
+
+**Product Intent:** Users feel their plan adapts to reality without making them feel they've failed.
 
