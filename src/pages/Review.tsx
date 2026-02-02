@@ -63,6 +63,9 @@ interface StrategicMilestone {
   timeframe?: string;
 }
 
+import { DailyReflectionsSection } from '@/components/DailyReflectionsSection';
+import { type DayClosure, getRecentClosures } from '@/lib/dayClosure';
+
 interface PlanData {
   overview: string;
   total_weeks: number;
@@ -78,6 +81,8 @@ interface PlanData {
   reality_check?: RealityCritique;
   execution_insights?: ExecutionInsightsData;
   plan_context?: { scenario?: ScenarioTag };
+  // Phase 9.7: Day closures
+  day_closures?: DayClosure[];
 }
 
 /**
@@ -426,7 +431,13 @@ const Review = () => {
           />
         )}
 
-        {/* 6. Calibration Insights */}
+        {/* 5.5. Daily Reflections (Phase 9.7) */}
+        {plan.day_closures && plan.day_closures.length > 0 && (
+          <DailyReflectionsSection 
+            closures={getRecentClosures(plan.day_closures, 7)} 
+          />
+        )}
+
         {user && (
           <CalibrationInsights
             userId={user.id}

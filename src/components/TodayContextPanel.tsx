@@ -3,9 +3,16 @@ import { motion } from 'framer-motion';
 import { Flame, Battery, Target, Zap, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCurrentStreak } from '@/lib/streakTracker';
+import { CloseDayButton } from '@/components/CloseDayButton';
+
 interface TodayContextPanelProps {
   context: DailyContext;
   collapsed?: boolean;
+  // Phase 9.7: Day closure props
+  showCloseDayButton?: boolean;
+  isTodayClosed?: boolean;
+  isClosingDay?: boolean;
+  onCloseDayClick?: () => void;
 }
 const getDayTypeLabel = (dayType: DailyContext['dayType']) => {
   switch (dayType) {
@@ -81,7 +88,11 @@ const getAdaptiveMessage = (context: DailyContext): string => {
 };
 export function TodayContextPanel({
   context,
-  collapsed = false
+  collapsed = false,
+  showCloseDayButton = false,
+  isTodayClosed = false,
+  isClosingDay = false,
+  onCloseDayClick,
 }: TodayContextPanelProps) {
   const currentStreak = getCurrentStreak();
   const dayConfig = getDayTypeLabel(context.dayType);
@@ -166,5 +177,16 @@ export function TodayContextPanel({
           </div>
         </div>
       </div>
+      
+      {/* Phase 9.7: Close Day button (desktop context panel) */}
+      {showCloseDayButton && (
+        <div className="rounded-2xl border border-border/30 bg-card/50 p-4">
+          <CloseDayButton
+            isClosed={isTodayClosed}
+            isLoading={isClosingDay}
+            onClick={() => onCloseDayClick?.()}
+          />
+        </div>
+      )}
     </motion.div>;
 }

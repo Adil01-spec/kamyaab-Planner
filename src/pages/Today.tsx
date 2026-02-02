@@ -17,6 +17,8 @@ import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { TaskEffortFeedback, storeEffortFeedback, type EffortLevel } from '@/components/TaskEffortFeedback';
 import { DayClosureModal } from '@/components/DayClosureModal';
+import { CloseDayButton } from '@/components/CloseDayButton';
+import { useDayClosure } from '@/hooks/useDayClosure';
 import { MissedTaskNotice } from '@/components/MissedTaskNotice';
 import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
 import { StartTaskModal } from '@/components/StartTaskModal';
@@ -221,6 +223,7 @@ const Today = () => {
     onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan),
   });
 
+
   type ExecutionState = 'pending' | 'doing' | 'done';
 
   const getExecutionState = useCallback((task: any): ExecutionState => {
@@ -242,7 +245,13 @@ const Today = () => {
   const completedCount = todaysTasks.filter(t => getExecutionState(t.task) === 'done').length;
   const allCompleted = todaysTasks.length > 0 && completedCount === todaysTasks.length;
 
-  // Compute daily context using the context engine
+  // Phase 9.7: Day closure hook (must be after todaysTasks)
+  const dayClosure = useDayClosure({
+    planData: planData as any,
+    planId,
+    todaysTasks: todaysTasks.map(t => ({ weekIndex: t.weekIndex, taskIndex: t.taskIndex, task: t.task as any })),
+    onPlanUpdate: (updatedPlan) => setPlanData(updatedPlan as unknown as PlanData),
+  });
   const scheduledTasks = useMemo(() => getScheduledCalendarTasks(), []);
   const dailyContext = useMemo(() => computeDailyContext(planData, todaysTasks.length, scheduledTasks), [planData, todaysTasks.length, scheduledTasks]);
 
@@ -664,7 +673,14 @@ const Today = () => {
           {dailyContext.signalState !== 'burnout-risk' && <TodayTaskDetailsPanel selectedTask={selectedTask} dayType={dailyContext.dayType} />}
           
           {/* RIGHT COLUMN - Context Panel (collapsed in burnout-risk) */}
-          <TodayContextPanel context={dailyContext} collapsed={dailyContext.signalState === 'burnout-risk'} />
+          <TodayContextPanel 
+            context={dailyContext} 
+            collapsed={dailyContext.signalState === 'burnout-risk'}
+            showCloseDayButton={dayClosure.showCloseButton}
+            isTodayClosed={dayClosure.isTodayClosed}
+            isClosingDay={dayClosure.isClosing}
+            onCloseDayClick={() => setShowDayClosure(true)}
+          />
         </div>
         
         {/* Desktop Reflection Strip */}
@@ -842,6 +858,17 @@ const Today = () => {
                       ✓ {completedTasks.length} done today
                     </p>
                   </div>}
+                
+                {/* Phase 9.7: Close Day button (mobile) */}
+                {dayClosure.showCloseButton && (
+                  <div className="pt-4 flex justify-center">
+                    <CloseDayButton
+                      isClosed={dayClosure.isTodayClosed}
+                      isLoading={dayClosure.isClosing}
+                      onClick={() => setShowDayClosure(true)}
+                    />
+                  </div>
+                )}
               </motion.div>)}
           </AnimatePresence>
         </div>
@@ -904,8 +931,16 @@ const Today = () => {
       {/* Phase 7.5: Effort Feedback Modal */}
       <TaskEffortFeedback taskTitle={effortFeedbackTask?.title || ''} onSubmit={handleEffortSubmit} onSkip={handleEffortSkip} open={effortFeedbackTask !== null} />
       
-      {/* Phase 7.5: Day Closure Modal */}
-      <DayClosureModal open={showDayClosure} onClose={() => setShowDayClosure(false)} completedCount={completedCount} effortSummary={effortSummary} />
+      {/* Phase 9.7: Day Closure Modal */}
+      <DayClosureModal 
+        open={showDayClosure} 
+        onClose={() => setShowDayClosure(false)} 
+        onConfirm={async (reflection) => {
+          await dayClosure.closeDay(reflection);
+        }}
+        summary={dayClosure.daySummary}
+        isLoading={dayClosure.isClosing}
+      />
       
       {/* Plan Completion Modal */}
       <PlanCompletionModal
