@@ -79,6 +79,7 @@ export function DesktopHamburgerMenu({
     { label: 'Home', path: '/home', icon: Home },
     { label: 'Today', path: '/today', icon: CalendarDays },
     { label: 'Full Plan', path: '/plan', icon: Calendar },
+    { label: 'Plans & Pricing', path: '/pricing', icon: Sparkles },
   ];
 
   const handleNavigate = (path: string) => {

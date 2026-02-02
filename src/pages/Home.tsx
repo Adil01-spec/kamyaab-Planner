@@ -16,7 +16,8 @@ import {
   Check,
   Sun,
   Settings,
-  BarChart3
+  BarChart3,
+  Sparkles
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -579,6 +580,14 @@ const Home = () => {
                       <DropdownMenuSeparator className="bg-border/30" />
                     </>
                   )}
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/pricing')} 
+                    className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Plans & Pricing
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
                     onClick={handleLogout} 
                     className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
