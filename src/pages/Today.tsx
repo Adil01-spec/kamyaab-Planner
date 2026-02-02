@@ -25,6 +25,8 @@ import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
+import { ReEntryBanner } from '@/components/ReEntryBanner';
+import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { DevPanel } from '@/components/DevPanel';
 import { SwipeableTaskWrapper } from '@/components/SwipeableTaskWrapper';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
@@ -254,6 +256,10 @@ const Today = () => {
   });
   const scheduledTasks = useMemo(() => getScheduledCalendarTasks(), []);
   const dailyContext = useMemo(() => computeDailyContext(planData, todaysTasks.length, scheduledTasks), [planData, todaysTasks.length, scheduledTasks]);
+  
+  // Phase 9.8: Calm re-entry for returning users
+  const reEntry = useReEntryContext(planData);
+  const showReEntryBanner = reEntry.showReEntryBanner && !reEntry.dismissed;
 
   // Phase 7.5: Count missed/rolled-forward tasks (scheduled before today but not completed)
   const missedTaskCount = useMemo(() => {
@@ -528,6 +534,17 @@ const Today = () => {
 
       {/* Main Content - Responsive Layout */}
       <main className="max-w-lg lg:max-w-[1280px] mx-auto px-5 py-6 sm:py-8 opacity-95">
+        {/* Phase 9.8: Calm Re-Entry Banner for returning users */}
+        {showReEntryBanner && (
+          <ReEntryBanner
+            message={reEntry.message}
+            lastProgressFormatted={reEntry.lastProgressFormatted}
+            onDismiss={reEntry.dismiss}
+            showActions={false}
+            className="mb-6"
+          />
+        )}
+
         {/* Greeting Section with Progress Ring - Full width on desktop */}
         <motion.div className="mb-6" initial={{
         opacity: 0,
