@@ -115,6 +115,9 @@ export type Database = {
           project_deadline: string | null
           project_description: string | null
           project_title: string | null
+          subscription_expires_at: string | null
+          subscription_provider: string | null
+          subscription_tier: string | null
           updated_at: string
         }
         Insert: {
@@ -126,6 +129,9 @@ export type Database = {
           project_deadline?: string | null
           project_description?: string | null
           project_title?: string | null
+          subscription_expires_at?: string | null
+          subscription_provider?: string | null
+          subscription_tier?: string | null
           updated_at?: string
         }
         Update: {
@@ -137,6 +143,9 @@ export type Database = {
           project_deadline?: string | null
           project_description?: string | null
           project_title?: string | null
+          subscription_expires_at?: string | null
+          subscription_provider?: string | null
+          subscription_tier?: string | null
           updated_at?: string
         }
         Relationships: []
