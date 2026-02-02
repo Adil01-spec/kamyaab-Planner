@@ -18,6 +18,7 @@ interface UseSharedReviewReturn {
 
 /**
  * Hook for fetching shared review data by token (public access)
+ * Uses edge function to securely validate token without exposing all shared_reviews
  */
 export function useSharedReview(token: string | undefined): UseSharedReviewReturn {
   const [data, setData] = useState<SharedReviewData | null>(null);
@@ -36,22 +37,47 @@ export function useSharedReview(token: string | undefined): UseSharedReviewRetur
         setLoading(true);
         setError(null);
 
-        const { data: review, error: fetchError } = await supabase
-          .from('shared_reviews')
-          .select('id, token, expires_at, revoked, created_at, plan_snapshot')
-          .eq('token', token)
-          .maybeSingle();
+        // Use edge function for secure token-based access
+        const { data: response, error: fetchError } = await supabase.functions.invoke(
+          'get-shared-review',
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: undefined,
+          }
+        );
 
-        if (fetchError) {
-          throw fetchError;
-        }
+        // The edge function needs the token as query param, but invoke doesn't support that
+        // So we'll call it directly via fetch
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        const res = await fetch(
+          `${supabaseUrl}/functions/v1/get-shared-review?token=${encodeURIComponent(token)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-        if (!review) {
-          setError('Review not found');
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          if (res.status === 404) {
+            setError('Review not found');
+          } else {
+            setError(errorData.error || 'Failed to load review');
+          }
           setData(null);
-        } else {
-          setData(review as SharedReviewData);
+          return;
         }
+
+        const review = await res.json();
+        setData(review as SharedReviewData);
       } catch (err) {
         console.error('Error fetching shared review:', err);
         setError('Failed to load review');
