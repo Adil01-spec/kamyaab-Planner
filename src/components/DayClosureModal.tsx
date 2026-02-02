@@ -1,59 +1,52 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Sparkles, X, Send } from 'lucide-react';
+import { Moon, Sparkles, X, Send, Clock, CheckCircle2, ArrowRight, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { type EffortLevel } from './TaskEffortFeedback';
+import {
+  type DaySummary,
+  generateAcknowledgement,
+  formatTimeSpent,
+  formatSummaryText,
+  getTodayReflectionPrompt,
+} from '@/lib/dayClosure';
 
 interface DayClosureModalProps {
   open: boolean;
   onClose: () => void;
-  completedCount: number;
-  effortSummary: { easy: number; okay: number; hard: number };
+  onConfirm: (reflection?: string) => Promise<void>;
+  summary: DaySummary;
+  isLoading?: boolean;
+  // Legacy props for backward compat
+  completedCount?: number;
+  effortSummary?: { easy: number; okay: number; hard: number };
 }
-
-// Reflective prompts that encourage without pushing
-const reflectivePrompts = [
-  "What helped you today?",
-  "What made progress easier?",
-  "What will you carry into tomorrow?",
-  "What worked well for you?",
-  "Any small win worth noting?",
-];
-
-// Get today's prompt (consistent per day)
-const getTodayPrompt = (): string => {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-  );
-  return reflectivePrompts[dayOfYear % reflectivePrompts.length];
-};
-
-// Effort summary label
-const getEffortSummaryLabel = (summary: { easy: number; okay: number; hard: number }): string => {
-  const total = summary.easy + summary.okay + summary.hard;
-  if (total === 0) return '';
-  
-  if (summary.hard > summary.easy && summary.hard >= summary.okay) {
-    return 'A challenging day — well done pushing through.';
-  }
-  if (summary.easy > summary.hard && summary.easy >= summary.okay) {
-    return 'Smooth sailing today — nice flow.';
-  }
-  return 'A balanced day of work.';
-};
 
 export function DayClosureModal({ 
   open, 
-  onClose, 
+  onClose,
+  onConfirm,
+  summary,
+  isLoading = false,
   completedCount,
-  effortSummary
+  effortSummary,
 }: DayClosureModalProps) {
   const [reflection, setReflection] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const prompt = getTodayPrompt();
-  const effortLabel = getEffortSummaryLabel(effortSummary);
+  
+  // Use new summary if available, fallback to legacy
+  const displaySummary: DaySummary = summary || {
+    completed: completedCount || 0,
+    partial: 0,
+    deferred: 0,
+    total_time_seconds: 0,
+  };
+  
+  const prompt = getTodayReflectionPrompt();
+  const acknowledgement = generateAcknowledgement(displaySummary);
+  const summaryText = formatSummaryText(displaySummary);
+  const timeText = formatTimeSpent(displaySummary.total_time_seconds);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -63,23 +56,15 @@ export function DayClosureModal({
     }
   }, [open]);
 
-  const handleSubmit = () => {
-    if (reflection.trim()) {
-      // Store the reflection
-      const STORAGE_KEY = 'kaamyab_day_closure';
-      try {
-        const data = {
-          date: new Date().toISOString().split('T')[0],
-          reflection: reflection.trim(),
-          completedCount,
-          effortSummary,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch {
-        // Silently fail
-      }
-    }
+  const handleSubmit = async () => {
     setSubmitted(true);
+    await onConfirm(reflection.trim() || undefined);
+    setTimeout(onClose, 1500);
+  };
+
+  const handleSkip = async () => {
+    setSubmitted(true);
+    await onConfirm(undefined);
     setTimeout(onClose, 1500);
   };
 
@@ -130,12 +115,43 @@ export function DayClosureModal({
 
                   {/* Header */}
                   <h2 className="text-xl font-semibold text-foreground mb-2">
-                    Day complete.
+                    Close your day
                   </h2>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    {completedCount} task{completedCount !== 1 ? 's' : ''} done today.
-                    {effortLabel && <span className="block mt-1 text-xs">{effortLabel}</span>}
+                  
+                  {/* Acknowledgement */}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {acknowledgement}
                   </p>
+
+                  {/* Summary Stats */}
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    {displaySummary.completed > 0 && (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                        <span className="text-foreground">{displaySummary.completed} done</span>
+                      </div>
+                    )}
+                    {displaySummary.partial > 0 && (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Pause className="w-4 h-4 text-amber-500" />
+                        <span className="text-foreground">{displaySummary.partial} in progress</span>
+                      </div>
+                    )}
+                    {displaySummary.deferred > 0 && (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-foreground">{displaySummary.deferred} moved</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Time spent */}
+                  {timeText && (
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mb-6">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{timeText}</span>
+                    </div>
+                  )}
 
                   {/* Reflective prompt */}
                   <div className="text-left mb-4">
@@ -144,23 +160,29 @@ export function DayClosureModal({
                     </label>
                     <Textarea
                       value={reflection}
-                      onChange={(e) => setReflection(e.target.value)}
+                      onChange={(e) => setReflection(e.target.value.slice(0, 200))}
                       placeholder="Optional — share a thought..."
                       className="min-h-[80px] resize-none bg-muted/30 border-border/30 focus:border-primary/40"
+                      maxLength={200}
                     />
+                    <p className="text-xs text-muted-foreground/60 text-right mt-1">
+                      {reflection.length}/200
+                    </p>
                   </div>
 
                   {/* Actions */}
                   <div className="flex gap-3 mt-6">
                     <Button
                       variant="ghost"
-                      onClick={onClose}
+                      onClick={handleSkip}
+                      disabled={isLoading}
                       className="flex-1"
                     >
                       Skip
                     </Button>
                     <Button
                       onClick={handleSubmit}
+                      disabled={isLoading}
                       className="flex-1 gradient-kaamyab hover:opacity-90"
                     >
                       <Send className="w-4 h-4 mr-2" />
