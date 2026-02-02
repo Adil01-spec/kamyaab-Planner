@@ -18,6 +18,7 @@ import PlanReset from "./pages/PlanReset";
 import SharedReview from "./pages/SharedReview";
 import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -101,6 +102,8 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* Pricing page - public */}
+            <Route path="/pricing" element={<Pricing />} />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}
