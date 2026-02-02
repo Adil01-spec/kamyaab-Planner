@@ -1,266 +1,167 @@
 
-
-## Phase 9.6 — Adaptive Execution Control (Reality-First Execution)
+## Phase 9.7 — Execution Closure & Confidence (End-of-Day Calm)
 
 ### Overview
 
-Add execution-time flexibility features that allow users to defer tasks, track partial progress, and add optional notes — all without breaking plan integrity or triggering AI regeneration.
+Provide users with a psychologically complete way to end their day with clarity and confidence. This phase focuses on emotional closure and honest reflection — not productivity metrics, streaks, or scoring.
 
-**Core Principle:** "This plan adapts when my day doesn't go as expected — without judging me."
-
----
-
-### Current Task Structure
-
-The existing task object in `plan_json`:
-
-```typescript
-interface Task {
-  title: string;
-  priority: 'High' | 'Medium' | 'Low';
-  estimated_hours: number;
-  completed?: boolean;
-  completed_at?: string;
-  scheduled_at?: string;
-  execution_state?: 'pending' | 'doing' | 'done';
-  execution_started_at?: string;
-  time_spent_seconds?: number;
-  explanation?: { how: string; why: string; expected_outcome: string };
-}
-```
+**Core Principle:** "I can close my day honestly and move on without mental residue."
 
 ---
 
-### New Task Fields (Additive, Backward-Compatible)
+### Current State Analysis
+
+**Existing Components:**
+- `DayClosureModal`: Already exists but triggers automatically when all tasks are completed
+- `TodayReflectionStrip`: Daily reflection prompts (signal-adaptive)
+- `TaskEffortFeedback`: Post-completion effort tracking (easy/okay/hard)
+- Day closure stores basic data to localStorage (`kaamyab_day_closure`)
+
+**Gaps to Address:**
+1. No user-initiated "Close Day" action — modal only triggers on 100% completion
+2. No end-of-day summary with deferrals and partial progress
+3. No day_closed state in plan_json
+4. Reflections stored only locally, not surfaced in `/review`
+5. No carry-forward logic for deferred tasks
+
+---
+
+### New Data Fields (Additive)
 
 ```typescript
-interface Task {
+// In plan_json
+interface PlanData {
   // ... existing fields
+  
+  // Phase 9.7: Day Closure
+  day_closures?: DayClosure[];
+}
 
-  // Phase 9.6: Adaptive Execution
-  deferred_to?: string;           // ISO datetime of new scheduled time
-  deferred_from?: string;         // Original scheduled time before defer
-  deferred_reason?: string;       // Optional preset reason
-  deferred_count?: number;        // How many times deferred (quiet tracking)
-  
-  partial_progress?: 'some' | 'most' | 'almost';  // Qualitative state
-  partial_time_seconds?: number;  // Time spent before partial marking
-  
-  execution_notes?: string;       // Optional short notes (visible in /review only)
-  notes_added_at?: string;        // When note was added
+interface DayClosure {
+  date: string;                    // ISO date (YYYY-MM-DD)
+  closed_at: string;               // ISO timestamp
+  summary: {
+    completed: number;
+    partial: number;
+    deferred: number;
+    total_time_seconds: number;
+  };
+  reflection?: string;             // Optional user reflection (max 200 chars)
+  reflection_prompt?: string;      // Which prompt was shown
 }
 ```
 
-All new fields are optional and won't affect existing task data.
+All fields are optional and backward-compatible.
 
 ---
 
-### Feature 1: Task Defer / Reschedule
+### Feature 1: End-of-Day Summary (Read-Only)
 
-**Where:** `/today` page (primary interactions)
+**Display a factual summary of the day's execution state:**
 
-**UI Flow:**
-1. Add "Defer" action to task cards (both `TodayTaskCard` and `PrimaryTaskCard`)
-2. On tap, show a bottom sheet/dropdown with preset options:
-   - "Later today" (reschedules +3 hours or to evening slot)
-   - "Tomorrow" (reschedules to next day, 9 AM)
-   - "Next available day" (finds next unscheduled day)
-3. Optional: One-tap preset reasons (no typing required):
-   - "Interrupted"
-   - "No energy"
-   - "Higher priority came up"
-   - "Need more info"
-   - (Skip reason) — default, no selection needed
+| Metric | Source | Display |
+|--------|--------|---------|
+| Tasks completed | Tasks with `execution_state: 'done'` scheduled today | "3 completed" |
+| Tasks partially progressed | Tasks with `partial_progress` field set | "1 in progress" |
+| Tasks deferred | Tasks with `deferred_to` set to future | "1 moved" |
+| Total time | Sum of `time_spent_seconds` for today's tasks | "2h 15m focused" |
 
-**Implementation:**
+**Language Guidelines:**
+- Neutral, factual ("3 done, 1 moved")
+- No percentages or scores
+- No success/failure framing
+- No comparisons to previous days
 
-| File | Change |
-|------|--------|
-| `src/lib/taskDefer.ts` | NEW: Defer logic (calculate new times, update calendar) |
-| `src/hooks/useTaskDefer.ts` | NEW: Hook for defer operations with persistence |
-| `src/components/TaskDeferSheet.tsx` | NEW: Bottom sheet UI for defer options |
-| `src/components/TodayTaskCard.tsx` | Add defer button/action |
-| `src/components/PrimaryTaskCard.tsx` | Add defer button/action |
-| `src/components/SecondaryTaskCard.tsx` | Add defer button/action |
-| `src/pages/Today.tsx` | Wire defer handlers and state |
+---
 
-**Defer Logic:**
+### Feature 2: "Close Day" Action (User-Initiated)
+
+**Where:** `/today` page — visible only when there are uncompleted tasks or when day hasn't been closed
+
+**Button Placement:**
+- Desktop: In the context panel (right column) or floating bottom
+- Mobile: Fixed button at bottom, above the nav
+
+**Close Day Flow:**
+1. User taps "Close Day" button
+2. Enhanced `DayClosureModal` opens with:
+   - Summary of today's execution (completed, partial, deferred)
+   - Effort acknowledgement (based on time + effort data)
+   - Optional single reflection prompt
+   - Skip / Done buttons
+3. On confirmation:
+   - Mark day as closed in `plan_json.day_closures[]`
+   - Carry forward deferred tasks gracefully (no auto-reschedule, just preserve state)
+   - Store reflection if provided
+4. Modal closes, user can continue using app normally
+
+**Guardrails:**
+- Close Day is never required
+- User can still interact with tasks after closing
+- Closing day doesn't lock anything
+- Day can be "closed" multiple times (latest wins)
+
+---
+
+### Feature 3: Effort Acknowledgement (Non-Comparative)
+
+**Show a brief, calm acknowledgement based on execution data:**
+
+| Condition | Acknowledgement |
+|-----------|-----------------|
+| High total time (>3h) | "A solid day of focused work." |
+| Some tasks deferred | "You adjusted as needed — that's realistic planning." |
+| All tasks completed | "Everything on your list, done." |
+| Partial progress | "Progress made — completion isn't always the goal." |
+| Light day (<1h) | "Sometimes lighter days are what you need." |
+| No completions | "Some days are about preparation, not completion." |
+
+**Rules:**
+- Never use comparisons ("better than yesterday")
+- No motivation clichés ("You crushed it!")
+- No praise inflation
+- Purely observational and respectful
+
+---
+
+### Feature 4: Optional Reflection Prompt (Single Step)
+
+**Show one reflection prompt after acknowledgement:**
 
 ```typescript
-// taskDefer.ts
-interface DeferOption {
-  id: 'later-today' | 'tomorrow' | 'next-available';
-  label: string;
-  calculateNewTime: (currentScheduledAt: string) => Date;
-}
-
-const DEFER_OPTIONS: DeferOption[] = [
-  {
-    id: 'later-today',
-    label: 'Later today',
-    calculateNewTime: (current) => {
-      const now = new Date();
-      const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // +3 hours
-      // Cap at 8 PM if too late
-      if (later.getHours() >= 20) {
-        later.setHours(20, 0, 0, 0);
-      }
-      return later;
-    },
-  },
-  {
-    id: 'tomorrow',
-    label: 'Tomorrow',
-    calculateNewTime: () => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      return tomorrow;
-    },
-  },
-  {
-    id: 'next-available',
-    label: 'Next available day',
-    calculateNewTime: (current, scheduledTasks) => {
-      // Find next day without scheduled tasks
-      // Implementation finds gap in calendar
-    },
-  },
+const closureReflectionPrompts = [
+  "Anything that made today harder than expected?",
+  "What helped you stay focused today?",
+  "What would you do differently tomorrow?",
+  "Any surprise wins worth noting?",
+  "What's one thing you learned today?",
 ];
-
-const DEFER_REASONS = [
-  'Interrupted',
-  'No energy',
-  'Higher priority',
-  'Need more info',
-];
 ```
 
-**Persistence:**
-- Update `plan_json` immediately with new `deferred_to`, `deferred_from`, `deferred_reason`
-- Update calendar status via `useCalendarStatus` to reflect new scheduled time
-- Increment `deferred_count` silently (for future pattern analysis)
-
-**Guardrails:**
-- Defer does NOT mark task as done or failed
-- Defer preserves all original task data
-- Deferred tasks remain visible in `/today` if rescheduled to today
-- No AI regeneration triggered
+**UX:**
+- Text input (max 200 characters)
+- Skippable with single tap
+- Stored in `day_closures[].reflection`
+- Visible only in `/review` page
 
 ---
 
-### Feature 2: Partial Completion Support
+### Feature 5: Display Day Closures in /review
 
-**Where:** `/today` page (during or after execution)
+**Add a "Daily Reflections" section to the Review page:**
 
-**UI Flow:**
-1. When user pauses a task (or when actively working), show "Mark partial progress" option
-2. Partial progress modal/sheet offers qualitative states:
-   - "Some progress" — started but early
-   - "Most done" — significant progress
-   - "Almost there" — nearly complete
-3. Captures time spent so far
-4. Task remains in `pending` state (not `done`)
-5. Visual indicator shows partial progress on task card
+| Date | Completed | Notes |
+|------|-----------|-------|
+| Feb 2 | 3 done, 1 moved | "Meeting ran long, pushed design work" |
+| Feb 1 | 2 done | — |
+| Jan 31 | 4 done | "Finally cracked the API issue" |
 
-**Implementation:**
-
-| File | Change |
-|------|--------|
-| `src/components/PartialProgressSheet.tsx` | NEW: UI for marking partial progress |
-| `src/hooks/usePartialProgress.ts` | NEW: Hook for partial progress management |
-| `src/components/TodayTaskCard.tsx` | Add partial progress indicator and action |
-| `src/components/PrimaryTaskCard.tsx` | Add partial progress indicator and action |
-| `src/pages/Today.tsx` | Wire partial progress handlers |
-
-**UI Design:**
-
-```text
-┌─────────────────────────────────────────┐
-│ How much did you get done?              │
-│                                         │
-│ ○ Some progress   (just getting started)│
-│ ○ Most done       (good chunk complete) │
-│ ○ Almost there    (minor work left)     │
-│                                         │
-│ Time logged: 45 min                     │
-│                                         │
-│ [Save Progress]  [Continue Working]     │
-└─────────────────────────────────────────┘
-```
-
-**Task Card Indicator:**
-
-```typescript
-// Show partial progress badge on task card
-{task.partial_progress && (
-  <Badge variant="outline" className="text-xs">
-    {task.partial_progress === 'some' && '🔵 Started'}
-    {task.partial_progress === 'most' && '🟡 Most done'}
-    {task.partial_progress === 'almost' && '🟢 Almost there'}
-  </Badge>
-)}
-```
-
-**Guardrails:**
-- Partial completion does NOT trigger plan completion
-- Task remains actionable (can still be started/resumed)
-- Partial progress is reversible until task is fully completed
-- No execution scoring based on partial progress
-
----
-
-### Feature 3: Task Execution Notes
-
-**Where:** 
-- Entry: `/today` (via task details panel, NOT during active execution)
-- Display: `/review` only
-
-**UI Flow:**
-1. In task details panel (desktop) or after pausing/completing (mobile), show "Add note" option
-2. Simple text input (max 200 characters) — optional
-3. Notes are saved with task
-4. Notes are visible ONLY in `/review` page's Progress Proof or Execution Insights sections
-
-**Implementation:**
-
-| File | Change |
-|------|--------|
-| `src/components/TaskNoteInput.tsx` | NEW: Simple note input component |
-| `src/components/TodayTaskDetailsPanel.tsx` | Add note input (post-execution only) |
-| `src/components/TaskEffortFeedback.tsx` | Optionally add note prompt after effort feedback |
-| `src/pages/Review.tsx` | Display notes in relevant sections |
-| `src/components/ProgressProof.tsx` | Show notes alongside completed tasks |
-
-**Note Input:**
-
-```typescript
-// Simple, non-intrusive note input
-<div className="mt-4 pt-4 border-t border-border/20">
-  <p className="text-xs text-muted-foreground mb-2">Optional note</p>
-  <Textarea
-    placeholder="What happened? (optional)"
-    value={note}
-    onChange={(e) => setNote(e.target.value)}
-    maxLength={200}
-    className="resize-none h-16 text-sm"
-  />
-  <Button 
-    size="sm" 
-    variant="ghost" 
-    onClick={handleSaveNote}
-    className="mt-2"
-  >
-    Save note
-  </Button>
-</div>
-```
-
-**Guardrails:**
-- Notes do NOT appear during active execution (no distraction)
-- Notes are never required
-- Notes are visible only in `/review` (reflection context)
-- Notes do not affect execution or planning logic
+**Display Rules:**
+- Show last 7 days max
+- Only days with closures
+- Reflections visible but subtle
+- Collapsible section
+- No scoring or trends
 
 ---
 
@@ -270,26 +171,26 @@ const DEFER_REASONS = [
 ┌─────────────────────────────────────────────────────────────┐
 │                      /today page                             │
 │                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │ PrimaryTask │  │ SecondaryTa │  │ TodayTaskDetailsPanel│ │
-│  │   Card      │  │   skCard    │  │                     │ │
-│  │             │  │             │  │  [Add Note]         │ │
-│  │ [Start]     │  │ [Start]     │  │  (post-execution)   │ │
-│  │ [Defer ▼]   │  │ [Defer ▼]   │  │                     │ │
-│  │             │  │             │  └─────────────────────┘ │
-│  │ 🟡 Most done│  │             │                          │
-│  └─────────────┘  └─────────────┘                          │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Task Cards (existing)                                │   │
+│  │  - Completed tasks                                   │   │
+│  │  - Partial progress tasks                            │   │
+│  │  - Deferred tasks                                    │   │
+│  └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ TaskDeferSheet (bottom sheet)                         │  │
-│  │  ○ Later today  ○ Tomorrow  ○ Next available         │  │
-│  │  Optional reason: [Interrupted] [No energy] ...      │  │
-│  └──────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ [Close Day] button (new)                             │   │
+│  │  Visible when: tasks exist and day not yet closed    │   │
+│  └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ PartialProgressSheet                                  │  │
-│  │  ○ Some ○ Most ○ Almost   Time: 45m  [Save]          │  │
-│  └──────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ DayClosureModal (enhanced)                           │   │
+│  │  - Summary: 3 done, 1 in progress, 1 moved          │   │
+│  │  - Time: 2h 15m focused                              │   │
+│  │  - Acknowledgement: "A solid day of focused work."   │   │
+│  │  - Prompt: "What helped you stay focused today?"     │   │
+│  │  - [Skip] [Done]                                     │   │
+│  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 
                             │
@@ -298,13 +199,14 @@ const DEFER_REASONS = [
 ┌─────────────────────────────────────────────────────────────┐
 │                      /review page                            │
 │                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Progress Proof                                        │  │
-│  │  ✓ Task 1                                            │  │
-│  │    Note: "Had to restart after interruption"         │  │
-│  │  ✓ Task 2 (deferred once)                            │  │
-│  │  ◐ Task 3 (most done)                                │  │
-│  └──────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Daily Reflections (new section)                      │   │
+│  │  Feb 2: 3 done, 1 moved                              │   │
+│  │         "Meeting ran long, pushed design work"       │   │
+│  │  Feb 1: 2 done                                       │   │
+│  │  Jan 31: 4 done                                      │   │
+│  │         "Finally cracked the API issue"              │   │
+│  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -314,51 +216,31 @@ const DEFER_REASONS = [
 
 | File | Purpose |
 |------|---------|
-| `src/lib/taskDefer.ts` | Defer time calculation and options |
-| `src/hooks/useTaskDefer.ts` | Hook for defer operations |
-| `src/components/TaskDeferSheet.tsx` | Bottom sheet for defer options |
-| `src/components/PartialProgressSheet.tsx` | Sheet for partial progress selection |
-| `src/hooks/usePartialProgress.ts` | Hook for partial progress management |
-| `src/components/TaskNoteInput.tsx` | Simple note input component |
+| `src/lib/dayClosure.ts` | Day closure logic, summary calculations, acknowledgement generation |
+| `src/hooks/useDayClosure.ts` | Hook for managing day closure state and persistence |
+| `src/components/CloseDayButton.tsx` | User-initiated close day button |
+| `src/components/DailyReflectionsSection.tsx` | Review page section for day closures |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/TodayTaskCard.tsx` | Add defer button, partial indicator |
-| `src/components/PrimaryTaskCard.tsx` | Add defer button, partial indicator |
-| `src/components/SecondaryTaskCard.tsx` | Add defer button |
-| `src/components/TodayTaskDetailsPanel.tsx` | Add note input (post-execution) |
-| `src/pages/Today.tsx` | Wire defer and partial handlers |
-| `src/components/ProgressProof.tsx` | Display notes, partial, defer info |
-| `src/lib/executionTimer.ts` | Add partial progress support |
+| `src/components/DayClosureModal.tsx` | Enhance with summary, acknowledgement, and single reflection |
+| `src/pages/Today.tsx` | Add Close Day button, wire useDayClosure hook |
+| `src/pages/Review.tsx` | Add DailyReflectionsSection |
 
 ---
 
-### Tier Gating
+### Implementation Order
 
-These are **free tier** features — available to all users:
-
-| Feature | Tier |
-|---------|------|
-| Task Defer | Free |
-| Partial Progress | Free |
-| Execution Notes | Free |
-
-No Pro gating needed. These are execution fundamentals.
-
----
-
-### Data Integrity Guarantees
-
-| Concern | Mitigation |
-|---------|------------|
-| Existing timers unaffected | New fields are additive; timer logic unchanged |
-| Completion logic unchanged | `done` state only set by explicit completion |
-| Insights remain accurate | New fields are informational, not used in calculations (yet) |
-| Plan structure preserved | No task reordering, no week modifications |
-| Calendar sync works | `deferred_to` updates calendar status automatically |
-| Backward compatible | All new fields optional with sensible defaults |
+1. **Day closure logic** — `dayClosure.ts` with summary calculation and acknowledgement generation
+2. **Day closure hook** — `useDayClosure.ts` for state management and persistence
+3. **Close Day button** — `CloseDayButton.tsx` with proper placement
+4. **Enhanced modal** — Update `DayClosureModal.tsx` with new summary/acknowledgement UI
+5. **Wire to Today** — Integrate button and hook in `Today.tsx`
+6. **Review section** — `DailyReflectionsSection.tsx` for displaying closure history
+7. **Wire to Review** — Add section to `Review.tsx`
+8. **Memory file** — Document in `.lovable/memory/features/execution-closure-confidence.md`
 
 ---
 
@@ -366,83 +248,81 @@ No Pro gating needed. These are execution fundamentals.
 
 | Rule | Implementation |
 |------|----------------|
-| No AI suggestions | No AI calls triggered by defer/partial/notes |
-| No plan regeneration | Pure field updates in plan_json |
-| No strategy updates | Strategy layer untouched |
-| No automatic task movement | User explicitly chooses defer target |
-| No execution scoring | Partial progress is qualitative only |
-| No notifications | No push/banner for deferred tasks |
+| No streaks or scores | No percentage calculations, no streak displays in closure |
+| No comparisons | Never reference "yesterday" or "previous" |
+| No AI suggestions | Pure observation, no coaching or advice |
+| No notifications | Never push users to close day |
+| No monetization | Free tier feature |
+| No execution impact | Closing day doesn't lock or modify tasks |
 
 ---
 
-### Implementation Order
+### Tier Gating
 
-1. **Core defer logic** — `taskDefer.ts` with time calculations
-2. **Defer hook** — `useTaskDefer.ts` with persistence
-3. **Defer UI** — `TaskDeferSheet.tsx` bottom sheet
-4. **Wire defer to task cards** — TodayTaskCard, PrimaryTaskCard, SecondaryTaskCard
-5. **Partial progress hook** — `usePartialProgress.ts`
-6. **Partial progress UI** — `PartialProgressSheet.tsx`
-7. **Wire partial progress** — Today.tsx and task cards
-8. **Task note input** — `TaskNoteInput.tsx`
-9. **Wire notes** — TodayTaskDetailsPanel, TaskEffortFeedback
-10. **Display in Review** — ProgressProof.tsx updates
+**All features are Free tier:**
+
+| Feature | Tier |
+|---------|------|
+| Close Day action | Free |
+| End-of-day summary | Free |
+| Effort acknowledgement | Free |
+| Reflection prompt | Free |
+| Review page display | Free |
+
+---
+
+### Data Integrity Guarantees
+
+| Concern | Mitigation |
+|---------|------------|
+| Timers unaffected | Close Day doesn't stop or reset timers |
+| Completion logic unchanged | Day closure is additive metadata only |
+| Deferred tasks preserved | No auto-reschedule on close |
+| Backward compatible | `day_closures` array is optional |
+| No plan mutations | Only appends to `day_closures`, never modifies tasks |
 
 ---
 
 ### Testing Checklist
 
-**Defer:**
-- [ ] Can defer pending task to later today
-- [ ] Can defer pending task to tomorrow
-- [ ] Can defer active task (pauses timer, then defers)
-- [ ] Deferred task appears at new scheduled time
-- [ ] Original scheduled time preserved in deferred_from
-- [ ] Optional reason is saved
-- [ ] Calendar status updates correctly
-- [ ] Deferred task can still be completed normally
+**Close Day Flow:**
+- [ ] Close Day button visible when tasks exist
+- [ ] Button hidden after day is closed (or shows "Day closed ✓")
+- [ ] Modal shows correct summary (completed, partial, deferred)
+- [ ] Acknowledgement text is factual and non-comparative
+- [ ] Reflection prompt is skippable
+- [ ] Reflection saves to plan_json.day_closures
+- [ ] User can still interact with tasks after closing
 
-**Partial Progress:**
-- [ ] Can mark partial progress on paused task
-- [ ] Partial progress indicator shows on task card
-- [ ] Time spent is preserved
-- [ ] Task remains actionable (can resume)
-- [ ] Partial task is NOT counted as complete
-- [ ] Plan completion does NOT trigger with partial tasks
-- [ ] Can upgrade partial to full completion
+**Summary Accuracy:**
+- [ ] Completed count matches tasks with execution_state: done
+- [ ] Deferred count matches tasks with deferred_to in future
+- [ ] Total time sums time_spent_seconds correctly
+- [ ] Partial count matches tasks with partial_progress set
 
-**Notes:**
-- [ ] Can add note after task completion
-- [ ] Can add note after pausing task
-- [ ] Note does NOT appear during active execution
-- [ ] Note visible in /review only
-- [ ] Note is optional (can skip)
-- [ ] Max 200 characters enforced
+**Review Page:**
+- [ ] Daily Reflections section appears if closures exist
+- [ ] Shows last 7 days only
+- [ ] Displays reflection text when available
+- [ ] Collapsible and non-intrusive
 
 **Guardrails:**
-- [ ] No AI regeneration triggered
-- [ ] No plan structure changes
-- [ ] No strategy updates
-- [ ] Timer logic unaffected
-- [ ] Existing completion flow unchanged
+- [ ] No percentages shown
+- [ ] No comparisons to other days
+- [ ] No streaks mentioned in closure flow
+- [ ] No "you should" language
 - [ ] Mobile and desktop both work
 
 ---
 
 ### Summary
 
-This implementation adds three execution-time flexibility features:
+Phase 9.7 adds psychological closure to the execution flow:
 
-1. **Task Defer** — Reschedule with one tap, optional reason
-2. **Partial Progress** — Acknowledge progress without completing
-3. **Execution Notes** — Optional context for reflection
+1. **End-of-Day Summary** — Factual display of completed, partial, and deferred tasks
+2. **Close Day Action** — User-initiated, never required
+3. **Effort Acknowledgement** — Respectful, non-comparative observation
+4. **Optional Reflection** — Single prompt, stored for review
+5. **Review Display** — Daily reflections visible in /review
 
-All features are:
-- Free tier (no Pro gating)
-- Additive (no breaking changes)
-- Non-judgmental (no scoring or pressure)
-- Reflection-focused (notes visible only in /review)
-- User-controlled (explicit actions only)
-
-**Product Intent:** Users feel their plan adapts to reality without making them feel they've failed.
-
+**Product Intent:** Users can honestly close their day and move on without guilt or mental residue.
