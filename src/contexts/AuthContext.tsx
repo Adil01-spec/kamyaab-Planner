@@ -11,11 +11,27 @@ interface UserProfile {
   project_title: string | null;
   project_description: string | null;
   project_deadline: string | null;
+  subscription_tier: string | null;
+  subscription_expires_at: string | null;
+  subscription_provider: string | null;
   created_at: string;
 }
 
 // Mapped profile interface for component compatibility
 interface MappedProfile {
+  fullName: string;
+  profession: string;
+  professionDetails: Record<string, any>;
+  projectTitle: string;
+  projectDescription: string;
+  projectDeadline: string;
+  subscriptionTier: string;
+  subscriptionExpiresAt: string | null;
+  subscriptionProvider: string | null;
+}
+
+// Profile data that can be saved (subscription fields managed separately)
+interface SaveProfileData {
   fullName: string;
   profession: string;
   professionDetails: Record<string, any>;
@@ -33,7 +49,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   logout: () => Promise<void>;
-  saveProfile: (data: Omit<MappedProfile, 'createdAt'>) => Promise<void>;
+  saveProfile: (data: SaveProfileData) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -60,6 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     projectTitle: dbProfile.project_title || '',
     projectDescription: dbProfile.project_description || '',
     projectDeadline: dbProfile.project_deadline || '',
+    subscriptionTier: dbProfile.subscription_tier || 'standard',
+    subscriptionExpiresAt: dbProfile.subscription_expires_at || null,
+    subscriptionProvider: dbProfile.subscription_provider || null,
   });
 
   const fetchProfile = async (userId: string) => {
@@ -251,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
-  const saveProfile = async (data: Omit<MappedProfile, 'createdAt'>) => {
+  const saveProfile = async (data: SaveProfileData) => {
     if (!user) throw new Error('No user logged in');
     
     const { error } = await supabase

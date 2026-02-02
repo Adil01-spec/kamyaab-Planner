@@ -1,11 +1,11 @@
 /**
  * Feature Usage Tracking (Internal Only)
  * 
- * Tracks user interest in Pro features for analytics.
+ * Tracks user interest in paid features for analytics.
  * No UI impact - purely for future pricing decisions.
  */
 
-import { ProductTier } from './productTiers';
+import { type ProductTier } from './subscriptionTiers';
 
 export interface FeatureSignal {
   feature_id: string;

@@ -1,3 +1,10 @@
+/**
+ * Pro Feature Indicator (Updated for 4-tier system)
+ * 
+ * Displays a subtle indicator for premium features.
+ * Shows which tier is required (Student/Pro/Business).
+ */
+
 import { Star, Lock } from 'lucide-react';
 import {
   Tooltip,
@@ -25,9 +32,10 @@ interface ProFeatureIndicatorProps {
 }
 
 /**
- * Subtle indicator for Pro features
+ * Subtle indicator for premium features
  * 
- * Displays a small lock, star, or badge to indicate Pro features.
+ * Displays a small lock, star, or badge to indicate paid features.
+ * Shows which tier unlocks the feature (Student/Pro/Business).
  * Never blocks access - purely visual awareness.
  */
 export function ProFeatureIndicator({
@@ -38,13 +46,16 @@ export function ProFeatureIndicator({
   className,
   showOnlyWhenLocked = false,
 }: ProFeatureIndicatorProps) {
-  const { hasAccess, isPro, featureName } = useFeatureAccess(featureId, planData);
+  const { hasAccess, isPro, featureName, requiredTierName } = useFeatureAccess(featureId, planData);
   
-  // Don't show if not a Pro feature
+  // Don't show if not a paid feature
   if (!isPro) return null;
   
   // Don't show if user has access and we only want to show when locked
   if (hasAccess && showOnlyWhenLocked) return null;
+  
+  // Determine badge text based on access and tier
+  const badgeText = hasAccess ? 'Unlocked' : requiredTierName || 'Pro';
   
   const content = (
     <>
@@ -73,7 +84,7 @@ export function ProFeatureIndicator({
             className
           )}
         >
-          {hasAccess ? 'Strategic' : 'Pro'}
+          {badgeText}
         </Badge>
       )}
     </>
@@ -89,8 +100,8 @@ export function ProFeatureIndicator({
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
           {hasAccess 
-            ? `${featureName || 'This feature'} is part of Strategic Planning`
-            : `Available with Strategic Planning`
+            ? `${featureName || 'This feature'} is unlocked`
+            : `Available in ${requiredTierName || 'Pro'}`
           }
         </TooltipContent>
       </Tooltip>
