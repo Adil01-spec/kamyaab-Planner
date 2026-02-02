@@ -42,6 +42,8 @@ import { StreakBadge } from '@/components/StreakBadge';
 import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { ResumeFocusCTA } from '@/components/ResumeFocusCTA';
+import { ReEntryBanner } from '@/components/ReEntryBanner';
+import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 import { DevPanel } from '@/components/DevPanel';
 import { DevModeActivator } from '@/components/DevModeActivator';
@@ -464,6 +466,10 @@ const Home = () => {
   const todaysTasks = getTodaysTasks();
   const currentWeekIndex = getCurrentWeekIndex();
   
+  // Phase 9.8: Calm re-entry for returning users
+  const reEntry = useReEntryContext(planData);
+  const showReEntryBanner = reEntry.showReEntryBanner && !reEntry.dismissed;
+  
 
   if (loading) {
     return (
@@ -593,6 +599,17 @@ const Home = () => {
             }} 
           />
         </header>
+
+        {/* Phase 9.8: Calm Re-Entry Banner for returning users */}
+        {showReEntryBanner && (
+          <ReEntryBanner
+            message={reEntry.message}
+            lastProgressFormatted={reEntry.lastProgressFormatted}
+            onDismiss={reEntry.dismiss}
+            showActions={true}
+            className="mb-6"
+          />
+        )}
 
         {/* Motivational Quote Card - based on user state */}
         {planData && (

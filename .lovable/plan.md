@@ -1,12 +1,14 @@
 
 
-## Phase 9.8 — Retention Without Addiction (Calm Re-Entry)
+## Phase 9.8 — Retention Without Addiction (Calm Re-Entry) ✅ IMPLEMENTED
 
 ### Overview
 
 Enable users to return to the app after time away without anxiety, guilt, or pressure. The re-entry experience will be calm, respectful, and show that the app respects the user's pace.
 
 **Core Principle:** "I can come back on my own terms — this app respects my pace."
+
+**Status:** Implemented on 2026-02-02. See `.lovable/memory/features/calm-re-entry.md` for full documentation.
 
 ---
 
