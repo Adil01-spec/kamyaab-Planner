@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ const Auth = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   
@@ -144,7 +146,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     // Prevent Google auth on Safari due to OAuth redirect limitations
     if (isSafariBrowser) {
-      toast.error('Google Sign-In is not supported on Safari. Please use Email login.');
+      toast.error('Google Sign-In is not supported on Safari. Please use Email login or Apple Sign-In.');
       return;
     }
     
@@ -162,6 +164,22 @@ const Auth = () => {
       toast.error('Google sign-in failed. Please try again.');
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    try {
+      const { error } = await lovable.auth.signInWithOAuth('apple', {
+        redirect_uri: `${window.location.origin}/onboarding`,
+      });
+      if (error) {
+        toast.error(error.message || 'Apple sign-in failed. Please try again.');
+      }
+    } catch (error: any) {
+      toast.error('Apple sign-in failed. Please try again.');
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -328,13 +346,34 @@ const Auth = () => {
 
           {/* Social Login */}
           <div className="flex flex-col gap-3">
+            {/* Apple Sign-In - works on all browsers */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-14 text-base font-medium rounded-xl border-2 hover:bg-accent/50 transition-all"
+              onClick={handleAppleSignIn}
+              disabled={loading || appleLoading}
+            >
+              {appleLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                  Apple
+                </>
+              )}
+            </Button>
+
+            {/* Google Sign-In - not supported on Safari */}
             {!isSafariBrowser ? (
               <Button
                 type="button"
                 variant="outline"
                 className="w-full h-14 text-base font-medium rounded-xl border-2 hover:bg-accent/50 transition-all"
                 onClick={handleGoogleSignIn}
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || appleLoading}
               >
                 {googleLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -354,8 +393,7 @@ const Auth = () => {
               <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
                 <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Google Sign-In is not supported on Safari due to browser privacy restrictions. 
-                  Please use Email login or open this app in Chrome.
+                  Google Sign-In is not available on Safari. Use Apple or Email login.
                 </p>
               </div>
             )}
