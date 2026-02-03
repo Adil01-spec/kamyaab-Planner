@@ -11,9 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { 
-  Rocket, Sparkles, CalendarIcon, Briefcase, Code, Bot, 
-  Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle,
-  User, GraduationCap, Store, Video, Palette
+  Rocket, Sparkles, CalendarIcon, Briefcase, Bot, 
+  Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
 import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
-import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
+import { AdaptivePlanningToggle } from '@/components/AdaptivePlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 import { PlanningGuidanceHint } from '@/components/PlanningGuidanceHint';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
@@ -30,6 +29,14 @@ import { StrategicDiscoveryFlow } from '@/components/StrategicDiscoveryFlow';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { fetchExecutionProfile, type PersonalExecutionProfile } from '@/lib/personalExecutionProfile';
+import { 
+  professionConfig, 
+  type Profession, 
+  type Question,
+  getToneProfile,
+  getTonedCopy,
+  shouldShowPlanningApproachSelector,
+} from '@/lib/adaptiveOnboarding';
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -43,63 +50,7 @@ const stepTransition: Transition = {
   damping: 30
 };
 
-type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator';
 type IntentType = 'same_field' | 'new_field' | null;
-
-interface Question {
-  key: string;
-  label: string;
-  type: string;
-  options?: string[];
-  showIf?: Record<string, string>;
-}
-
-const professionConfig: Record<string, { label: string; icon: typeof Code; questions: Question[] }> = {
-  software_engineer: {
-    label: 'Software Engineer',
-    icon: Code,
-    questions: [
-      { key: 'employmentType', label: 'Employment Type', type: 'select', options: ['Company', 'Freelancing'] },
-      { key: 'level', label: 'Level', type: 'select', options: ['Junior', 'Mid', 'Senior'], showIf: { employmentType: 'Company' } },
-      { key: 'stack', label: 'Stack', type: 'select', options: ['Full-stack', 'Front-end', 'Back-end'], showIf: { employmentType: 'Freelancing' } },
-      { key: 'technologies', label: 'Technologies', type: 'chips', options: ['React', 'Next.js', 'Node.js', 'Python', 'PHP', 'Flutter', 'TypeScript', 'Vue.js'] },
-      { key: 'aiToolsUsed', label: 'Do you use AI tools?', type: 'boolean' },
-      { key: 'aiToolsList', label: 'AI Tools', type: 'text', showIf: { aiToolsUsed: 'yes' } },
-    ],
-  },
-  freelancer: {
-    label: 'Freelancer',
-    icon: Palette,
-    questions: [
-      { key: 'freelancerType', label: 'Freelancer Type', type: 'select', options: ['Web Development', 'Mobile Development', 'Graphics Design', 'UI/UX Design'] },
-      { key: 'tools', label: 'Tools & Technologies', type: 'chips', options: ['Figma', 'Adobe XD', 'Photoshop', 'Illustrator', 'React', 'WordPress', 'Shopify'] },
-    ],
-  },
-  student: {
-    label: 'Student',
-    icon: GraduationCap,
-    questions: [
-      { key: 'fieldOfStudy', label: 'Field of Study', type: 'select', options: ['Computer Science', 'Information Technology', 'Business', 'Engineering', 'Other'] },
-      { key: 'semester', label: 'Semester/Year', type: 'text' },
-    ],
-  },
-  business_owner: {
-    label: 'Business Owner',
-    icon: Store,
-    questions: [
-      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['Shopify', 'Social Media', 'Own Website', 'Marketplace'] },
-      { key: 'productCategory', label: 'Product Category', type: 'select', options: ['Clothing', 'Jewelry', 'Digital Products', 'Food & Beverages', 'Other'] },
-    ],
-  },
-  content_creator: {
-    label: 'Content Creator',
-    icon: Video,
-    questions: [
-      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['YouTube', 'TikTok', 'Instagram', 'LinkedIn', 'Multiple'] },
-      { key: 'niche', label: 'Content Niche', type: 'select', options: ['Tech', 'Vlog', 'Education', 'Entertainment', 'Business', 'Other'] },
-    ],
-  },
-};
 
 const PlanReset = () => {
   const { profile, user, refreshProfile } = useAuth();
@@ -543,22 +494,29 @@ const PlanReset = () => {
   );
 
   // Render planning mode toggle (Step 1 for both flows)
-  const renderPlanningModeStep = () => (
-    <motion.div 
-      key="planning-mode-step"
-      className="space-y-6"
-      variants={stepVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={stepTransition}
-    >
-      <StrategicPlanningToggle
-        value={planningModeChoice}
-        onChange={handlePlanningModeChange}
-      />
-    </motion.div>
-  );
+  const renderPlanningModeStep = () => {
+    // Use intent-based labels for 'Other' profession
+    const showIntentLabels = shouldShowPlanningApproachSelector(profession as Profession);
+    
+    return (
+      <motion.div 
+        key="planning-mode-step"
+        className="space-y-6"
+        variants={stepVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={stepTransition}
+      >
+        <AdaptivePlanningToggle
+          value={planningModeChoice}
+          onChange={handlePlanningModeChange}
+          profession={profession as Profession}
+          showIntentLabels={showIntentLabels}
+        />
+      </motion.div>
+    );
+  };
 
   // Render scenario step - Phase 8.9
   const renderScenarioStep = () => {
@@ -675,6 +633,7 @@ const PlanReset = () => {
     
     // After strategic steps: project details
     const afterStrategicStep = step - offsets.afterStrategicSteps + 1;
+    const tone = profession ? getToneProfile(profession as Profession) : 'casual';
     
     if (afterStrategicStep === 1) {
       return (
@@ -725,7 +684,7 @@ const PlanReset = () => {
               <Input
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
-                placeholder="What are you working on?"
+                placeholder={getTonedCopy('projectTitle', tone)}
                 className="h-12 glass-subtle border-border/50"
               />
             </div>
@@ -735,7 +694,7 @@ const PlanReset = () => {
               <Textarea
                 value={projectDescription}
                 onChange={(e) => setProjectDescription(e.target.value)}
-                placeholder="Describe your goals and what success looks like..."
+                placeholder={getTonedCopy('projectDescriptionPlaceholder', tone)}
                 rows={4}
                 className="glass-subtle border-border/50 resize-none"
               />
@@ -765,7 +724,7 @@ const PlanReset = () => {
               <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
             </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
-            <p className="text-sm text-muted-foreground">When do you want to complete this?</p>
+            <p className="text-sm text-muted-foreground">{getTonedCopy('projectDeadline', tone)}</p>
           </div>
 
           <div className="space-y-4">
@@ -792,9 +751,15 @@ const PlanReset = () => {
                 className="border-primary/50 data-[state=checked]:bg-primary"
               />
               <label htmlFor="no-deadline" className="text-sm text-muted-foreground cursor-pointer flex-1">
-                There is no deadline — focus on consistency
+                {getTonedCopy('noDeadlineLabel', tone)}
               </label>
             </div>
+            
+            {noDeadline && (
+              <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
+                {getTonedCopy('noDeadlineHint', tone)}
+              </p>
+            )}
 
             {/* Strategic Planning Section for Executives */}
             {showStrategicPlanning && (
@@ -941,12 +906,31 @@ const PlanReset = () => {
           )}
 
           {question.type === 'text' && (
-            <Input
-              placeholder={`Enter ${question.label.toLowerCase()}`}
-              value={professionDetails[question.key] || ''}
-              onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
-              className="h-12 glass-subtle border-border/50"
-            />
+            <div className="space-y-2">
+              <Input
+                placeholder={question.placeholder || `Enter ${question.label.toLowerCase()}`}
+                value={professionDetails[question.key] || ''}
+                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
+                className="h-12 glass-subtle border-border/50"
+              />
+              {question.helpText && (
+                <p className="text-xs text-muted-foreground">{question.helpText}</p>
+              )}
+            </div>
+          )}
+          
+          {question.type === 'textarea' && (
+            <div className="space-y-2">
+              <Textarea
+                placeholder={question.placeholder || `Enter ${question.label.toLowerCase()}`}
+                value={professionDetails[question.key] || ''}
+                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
+                className="min-h-[120px] glass-subtle border-border/50"
+              />
+              {question.helpText && (
+                <p className="text-xs text-muted-foreground">{question.helpText}</p>
+              )}
+            </div>
           )}
 
           {question.type === 'boolean' && (
@@ -1027,6 +1011,8 @@ const PlanReset = () => {
 
     // Project details
     const projectStep = afterStrategicStep - 1 - professionQuestions.length;
+    const tone = profession ? getToneProfile(profession as Profession) : 'casual';
+    
     if (projectStep === 1) {
       return (
         <motion.div 
@@ -1047,7 +1033,7 @@ const PlanReset = () => {
               <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
             </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Details</h2>
-            <p className="text-sm text-muted-foreground">What are you working on?</p>
+            <p className="text-sm text-muted-foreground">{getTonedCopy('projectTitle', tone)}</p>
           </div>
 
           {/* Personal Execution Guidance Hint */}
@@ -1074,7 +1060,7 @@ const PlanReset = () => {
               <Textarea
                 value={projectDescription}
                 onChange={(e) => setProjectDescription(e.target.value)}
-                placeholder="Describe your goals..."
+                placeholder={getTonedCopy('projectDescriptionPlaceholder', tone)}
                 rows={4}
                 className="glass-subtle border-border/50 resize-none"
               />
@@ -1104,6 +1090,7 @@ const PlanReset = () => {
               <CalendarIcon className="w-10 h-10 text-primary mx-auto mb-3" />
             </motion.div>
             <h2 className="text-xl font-semibold text-foreground">Project Deadline</h2>
+            <p className="text-sm text-muted-foreground">{getTonedCopy('projectDeadline', tone)}</p>
           </div>
 
           <div className="space-y-4">
@@ -1130,9 +1117,15 @@ const PlanReset = () => {
                 className="border-primary/50 data-[state=checked]:bg-primary"
               />
               <label htmlFor="no-deadline-new" className="text-sm text-muted-foreground cursor-pointer flex-1">
-                There is no deadline
+                {getTonedCopy('noDeadlineLabel', tone)}
               </label>
             </div>
+            
+            {noDeadline && (
+              <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
+                {getTonedCopy('noDeadlineHint', tone)}
+              </p>
+            )}
 
             {/* Strategic Planning Section for Executives */}
             {showStrategicPlanning && (

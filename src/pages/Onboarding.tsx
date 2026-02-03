@@ -10,17 +10,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Code, Palette, GraduationCap, Store, Video, Calendar, FileText, Bot, Crown, SkipForward, LogOut } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Calendar, FileText, Bot, SkipForward, LogOut } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext, EXECUTIVE_ROLES } from '@/lib/executiveDetection';
+import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
-import { StrategicPlanningToggle } from '@/components/StrategicPlanningToggle';
+import { AdaptivePlanningToggle } from '@/components/AdaptivePlanningToggle';
 import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
 import { StrategicDiscoveryFlow } from '@/components/StrategicDiscoveryFlow';
 import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { DevPanel } from '@/components/DevPanel';
-
-type Profession = 'software_engineer' | 'freelancer' | 'student' | 'business_owner' | 'content_creator' | 'executive';
+import { 
+  professionConfig, 
+  type Profession, 
+  type Question,
+  getToneProfile,
+  getTonedCopy,
+  shouldShowPlanningApproachSelector,
+  getFilteredQuestions,
+} from '@/lib/adaptiveOnboarding';
 
 interface OnboardingData {
   fullName: string;
@@ -35,76 +42,6 @@ interface OnboardingData {
   strategicModeChoice: 'standard' | 'strategic';
   strategicPlanContext: StrategicPlanContext;
 }
-
-interface Question {
-  key: string;
-  label: string;
-  type: string;
-  options?: string[];
-  showIf?: Record<string, string>;
-}
-
-const professionConfig: Record<string, { label: string; icon: typeof Code; questions: Question[] }> = {
-  software_engineer: {
-    label: 'Software Engineer',
-    icon: Code,
-    questions: [
-      { key: 'employmentType', label: 'Employment Type', type: 'select', options: ['Company', 'Freelancing'] },
-      { key: 'level', label: 'Level', type: 'select', options: ['Junior', 'Mid', 'Senior'], showIf: { employmentType: 'Company' } },
-      { key: 'stack', label: 'Stack', type: 'select', options: ['Full-stack', 'Front-end', 'Back-end'], showIf: { employmentType: 'Freelancing' } },
-      { key: 'technologies', label: 'Technologies', type: 'chips', options: ['React', 'Next.js', 'Node.js', 'Python', 'PHP', 'Flutter', 'TypeScript', 'Vue.js'] },
-      { key: 'aiToolsUsed', label: 'Do you use any AI tools or agentic assistance?', type: 'boolean' },
-      { key: 'aiToolsList', label: 'AI Tools You Use', type: 'text', showIf: { aiToolsUsed: 'yes' } },
-    ],
-  },
-  freelancer: {
-    label: 'Freelancer',
-    icon: Palette,
-    questions: [
-      { key: 'freelancerType', label: 'Freelancer Type', type: 'select', options: ['Web Development', 'Mobile Development', 'Graphics Design', 'UI/UX Design'] },
-      { key: 'tools', label: 'Tools & Technologies', type: 'chips', options: ['Figma', 'Adobe XD', 'Photoshop', 'Illustrator', 'React', 'WordPress', 'Shopify'] },
-      { key: 'portfolioLink', label: 'Portfolio Link (Optional)', type: 'text' },
-    ],
-  },
-  student: {
-    label: 'Student',
-    icon: GraduationCap,
-    questions: [
-      { key: 'fieldOfStudy', label: 'Field of Study', type: 'select', options: ['Computer Science', 'Information Technology', 'Business', 'Engineering', 'Other'] },
-      { key: 'semester', label: 'Semester/Year', type: 'text' },
-      { key: 'capstoneProject', label: 'Capstone/Major Project Idea', type: 'textarea' },
-    ],
-  },
-  business_owner: {
-    label: 'Business Owner',
-    icon: Store,
-    questions: [
-      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['Shopify', 'Social Media', 'Own Website', 'Marketplace'] },
-      { key: 'productCategory', label: 'Product Category', type: 'select', options: ['Clothing', 'Jewelry', 'Digital Products', 'Food & Beverages', 'Other'] },
-      { key: 'revenueGoal', label: 'Monthly Revenue Goal (PKR)', type: 'text' },
-    ],
-  },
-  content_creator: {
-    label: 'Content Creator',
-    icon: Video,
-    questions: [
-      { key: 'platform', label: 'Primary Platform', type: 'select', options: ['YouTube', 'TikTok', 'Instagram', 'LinkedIn', 'Multiple'] },
-      { key: 'niche', label: 'Content Niche', type: 'select', options: ['Tech', 'Vlog', 'Education', 'Entertainment', 'Business', 'Other'] },
-      { key: 'postingFrequency', label: 'Posts per Week', type: 'select', options: ['1-2', '3-4', '5-7', 'Daily'] },
-    ],
-  },
-  executive: {
-    label: 'Executive / Leadership',
-    icon: Crown,
-    questions: [
-      { key: 'executiveRole', label: 'Your Role', type: 'select', options: EXECUTIVE_ROLES },
-      { key: 'executiveRoleCustom', label: 'Specify Your Role', type: 'text', showIf: { executiveRole: 'Other Executive Role' } },
-      { key: 'companySize', label: 'Company Size', type: 'select', options: ['Solo / 1-5', '6-20', '21-50', '51-200', '200+'] },
-      { key: 'industry', label: 'Industry', type: 'select', options: ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'Manufacturing', 'Services', 'Other'] },
-      { key: 'linkedinImport', label: 'Import from LinkedIn (Optional)', type: 'text' },
-    ],
-  },
-};
 
 const Onboarding = () => {
   const [step, setStep] = useState(1);
@@ -381,14 +318,16 @@ const Onboarding = () => {
 
     // Step 2: Profession Selection
     if (type === 'profession') {
+      const tone = data.profession ? getToneProfile(data.profession as Profession) : 'casual';
+      
       return (
         <div className="space-y-4 animate-fade-in">
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
               <Briefcase className="w-6 h-6 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold">What do you do?</h2>
-            <p className="text-muted-foreground text-sm mt-1">We'll customize your planning experience</p>
+            <h2 className="text-xl font-semibold">{getTonedCopy('whatDoYouDo', tone)}</h2>
+            <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('customizeExperience', tone)}</p>
           </div>
           <div className="grid grid-cols-1 gap-3">
             {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config]) => {
@@ -418,8 +357,11 @@ const Onboarding = () => {
 
     // Step 3: Strategic Planning Toggle
     if (type === 'strategicToggle') {
+      // Use intent-based labels for 'Other' profession
+      const showIntentLabels = shouldShowPlanningApproachSelector(data.profession as Profession);
+      
       return (
-        <StrategicPlanningToggle
+        <AdaptivePlanningToggle
           value={data.strategicModeChoice}
           onChange={(value) => setData(prev => ({ 
             ...prev, 
@@ -428,6 +370,8 @@ const Onboarding = () => {
               ? { strategic_mode: true } 
               : { strategic_mode: false }
           }))}
+          profession={data.profession as Profession}
+          showIntentLabels={showIntentLabels}
         />
       );
     }
@@ -514,30 +458,37 @@ const Onboarding = () => {
           {question.type === 'text' && (
             <div className="space-y-2">
               <Input
-                placeholder={question.key === 'aiToolsList' 
+                placeholder={question.placeholder || (question.key === 'aiToolsList' 
                   ? "e.g., ChatGPT, Cursor, Copilot, custom agents"
-                  : `Enter ${question.label.toLowerCase()}`}
+                  : `Enter ${question.label.toLowerCase()}`)}
                 value={data.professionDetails[question.key] || ''}
                 onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
                 className="h-12"
                 autoFocus
               />
-              {question.key === 'aiToolsList' && (
+              {(question.helpText || question.key === 'aiToolsList') && (
                 <p className="text-xs text-muted-foreground">
-                  You can list multiple tools separated by commas
+                  {question.helpText || 'You can list multiple tools separated by commas'}
                 </p>
               )}
             </div>
           )}
 
           {question.type === 'textarea' && (
-            <Textarea
-              placeholder={`Enter ${question.label.toLowerCase()}`}
-              value={data.professionDetails[question.key] || ''}
-              onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
-              className="min-h-[120px]"
-              autoFocus
-            />
+            <div className="space-y-2">
+              <Textarea
+                placeholder={question.placeholder || `Enter ${question.label.toLowerCase()}`}
+                value={data.professionDetails[question.key] || ''}
+                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
+                className="min-h-[120px]"
+                autoFocus
+              />
+              {question.helpText && (
+                <p className="text-xs text-muted-foreground">
+                  {question.helpText}
+                </p>
+              )}
+            </div>
           )}
 
           {question.type === 'boolean' && (
@@ -613,6 +564,8 @@ const Onboarding = () => {
 
     // Project questions
     if (type === 'projectStep') {
+      const tone = data.profession ? getToneProfile(data.profession as Profession) : 'casual';
+      
       if (index === 1) {
         return (
           <div className="space-y-4 animate-fade-in">
@@ -621,7 +574,7 @@ const Onboarding = () => {
                 <FileText className="w-6 h-6 text-primary" />
               </div>
               <h2 className="text-xl font-semibold">Project Title</h2>
-              <p className="text-muted-foreground text-sm mt-1">What are you working on?</p>
+              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectTitle', tone)}</p>
             </div>
             <Input
               placeholder="e.g., Launch my e-commerce store"
@@ -642,10 +595,10 @@ const Onboarding = () => {
                 <FileText className="w-6 h-6 text-primary" />
               </div>
               <h2 className="text-xl font-semibold">Project Description</h2>
-              <p className="text-muted-foreground text-sm mt-1">Tell us more about your project</p>
+              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectDescription', tone)}</p>
             </div>
             <Textarea
-              placeholder="Describe your project goals, milestones, and what success looks like..."
+              placeholder={getTonedCopy('projectDescriptionPlaceholder', tone)}
               value={data.projectDescription}
               onChange={(e) => setData(prev => ({ ...prev, projectDescription: e.target.value }))}
               className="min-h-[150px]"
@@ -663,7 +616,7 @@ const Onboarding = () => {
                 <Calendar className="w-6 h-6 text-primary" />
               </div>
               <h2 className="text-xl font-semibold">Project Deadline</h2>
-              <p className="text-muted-foreground text-sm mt-1">When do you want to complete this?</p>
+              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectDeadline', tone)}</p>
             </div>
             <Input
               type="date"
@@ -689,12 +642,12 @@ const Onboarding = () => {
                 htmlFor="noDeadline"
                 className="text-sm text-muted-foreground cursor-pointer select-none"
               >
-                There is no deadline
+                {getTonedCopy('noDeadlineLabel', tone)}
               </label>
             </div>
             {data.noDeadline && (
               <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
-                No worries! We'll create a flexible plan focused on consistency and steady progress.
+                {getTonedCopy('noDeadlineHint', tone)}
               </p>
             )}
 
