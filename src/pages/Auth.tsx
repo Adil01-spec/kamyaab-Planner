@@ -366,8 +366,8 @@ const Auth = () => {
               )}
             </Button>
 
-            {/* Google Sign-In - not supported on Safari */}
-            {!isSafariBrowser ? (
+            {/* Google Sign-In - only show on non-Safari browsers */}
+            {!isSafariBrowser && (
               <Button
                 type="button"
                 variant="outline"
@@ -389,13 +389,6 @@ const Auth = () => {
                   </>
                 )}
               </Button>
-            ) : (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/50 border border-border/50">
-                <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Google Sign-In is not available on Safari. Use Apple or Email login.
-                </p>
-              </div>
             )}
           </div>
 
