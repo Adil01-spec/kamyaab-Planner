@@ -170,34 +170,13 @@ const Auth = () => {
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
     try {
-      // On iOS Safari, use direct Supabase OAuth with skipBrowserRedirect
-      // to bypass auth-bridge issues with third-party cookies
-      if (isSafariBrowser) {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'apple',
-          options: {
-            redirectTo: `${window.location.origin}/onboarding`,
-            skipBrowserRedirect: true,
-          },
-        });
-
-        if (error) {
-          toast.error(error.message || 'Apple sign-in failed. Please try again.');
-          return;
-        }
-
-        // Manually redirect to the OAuth URL
-        if (data?.url) {
-          window.location.href = data.url;
-        }
-      } else {
-        // On non-Safari browsers, use the Lovable Cloud auth bridge
-        const { error } = await lovable.auth.signInWithOAuth('apple', {
-          redirect_uri: `${window.location.origin}/onboarding`,
-        });
-        if (error) {
-          toast.error(error.message || 'Apple sign-in failed. Please try again.');
-        }
+      // Always use Lovable Cloud auth bridge for Apple Sign-In
+      // It has the managed Apple OAuth credentials
+      const { error } = await lovable.auth.signInWithOAuth('apple', {
+        redirect_uri: `${window.location.origin}/onboarding`,
+      });
+      if (error) {
+        toast.error(error.message || 'Apple sign-in failed. Please try again.');
       }
     } catch (error: any) {
       toast.error('Apple sign-in failed. Please try again.');
