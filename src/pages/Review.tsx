@@ -20,6 +20,7 @@ import { ShareReviewButton } from '@/components/ShareReviewButton';
 import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { PlanHistorySection } from '@/components/PlanHistorySection';
 import { PlanningStyleProfile } from '@/components/PlanningStyleProfile';
+import { OperatingStyleOverview } from '@/components/OperatingStyleOverview';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
@@ -448,6 +449,14 @@ const Review = () => {
         {/* 7. Planning Style Profile (Pro only) */}
         {user && (
           <PlanningStyleProfile
+            userId={user.id}
+            planData={plan}
+          />
+        )}
+
+        {/* 8. Working Pattern Overview (Pro only - Phase 10.1) */}
+        {user && (
+          <OperatingStyleOverview
             userId={user.id}
             planData={plan}
           />
