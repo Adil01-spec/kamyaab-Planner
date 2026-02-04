@@ -26,6 +26,7 @@ import { PlanningGuidanceHint } from '@/components/PlanningGuidanceHint';
 import { NextCycleGuidance } from '@/components/NextCycleGuidance';
 import { ScenarioTagSelector } from '@/components/ScenarioTagSelector';
 import { StrategicDiscoveryFlow } from '@/components/StrategicDiscoveryFlow';
+import { OperatingStyleHint } from '@/components/OperatingStyleHint';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { fetchExecutionProfile, type PersonalExecutionProfile } from '@/lib/personalExecutionProfile';
@@ -508,6 +509,14 @@ const PlanReset = () => {
         exit="exit"
         transition={stepTransition}
       >
+        {/* Phase 10.1: Operating Style Hint - shows only for Pro users with enough data */}
+        {user && (
+          <OperatingStyleHint
+            userId={user.id}
+            planData={null}
+          />
+        )}
+        
         <AdaptivePlanningToggle
           value={planningModeChoice}
           onChange={handlePlanningModeChange}

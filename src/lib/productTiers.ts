@@ -246,6 +246,15 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     valueExplanation: 'Detect recurring patterns across multiple plans.',
     previewable: true,
   },
+  'operating-style-overview': {
+    id: 'operating-style-overview',
+    name: 'Working Pattern Overview',
+    tier: 'pro',
+    category: 'insights',
+    description: 'Personal operating style derived from behavior',
+    valueExplanation: 'See patterns in how you work based on your history.',
+    previewable: false, // No preview for Standard/Student
+  },
   'planning-style-profile': {
     id: 'planning-style-profile',
     name: 'Planning Style Profile',
