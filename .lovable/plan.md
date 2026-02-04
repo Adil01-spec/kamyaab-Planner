@@ -1,263 +1,349 @@
 
-# Phase 10.1: Personal Operating Style
+# Phase 10.2: Lightweight Collaboration (Observer Model)
 
 ## Overview
-Implement a lightweight, observational personalization layer called "Working Pattern Overview" that infers how a user works based solely on historical planning and execution behavior. This feature will be strictly read-only, observational, and trust-preserving.
+Implement a calm, optional collaboration layer where plan owners can invite observers (Viewers or Commenters) who can view plans and leave comments without disrupting execution. Collaboration feels like supportive accountability, not team management.
 
 ## Architecture Summary
 
 ```text
-+--------------------+      +-------------------------+      +-------------------+
-|   Plan History     | ---> | Operating Style Engine  | ---> | Operating Style   |
-|   (plan_history)   |      | (personalOperatingStyle)|      | Profile (stored   |
-+--------------------+      +-------------------------+      | in profession_    |
-                                      |                      | details)          |
-+--------------------+                |                      +-------------------+
-|   Day Closures     | ---------------+                              |
-|   (plan_json)      |                                               v
-+--------------------+                                    +-----------------------+
-                                                          | UI Components         |
-+--------------------+                                    | - Review Page Section |
-|   Effort Feedback  | ---------------+                   | - PlanReset Hint      |
-|   (localStorage)   |                |                   +-----------------------+
-+--------------------+                |                              |
-                                      v                              v
-+--------------------+      +-------------------------+    +--------------------+
-|   Task Timestamps  | ---> | AI Summary Generation   |    | Edge Function      |
-|   (completed_at)   |      | (edge function)         | <--| operating-style-   |
-+--------------------+      +-------------------------+    | summary            |
-                                                           +--------------------+
++-------------------+     +---------------------+     +-------------------+
+|   Plan Owner      | --> | plan_collaborators  | --> | Invited User      |
+|   (Pro/Business)  |     | (email, role, plan) |     | (Viewer/Commenter)|
++-------------------+     +---------------------+     +-------------------+
+                                   |
+                                   v
++-------------------+     +---------------------+     +-------------------+
+|   /plan (subtle   | --> | Collaboration Modal | --> | plan_comments     |
+|   invite entry)   |     | (invite + manage)   |     | (async, immutable)|
++-------------------+     +---------------------+     +-------------------+
+                                   |
+                                   v
+                          +---------------------+
+                          | Collaborator Views  |
+                          | (/plan, /review)    |
+                          | Read-only + Comment |
+                          +---------------------+
 ```
 
-## Four Neutral Dimensions
+## Database Schema
 
-| Dimension | Left Label | Right Label | Data Sources |
-|-----------|-----------|-------------|--------------|
-| Planning Density | Light Planner | Detailed Planner | Task count per week, task granularity, completion ratio from plan_history |
-| Execution Follow-Through | Starter | Finisher | completed_tasks / total_tasks, day_closures frequency from plan_history |
-| Adjustment Behavior | Steady | Adaptive | Task deferrals (deferred_to), reordering frequency, split tasks from plan_snapshot |
-| Cadence Preference | Morning Focus | Variable Rhythm | completed_at timestamps, effort_feedback clustering from localStorage |
+### Table: `plan_collaborators`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PRIMARY KEY DEFAULT gen_random_uuid() |
+| plan_id | uuid | NOT NULL REFERENCES plans(id) ON DELETE CASCADE |
+| owner_id | uuid | NOT NULL REFERENCES profiles(id) ON DELETE CASCADE |
+| collaborator_email | text | NOT NULL |
+| collaborator_user_id | uuid | REFERENCES profiles(id) ON DELETE SET NULL |
+| role | text | NOT NULL CHECK (role IN ('viewer', 'commenter')) |
+| invited_at | timestamptz | DEFAULT now() |
+| accepted_at | timestamptz | NULL (set when user logs in and views) |
+| UNIQUE(plan_id, collaborator_email) | | |
+
+### Table: `plan_comments`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | uuid | PRIMARY KEY DEFAULT gen_random_uuid() |
+| plan_id | uuid | NOT NULL REFERENCES plans(id) ON DELETE CASCADE |
+| author_id | uuid | NOT NULL REFERENCES profiles(id) ON DELETE CASCADE |
+| author_name | text | NOT NULL (snapshot at creation) |
+| target_type | text | NOT NULL CHECK (target_type IN ('plan', 'task', 'insight')) |
+| target_ref | text | NULL (e.g., "week-1-task-0" for task comments) |
+| content | text | NOT NULL CHECK (char_length(content) <= 500) |
+| created_at | timestamptz | DEFAULT now() |
+| edited_at | timestamptz | NULL |
+| deleted_at | timestamptz | NULL (soft delete for author only) |
+
+### RLS Policies
+
+**plan_collaborators:**
+- Owners can SELECT, INSERT, UPDATE, DELETE their own collaborations (`owner_id = auth.uid()`)
+- Collaborators can SELECT where `collaborator_user_id = auth.uid()` OR `collaborator_email` matches their verified email
+
+**plan_comments:**
+- Plan owners can SELECT all comments for their plans
+- Collaborators (viewer/commenter) can SELECT comments for plans they have access to
+- Commenters can INSERT comments for plans they have commenter access to
+- Authors can UPDATE/DELETE (soft) their own comments only
+
+### Security Definer Functions
+```sql
+-- Check if user can view a plan (owner OR collaborator)
+CREATE OR REPLACE FUNCTION public.can_view_plan(_plan_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM plans WHERE id = _plan_id AND user_id = auth.uid()
+  ) OR EXISTS (
+    SELECT 1 FROM plan_collaborators 
+    WHERE plan_id = _plan_id 
+      AND (collaborator_user_id = auth.uid() 
+           OR collaborator_email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+  )
+$$;
+
+-- Check if user can comment on a plan
+CREATE OR REPLACE FUNCTION public.can_comment_on_plan(_plan_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM plans WHERE id = _plan_id AND user_id = auth.uid()
+  ) OR EXISTS (
+    SELECT 1 FROM plan_collaborators 
+    WHERE plan_id = _plan_id 
+      AND role = 'commenter'
+      AND (collaborator_user_id = auth.uid() 
+           OR collaborator_email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+  )
+$$;
+```
+
+## Tier Gating
+
+| Tier | Max Collaborators |
+|------|-------------------|
+| Standard | 0 (no UI shown) |
+| Student | 0 (no UI shown) |
+| Pro | 1 |
+| Business | 5 |
 
 ## Files to Create
 
-### 1. `src/lib/personalOperatingStyle.ts`
-Core analysis engine with:
-- `OperatingStyleDimensions` interface (four 0-1 spectrums)
-- `OperatingStyleProfile` interface (dimensions, summary, cache metadata)
-- Dimension calculation functions:
-  - `calculatePlanningDensity()` - task count/week, granularity metrics
-  - `calculateExecutionFollowThrough()` - completion vs deferrals ratio
-  - `calculateAdjustmentBehavior()` - deferral rate, task movement patterns
-  - `calculateCadencePreference()` - time-of-day clustering
-- `shouldRegenerateProfile()` - requires 2+ new plans
-- `createOperatingStyleProfile()` - factory function
-- Constants: `MIN_PLANS_FOR_PROFILE = 3`
+### 1. `src/lib/collaboration.ts`
+Core collaboration utilities:
+- `COLLABORATION_LIMITS: Record<ProductTier, number>` - tier limits
+- `CollaboratorRole = 'viewer' | 'commenter'`
+- `Collaborator` interface (id, email, role, accepted, etc.)
+- `PlanComment` interface (id, author, content, target, timestamps)
+- `getCollaboratorLimit(tier: ProductTier): number`
+- `canAddCollaborator(tier: ProductTier, currentCount: number): boolean`
+- `formatCommentTime(date: string): string`
 
-### 2. `src/hooks/useOperatingStyle.ts`
-React hook managing:
-- Fetching profile from `profiles.profession_details.operating_style_profile`
-- Triggering regeneration when thresholds met
-- Calling edge function for AI summary
-- Caching and persistence
+### 2. `src/hooks/useCollaborators.ts`
+React hook for managing collaborators:
+- Fetch collaborators for a plan
+- Add collaborator (email + role)
+- Remove collaborator
+- Update collaborator role
 - Loading/error states
+- Checks tier limits before operations
 
-### 3. `src/components/OperatingStyleOverview.tsx`
-UI component with:
-- Collapsible section (collapsed by default)
-- Section title: "Working Pattern Overview"
-- Four neutral spectrum bars (0-1 with marker)
-- AI-generated summary display
-- Disclaimer: "This reflects your historical patterns."
-- Pro-only visibility (no locked preview for Standard/Student)
+### 3. `src/hooks/usePlanComments.ts`
+React hook for comments:
+- Fetch comments for a plan (grouped by target)
+- Add comment (with target_type and target_ref)
+- Edit comment (author only)
+- Delete comment (soft delete, author only)
+- Real-time subscription optional (future)
 
-### 4. `supabase/functions/operating-style-summary/index.ts`
-Edge function for AI summary:
-- Input: dimensions + metrics
-- System prompt: strictly observational, no advice
-- Uses Lovable AI Gateway (google/gemini-3-flash-preview)
-- Fallback to template-based summary if AI unavailable
+### 4. `src/hooks/useCollaboratorAccess.ts`
+Hook to check if current user is a collaborator on a plan:
+- Returns `{ isOwner, isCollaborator, role, canComment }`
+- Used by Plan and Review pages to adjust UI
 
-### 5. `src/components/OperatingStyleHint.tsx`
-Dismissible hint component for PlanReset:
-- Single factual sentence reflecting historical tendency
-- Only shown on plan creation/reset
-- Dismissible with local state
-- Example: "You typically work through tasks early in the day."
+### 5. `src/components/CollaborationButton.tsx`
+Subtle entry point on /plan page:
+- Small "Share with team" or "Collaborate" button
+- Shows collaborator avatars/initials if any exist
+- Opens collaboration modal
+- Only visible for Pro/Business tiers
+
+### 6. `src/components/CollaborationModal.tsx`
+Modal for managing collaborators:
+- Invite by email with role selection
+- List current collaborators with status
+- Remove collaborators
+- Shows tier limit info
+- Simple, non-overwhelming design
+
+### 7. `src/components/CollaboratorBadge.tsx`
+Small badge showing collaborator role:
+- "Viewing as Viewer" or "Viewing as Commenter"
+- Shown to collaborators on /plan and /review
+
+### 8. `src/components/CommentThread.tsx`
+Collapsible comment thread component:
+- Shows comments for a specific target (plan, task, insight)
+- Add comment input (for commenters)
+- Edit/delete for own comments
+- Timestamps and author attribution
+
+### 9. `src/components/PlanCommentsSection.tsx`
+Section on /review page showing all comments:
+- Grouped by target (Plan-level, Tasks, Insights)
+- Collapsible by default
+- Only visible when comments exist OR user can comment
+
+### 10. `src/components/TaskCommentIndicator.tsx`
+Small indicator on task items:
+- Shows comment count if any
+- Click to expand/view comments
+- Only visible on /review, NOT on /today
 
 ## Files to Modify
 
 ### 1. `src/lib/productTiers.ts`
-Add feature registration:
+Add new feature entries:
 ```typescript
-'operating-style-overview': {
-  id: 'operating-style-overview',
-  name: 'Working Pattern Overview',
+'collaboration': {
+  id: 'collaboration',
+  name: 'Plan Collaboration',
   tier: 'pro',
-  category: 'insights',
-  description: 'Personal operating style derived from behavior',
-  valueExplanation: 'See patterns in how you work based on your history.',
-  previewable: false, // No preview for Standard/Student
+  category: 'export',
+  description: 'Invite observers to view and comment on your plan',
+  valueExplanation: 'Share your plan with trusted advisors for feedback.',
+  previewable: false,
+},
+'collaboration-extended': {
+  id: 'collaboration-extended',
+  name: 'Extended Collaboration',
+  tier: 'business',
+  category: 'export',
+  description: 'Invite up to 5 collaborators',
+  valueExplanation: 'Collaborate with a larger team.',
+  previewable: false,
 },
 ```
 
-### 2. `src/pages/Review.tsx`
-Add `OperatingStyleOverview` component after `PlanningStyleProfile`:
-```typescript
-{/* Working Pattern Overview (Pro only) */}
-{user && (
-  <OperatingStyleOverview
-    userId={user.id}
-    planData={plan}
-  />
-)}
-```
+### 2. `src/pages/Plan.tsx`
+- Import `CollaborationButton` and `useCollaboratorAccess`
+- Add `CollaborationButton` in header area (subtle placement)
+- Add `CollaboratorBadge` if viewing as collaborator
+- For collaborators: hide task completion, timer controls, reordering
+- Collaborators see read-only plan view
 
-### 3. `src/pages/PlanReset.tsx`
-Add `OperatingStyleHint` near the planning mode selection step:
-- Import the new component
-- Pass the operating style profile to it
-- Render only when profile exists with sufficient data
+### 3. `src/pages/Review.tsx`
+- Import `PlanCommentsSection` and `useCollaboratorAccess`
+- Add `CollaboratorBadge` if viewing as collaborator
+- Add `PlanCommentsSection` after External Feedback section
+- Show comment indicators on insights sections
 
 ### 4. `supabase/config.toml`
-Register new edge function:
-```toml
-[functions.operating-style-summary]
-verify_jwt = false
-```
+No new edge functions needed - all operations use client-side Supabase SDK with RLS.
 
-## Technical Details
+## Component Details
 
-### Dimension Calculation Logic
-
-**Planning Density (Light Planner 0 <-> Detailed Planner 1)**
-```
-avgTasksPerWeek = SUM(total_tasks) / SUM(total_weeks) across all plans
-granularityScore = normalized(avgTasksPerWeek, min=3, max=12)
-completionRatio = SUM(completed_tasks) / SUM(total_tasks)
-planningDensity = (granularityScore * 0.7) + (completionRatio * 0.3)
-```
-
-**Execution Follow-Through (Starter 0 <-> Finisher 1)**
-```
-completionRate = AVG(completed_tasks / total_tasks) across plans
-closureConsistency = (plans with day_closures) / total_plans
-followThrough = (completionRate * 0.7) + (closureConsistency * 0.3)
-```
-
-**Adjustment Behavior (Steady 0 <-> Adaptive 1)**
-```
-deferralRate = (tasks with deferred_to) / total_tasks per plan
-splitCount = count tasks matching "(Part X)" pattern
-adjustmentScore = normalize(deferralRate + splitCount, max=0.5)
-```
-
-**Cadence Preference (Morning Focus 0 <-> Variable Rhythm 1)**
-```
-completionTimes = extract hour from all completed_at timestamps
-morningCount = count(hour < 12)
-afternoonCount = count(hour >= 12 && hour < 18)
-eveningCount = count(hour >= 18)
-variability = std_dev([morningCount, afternoonCount, eveningCount])
-cadencePreference = normalize(variability, max=high variability)
-```
-
-### Data Sources Deep Dive
-
-| Source | Location | Fields Used |
-|--------|----------|-------------|
-| Plan History | `plan_history` table | total_tasks, completed_tasks, total_weeks, is_strategic |
-| Plan Snapshot | `plan_history.plan_snapshot` | weeks[].tasks[], day_closures[] |
-| Effort Feedback | localStorage `kaamyab_effort_feedback` | effort level + timestamp |
-| Active Plan | `plans.plan_json` | Current task timestamps |
-
-### Caching Strategy
-- Store in `profiles.profession_details.operating_style_profile`
-- Include `data_version_hash` (computed from plan count + total tasks + total completed)
-- Only regenerate when hash changes AND 2+ new plans since last analysis
-- AI summary cached with `summary_generated_at` timestamp
-
-### AI Summary Prompt (Edge Function)
-```
-System: You are an observational analyst. Responses must be:
-- Strictly observational (what IS, not what SHOULD BE)
-- Neutral tone (no good/bad, no judgment)
-- 1-2 sentences maximum
-- No advice, recommendations, or suggestions
-- No commands or imperatives
-
-User: Based on N completed plans, describe this person's working patterns:
-- Planning density: [description based on value]
-- Execution follow-through: [description based on value]
-- Adjustment behavior: [description based on value]
-- Cadence preference: [description based on value]
-
-Write a brief, neutral observation. Be specific but not judgmental.
-```
-
-## Tier Visibility Rules
-
-| Tier | Behavior |
-|------|----------|
-| Standard | Component not rendered at all |
-| Student | Component not rendered at all |
-| Pro | Full access to Working Pattern Overview |
-| Business | Full access to Working Pattern Overview |
-
-Key difference from `PlanningStyleProfile`: This feature uses `previewable: false` in the registry, meaning Standard/Student users see nothing - no placeholders, no locked UI.
-
-## UI Component Structure
-
+### CollaborationButton (on /plan header)
 ```text
-OperatingStyleOverview (Collapsible)
-├── CollapsibleTrigger
-│   ├── Icon (Activity)
-│   ├── Title: "Working Pattern Overview"
-│   ├── Subtitle: "Based on X completed plans"
-│   └── ChevronDown
-└── CollapsibleContent
-    ├── DimensionBar (Planning Density)
-    ├── DimensionBar (Execution Follow-Through)
-    ├── DimensionBar (Adjustment Behavior)
-    ├── DimensionBar (Cadence Preference)
-    ├── AI Summary Box (if available)
-    └── Disclaimer text
+[Share ▼] - Subtle ghost button
+  └── Shows "1 collaborator" badge if any exist
+  └── Click opens CollaborationModal
 ```
+
+### CollaborationModal Layout
+```text
+┌────────────────────────────────────────┐
+│ Collaborate on Your Plan               │
+│ ──────────────────────────────────────│
+│ Invite by email:                       │
+│ ┌──────────────────────────┐ [Viewer ▼]│
+│ │ colleague@example.com    │ [Invite]  │
+│ └──────────────────────────┘           │
+│                                        │
+│ Collaborators (1 of 1 on Pro)          │
+│ ┌──────────────────────────────────┐   │
+│ │ [A] advisor@example.com          │   │
+│ │     Commenter • Joined Mar 15    │   │
+│ │     [Change Role] [Remove]       │   │
+│ └──────────────────────────────────┘   │
+│                                        │
+│ Note: Collaborators can view your      │
+│ plan and review. Commenters can also   │
+│ leave feedback. They cannot modify     │
+│ your tasks or execution.               │
+└────────────────────────────────────────┘
+```
+
+### CommentThread Layout
+```text
+Plan Comments (3)  [▼ collapsed]
+├── "Great strategic focus on week 1"
+│   └── @advisor • 2 days ago
+├── "Consider breaking down task 3"
+│   └── @mentor • 1 day ago
+└── [Add comment...] (if commenter)
+```
+
+## Explicit Restrictions (Enforced)
+
+### What Collaborators CANNOT Do:
+- Complete tasks
+- Start/stop timers
+- Reorder tasks
+- Regenerate plan
+- Generate insights
+- Delete/archive plan
+- Access /today page (or see timer state)
+- Modify any plan data
+
+### What Viewers CAN Do:
+- View /plan (read-only)
+- View /review (read-only)
+- See strategy overview, insights, progress
+
+### What Commenters CAN Do:
+- Everything Viewers can do
+- Leave comments on plan-level
+- Leave comments on specific tasks (on /review only)
+- Leave comments on insights
+- Edit/delete their own comments
+
+## UI/UX Guidelines
+
+### Calm, Non-Intrusive Design:
+- Collaboration entry is subtle (ghost button, not prominent)
+- No notification badges or urgency signals
+- Comments visible only on /review, not during execution
+- No real-time presence indicators
+- No @mentions or notification system
+- Collapsible comment sections
+
+### Trust Preservation:
+- Owner always has full control
+- Collaborators cannot infer private data
+- Comments are attributed but non-confrontational
+- Easy to remove collaborators at any time
 
 ## Implementation Order
 
-1. Create `src/lib/personalOperatingStyle.ts` with types and calculation logic
-2. Create `supabase/functions/operating-style-summary/index.ts`
-3. Update `supabase/config.toml` to register the function
-4. Create `src/hooks/useOperatingStyle.ts`
-5. Add feature to `src/lib/productTiers.ts`
-6. Create `src/components/OperatingStyleOverview.tsx`
-7. Add component to `src/pages/Review.tsx`
-8. Create `src/components/OperatingStyleHint.tsx`
-9. Add hint to `src/pages/PlanReset.tsx`
-
-## Relationship to Existing Planning Style Profile
-
-The existing `PlanningStyleProfile` (Phase 9.15) focuses on planning behavior dimensions (Planner/Improviser, Optimistic/Conservative, Linear/Iterative, Strategic/Tactical). 
-
-The new `OperatingStyleOverview` (Phase 10.1) focuses on working/execution patterns (Planning Density, Follow-Through, Adjustment, Cadence).
-
-Both are:
-- Pro-only features
-- Collapsible on /review
-- AI-summarized
-- Observational only
-
-They complement each other as different lenses on user behavior.
+1. Create database migration (tables + RLS + functions)
+2. Create `src/lib/collaboration.ts` with types and utilities
+3. Create `src/hooks/useCollaborators.ts`
+4. Create `src/hooks/usePlanComments.ts`
+5. Create `src/hooks/useCollaboratorAccess.ts`
+6. Add features to `src/lib/productTiers.ts`
+7. Create `src/components/CollaboratorBadge.tsx`
+8. Create `src/components/CollaborationButton.tsx`
+9. Create `src/components/CollaborationModal.tsx`
+10. Create `src/components/CommentThread.tsx`
+11. Create `src/components/TaskCommentIndicator.tsx`
+12. Create `src/components/PlanCommentsSection.tsx`
+13. Modify `src/pages/Plan.tsx` for collaboration UI
+14. Modify `src/pages/Review.tsx` for comments
 
 ## Explicit Exclusions Checklist
 
-- [x] No questions or quizzes to users
-- [x] No labels, scores, ranks, or categories
-- [x] No modification of plans, tasks, priorities, timers, or execution
-- [x] No surfacing during execution (/today or active tasks)
-- [x] All insights are observational and neutral
-- [x] No collaboration features
-- [x] No comparisons to other users
-- [x] No auto-adjustments
-- [x] No gamification
-- [x] No behavioral scoring
+- [x] No shared task ownership
+- [x] No notifications
+- [x] No calendars
+- [x] No live presence
+- [x] No execution interference
+- [x] No real-time chat
+- [x] No @mentions
+- [x] No urgency signals
+- [x] No activity feeds
+- [x] No task completion by collaborators
+- [x] No timer access for collaborators
+- [x] No task reordering by collaborators
+- [x] No plan regeneration by collaborators
+- [x] No insights generation by collaborators
+- [x] No notifications during execution (/today)
+
+## Success Criteria
+
+Users should feel:
+- Supported and seen without losing autonomy
+- Collaboration is calm accountability, not management
+- Their plan remains theirs to execute
+- Feedback is available when they seek it, not pushed on them
