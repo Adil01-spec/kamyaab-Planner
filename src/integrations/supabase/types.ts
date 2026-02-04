@@ -261,6 +261,7 @@ export type Database = {
       }
       review_feedback: {
         Row: {
+          advisor_observation: string | null
           challenge_areas: string[] | null
           feels_realistic: string | null
           id: string
@@ -269,6 +270,7 @@ export type Database = {
           unclear_or_risky: string | null
         }
         Insert: {
+          advisor_observation?: string | null
           challenge_areas?: string[] | null
           feels_realistic?: string | null
           id?: string
@@ -277,6 +279,7 @@ export type Database = {
           unclear_or_risky?: string | null
         }
         Update: {
+          advisor_observation?: string | null
           challenge_areas?: string[] | null
           feels_realistic?: string | null
           id?: string

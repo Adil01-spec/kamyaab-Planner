@@ -6,6 +6,7 @@ interface FeedbackItem {
   feels_realistic: 'yes' | 'somewhat' | 'no' | null;
   challenge_areas: string[] | null;
   unclear_or_risky: string | null;
+  advisor_observation: string | null;
   submitted_at: string;
 }
 
@@ -14,6 +15,7 @@ export interface AggregatedFeedback {
   realism: { yes: number; somewhat: number; no: number };
   challengeAreas: Record<string, number>;
   unclearNotes: string[];
+  advisorObservations: string[];
   rawFeedback: FeedbackItem[];
 }
 
@@ -44,7 +46,7 @@ export function useReviewFeedback(sharedReviewId: string | undefined): UseReview
 
       const { data: items, error: fetchError } = await supabase
         .from('review_feedback')
-        .select('id, feels_realistic, challenge_areas, unclear_or_risky, submitted_at')
+        .select('id, feels_realistic, challenge_areas, unclear_or_risky, advisor_observation, submitted_at')
         .eq('shared_review_id', sharedReviewId)
         .order('submitted_at', { ascending: false });
 
@@ -77,6 +79,7 @@ function aggregateFeedback(items: FeedbackItem[]): AggregatedFeedback {
   const realism = { yes: 0, somewhat: 0, no: 0 };
   const challengeAreas: Record<string, number> = {};
   const unclearNotes: string[] = [];
+  const advisorObservations: string[] = [];
 
   for (const item of items) {
     // Count realism responses
@@ -95,6 +98,11 @@ function aggregateFeedback(items: FeedbackItem[]): AggregatedFeedback {
     if (item.unclear_or_risky && item.unclear_or_risky.trim()) {
       unclearNotes.push(item.unclear_or_risky.trim());
     }
+
+    // Collect advisor observations
+    if (item.advisor_observation && item.advisor_observation.trim()) {
+      advisorObservations.push(item.advisor_observation.trim());
+    }
   }
 
   return {
@@ -102,6 +110,7 @@ function aggregateFeedback(items: FeedbackItem[]): AggregatedFeedback {
     realism,
     challengeAreas,
     unclearNotes,
+    advisorObservations,
     rawFeedback: items,
   };
 }
@@ -142,7 +151,7 @@ export function useAllPlanFeedback(planId: string | undefined): UseReviewFeedbac
       // Then get all feedback for those reviews
       const { data: items, error: fetchError } = await supabase
         .from('review_feedback')
-        .select('id, feels_realistic, challenge_areas, unclear_or_risky, submitted_at')
+        .select('id, feels_realistic, challenge_areas, unclear_or_risky, advisor_observation, submitted_at')
         .in('shared_review_id', reviewIds)
         .order('submitted_at', { ascending: false });
 

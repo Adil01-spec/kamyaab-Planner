@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useSharedReview } from '@/hooks/useSharedReview';
 import { AdvisorViewContent } from '@/components/AdvisorViewContent';
+import { AdvisorFeedbackForm } from '@/components/AdvisorFeedbackForm';
 import { isShareExpired, formatExpiryDate } from '@/lib/shareReview';
 import { Loader2, FileX, AlertTriangle, Clock, Briefcase } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -148,6 +149,9 @@ export default function AdvisorView() {
           planSnapshot={data.plan_snapshot}
           expiresAt={data.expires_at}
         />
+        
+        {/* Advisor Feedback Form */}
+        <AdvisorFeedbackForm sharedReviewId={data.id} />
       </main>
 
       {/* Footer - Minimal */}
