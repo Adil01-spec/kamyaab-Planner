@@ -21,7 +21,10 @@ import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { PlanHistorySection } from '@/components/PlanHistorySection';
 import { PlanningStyleProfile } from '@/components/PlanningStyleProfile';
 import { OperatingStyleOverview } from '@/components/OperatingStyleOverview';
+import { PlanCommentsSection } from '@/components/PlanCommentsSection';
+import { CollaboratorBadge } from '@/components/CollaboratorBadge';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
+import { useCollaboratorAccess } from '@/hooks/useCollaboratorAccess';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
@@ -99,6 +102,9 @@ const Review = () => {
   const [planId, setPlanId] = useState<string | null>(null);
   const [planCreatedAt, setPlanCreatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Collaboration access
+  const { isCollaborator, role } = useCollaboratorAccess(planId);
 
   // Settings for dynamic background
   const { settings: mobileSettings, isMobile } = useMobileSettings();
@@ -230,15 +236,22 @@ const Review = () => {
                 <p className="text-xs text-muted-foreground">Strategy, insights, and progress</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/home')}
-              className="text-muted-foreground"
-            >
-              <Home className="w-4 h-4 mr-1" />
-              Home
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Collaborator badge for observers */}
+              {isCollaborator && role && role !== 'owner' && (
+                <CollaboratorBadge role={role} />
+              )}
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/home')}
+                className="text-muted-foreground"
+              >
+                <Home className="w-4 h-4 mr-1" />
+                Home
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -473,6 +486,11 @@ const Review = () => {
         {/* 8. External Feedback */}
         {planId && (
           <ExternalFeedbackSection planId={planId} />
+        )}
+
+        {/* 8.5. Plan Comments (Collaboration) */}
+        {planId && (
+          <PlanCommentsSection planId={planId} />
         )}
 
         {/* 9. Plan History & Comparison */}
