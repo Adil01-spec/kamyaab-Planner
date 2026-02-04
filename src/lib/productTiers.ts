@@ -283,6 +283,26 @@ export const FEATURE_REGISTRY: Record<string, FeatureDefinition> = {
     previewable: false,
   },
   
+  // Collaboration features
+  'collaboration': {
+    id: 'collaboration',
+    name: 'Plan Collaboration',
+    tier: 'pro',
+    category: 'export',
+    description: 'Invite observers to view and comment on your plan',
+    valueExplanation: 'Share your plan with trusted advisors for feedback.',
+    previewable: false,
+  },
+  'collaboration-extended': {
+    id: 'collaboration-extended',
+    name: 'Extended Collaboration',
+    tier: 'business',
+    category: 'export',
+    description: 'Invite up to 5 collaborators',
+    valueExplanation: 'Collaborate with a larger team.',
+    previewable: false,
+  },
+  
   // Business features - require Business tier
   'multi-plan-comparison': {
     id: 'multi-plan-comparison',

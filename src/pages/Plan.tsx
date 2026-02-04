@@ -52,6 +52,10 @@ import { SplitTaskModal } from '@/components/SplitTaskModal';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { useTaskMutations, NewTask } from '@/hooks/useTaskMutations';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useCollaborators } from '@/hooks/useCollaborators';
+import { useCollaboratorAccess } from '@/hooks/useCollaboratorAccess';
+import { CollaborationButton } from '@/components/CollaborationButton';
+import { CollaboratorBadge } from '@/components/CollaboratorBadge';
 import { 
   fetchExecutionProfile, 
   extractProfileFromPlan,
@@ -352,6 +356,10 @@ const Plan = () => {
   // Feature access for manual task controls
   const { hasAccess: canAddTasks, trackInterest: trackAddInterest } = useFeatureAccess('manual-task-add', plan);
   const { hasAccess: canSplitTasks, trackInterest: trackSplitInterest } = useFeatureAccess('task-split', plan);
+
+  // Collaboration hooks
+  const { collaborators } = useCollaborators(planId);
+  const { isOwner, isCollaborator, role, canEdit } = useCollaboratorAccess(planId);
 
   // DnD state for cross-week drag
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -955,15 +963,30 @@ const Plan = () => {
                   <h1 className="text-3xl font-bold text-foreground mb-2">Your AI Plan</h1>
                   <p className="text-muted-foreground mb-3">{plan.overview}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/review')}
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                >
-                  View Review
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Collaborator badge for observers */}
+                  {isCollaborator && role && role !== 'owner' && (
+                    <CollaboratorBadge role={role} />
+                  )}
+                  
+                  {/* Collaboration button for owners */}
+                  {isOwner && planId && (
+                    <CollaborationButton 
+                      planId={planId} 
+                      collaboratorCount={collaborators.length} 
+                    />
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/review')}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    View Review
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Button>
+                </div>
               </div>
               <IdentityStatementEditor
                 value={plan.identity_statement || ''}

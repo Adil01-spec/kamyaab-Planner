@@ -14,6 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      plan_collaborators: {
+        Row: {
+          accepted_at: string | null
+          collaborator_email: string
+          collaborator_user_id: string | null
+          id: string
+          invited_at: string | null
+          owner_id: string
+          plan_id: string
+          role: Database["public"]["Enums"]["collaborator_role"]
+        }
+        Insert: {
+          accepted_at?: string | null
+          collaborator_email: string
+          collaborator_user_id?: string | null
+          id?: string
+          invited_at?: string | null
+          owner_id: string
+          plan_id: string
+          role?: Database["public"]["Enums"]["collaborator_role"]
+        }
+        Update: {
+          accepted_at?: string | null
+          collaborator_email?: string
+          collaborator_user_id?: string | null
+          id?: string
+          invited_at?: string | null
+          owner_id?: string
+          plan_id?: string
+          role?: Database["public"]["Enums"]["collaborator_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_collaborators_collaborator_user_id_fkey"
+            columns: ["collaborator_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_collaborators_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_collaborators_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_comments: {
+        Row: {
+          author_id: string
+          author_name: string
+          content: string
+          created_at: string | null
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          plan_id: string
+          target_ref: string | null
+          target_type: string
+        }
+        Insert: {
+          author_id: string
+          author_name: string
+          content: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          plan_id: string
+          target_ref?: string | null
+          target_type: string
+        }
+        Update: {
+          author_id?: string
+          author_name?: string
+          content?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          plan_id?: string
+          target_ref?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_comments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_history: {
         Row: {
           comparison_insights: Json | null
@@ -238,13 +347,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_comment_on_plan: { Args: { _plan_id: string }; Returns: boolean }
+      can_view_plan: { Args: { _plan_id: string }; Returns: boolean }
+      get_collaboration_role: { Args: { _plan_id: string }; Returns: string }
       owns_shared_review: {
         Args: { _shared_review_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      [_ in never]: never
+      collaborator_role: "viewer" | "commenter"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -371,6 +483,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      collaborator_role: ["viewer", "commenter"],
+    },
   },
 } as const
