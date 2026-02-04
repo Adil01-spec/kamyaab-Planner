@@ -124,12 +124,36 @@ export function ExternalFeedbackSection({ planId }: ExternalFeedbackSectionProps
               </div>
             )}
 
+            {/* Advisor Observations */}
+            {feedback.advisorObservations.length > 0 && (
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Users className="w-3 h-3 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium text-primary">
+                    Advisor Insights ({feedback.advisorObservations.length})
+                  </p>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {feedback.advisorObservations.map((observation, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded-lg bg-background border text-sm"
+                    >
+                      "{observation}"
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Unclear/Risky Notes */}
             {feedback.unclearNotes.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium">
-                    Comments ({feedback.unclearNotes.length})
+                    General Comments ({feedback.unclearNotes.length})
                   </p>
                   <Button
                     variant="ghost"
