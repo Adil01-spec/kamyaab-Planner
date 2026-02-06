@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -754,6 +754,13 @@ const Onboarding = () => {
           </CardContent>
         </Card>
         
+        {/* Terms Link */}
+        <p className="text-center text-xs text-muted-foreground/50 mt-4">
+          By continuing, you agree to our{' '}
+          <Link to="/terms" target="_blank" className="text-primary hover:underline">
+            Terms of Service
+          </Link>
+        </p>
         {/* Dev Panel */}
         <DevPanel
           pageId="onboarding"

@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
@@ -38,6 +39,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -87,6 +89,11 @@ const Auth = () => {
 
     if (view === 'signup' && password !== confirmPassword) {
       toast.error('Passwords do not match.');
+      return;
+    }
+
+    if (view === 'signup' && !acceptedTerms) {
+      toast.error('Please accept the Terms of Service to continue.');
       return;
     }
 
@@ -191,6 +198,7 @@ const Auth = () => {
     if (newView !== 'forgot-password') {
       setPassword('');
       setConfirmPassword('');
+      setAcceptedTerms(false);
     }
   };
 
@@ -307,6 +315,34 @@ const Auth = () => {
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
+              </motion.div>
+            )}
+
+            {view === 'signup' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-start gap-3 py-2"
+              >
+                <Checkbox
+                  id="terms"
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                  disabled={loading}
+                  className="mt-0.5"
+                />
+                <label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                  I agree to the{' '}
+                  <Link 
+                    to="/terms" 
+                    target="_blank"
+                    className="text-primary hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Terms of Service
+                  </Link>
+                </label>
               </motion.div>
             )}
 
