@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -215,9 +216,12 @@ export function DesktopSettingsDialog({
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-border/10">
-          <p className="text-[11px] text-muted-foreground/50">
-            Effects enabled by default on desktop
-          </p>
+          <Link 
+            to="/terms" 
+            className="text-[11px] text-muted-foreground/50 hover:text-primary transition-colors"
+          >
+            Terms of Service
+          </Link>
           <Button
             variant="ghost"
             size="sm"

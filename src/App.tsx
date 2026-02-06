@@ -19,6 +19,7 @@ import SharedReview from "./pages/SharedReview";
 import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
 import Pricing from "./pages/Pricing";
+import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -104,6 +105,8 @@ const App = () => (
             />
             {/* Pricing page - public */}
             <Route path="/pricing" element={<Pricing />} />
+            {/* Terms of Service - public */}
+            <Route path="/terms" element={<Terms />} />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}
