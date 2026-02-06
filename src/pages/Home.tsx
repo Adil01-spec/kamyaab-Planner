@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,8 @@ import {
   Sun,
   Settings,
   BarChart3,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -586,6 +587,15 @@ const Home = () => {
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     Plans & Pricing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link 
+                      to="/terms" 
+                      className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Terms of Service
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
