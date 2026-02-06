@@ -1,115 +1,279 @@
 
-# Add Structured Feedback to Advisor View
+# Billing-Ready Infrastructure (Provider-Agnostic)
 
-## Problem
-The Advisor View (`/advisor/:shareId`) is designed for mentors and professional advisors to review plans, but unlike the Standard View (`/shared-review/:token`), it has **no feedback mechanism**. Advisors cannot share their perspective, which defeats part of the purpose of sharing with a mentor.
+## Overview
+
+This phase prepares the app for future billing enforcement while maintaining the current experience for all users. No payments, no blocking, no countdowns—just structural readiness.
 
 ## Current State
-| View | Plan Details | Feedback Form |
-|------|-------------|---------------|
-| Standard View | Basic task summary | `SharedReviewFeedbackForm` (realism, challenges, notes) |
-| Advisor View | Full strategic details | None |
 
-## Solution
-Add a professional, advisor-appropriate feedback form to the Advisor View. This form should:
-- Match the professional tone of the advisor view
-- Use the same underlying `review_feedback` table
-- Be print-friendly (hidden during print)
-- Include an optional "advisor perspective" field for richer insights
+The app already has partial subscription infrastructure:
+- **Database**: `profiles` table has `subscription_tier`, `subscription_expires_at`, `subscription_provider`
+- **Types**: `ProductTier` type with 4 tiers (standard/student/pro/business)
+- **Feature Registry**: 30+ features with tier requirements and `previewable` flags
+- **Access Hooks**: `useSubscription`, `useFeatureAccess` already check tier
+- **UI Components**: `LockedFeatureCard`, `UpgradeExplanationSheet` show locked state
+
+## What's Missing
+
+| Area | Current | Needed |
+|------|---------|--------|
+| Subscription State | Only `tier` stored | Add `subscription_state` (active/trial/grace/canceled/expired) |
+| Grace Period | Not tracked | Add `grace_ends_at` column |
+| Effective Subscription | Basic tier check | `getEffectiveSubscription()` helper with full state resolution |
+| Feature Registry | Has `tier` and `previewable` | Rename for clarity: `preview_allowed` → already `previewable` |
+| UI Awareness | Shows tier badges | Add subtle state indicators (grace, preview) |
 
 ## Implementation
 
-### 1. Create `AdvisorFeedbackForm` Component
-**File:** `src/components/AdvisorFeedbackForm.tsx`
+### 1. Database Schema Extension
 
-A professional version of the feedback form with:
-- Same core questions as `SharedReviewFeedbackForm`:
-  - "Does this plan feel realistic?" (Yes/Somewhat/No)
-  - "What would you challenge?" (Timeline, Scope, Resources, Priorities)
-  - "What feels unclear or risky?" (text, 500 chars)
-- Additional advisor-specific field:
-  - "Strategic observation" (optional, 500 chars) - for deeper mentor insights
-- Professional styling matching the advisor view aesthetic
-- Hidden on print (`print:hidden`)
-- Same localStorage-based one-time submission tracking
+Add new columns to `profiles` table:
 
-### 2. Modify `AdvisorView.tsx`
-**File:** `src/pages/AdvisorView.tsx`
-
-Add the `AdvisorFeedbackForm` after `AdvisorViewContent`:
-```tsx
-<AdvisorViewContent ... />
-<AdvisorFeedbackForm sharedReviewId={data.id} />
-```
-
-### 3. Database Consideration
-The existing `review_feedback` table schema already supports this:
-- `unclear_or_risky` (text) - can be used for the strategic observation
-- Or we can add a new optional `advisor_notes` column
-
-**Recommended:** Use a new column `advisor_observation` to keep general feedback separate from advisor-specific insights.
-
-### Database Migration
 ```sql
--- Add optional advisor observation column
-ALTER TABLE review_feedback 
-ADD COLUMN IF NOT EXISTS advisor_observation text;
+-- Subscription state enum
+CREATE TYPE public.subscription_state AS ENUM (
+  'active',    -- Paid and valid
+  'trial',     -- Trial period (not used initially)
+  'grace',     -- Payment failed, grace period active
+  'canceled',  -- User canceled, access until expires_at
+  'expired'    -- Subscription ended
+);
+
+-- Add subscription state columns
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS subscription_state subscription_state DEFAULT 'active',
+ADD COLUMN IF NOT EXISTS grace_ends_at timestamp with time zone;
+
+-- Add comment for clarity
+COMMENT ON COLUMN public.profiles.subscription_state IS 'Current subscription lifecycle state';
+COMMENT ON COLUMN public.profiles.grace_ends_at IS 'End of grace period after failed payment';
 ```
 
-## Component Design
+### 2. Server-Side Subscription Helper
+
+Create `src/lib/subscriptionResolver.ts`:
 
 ```text
-┌────────────────────────────────────────────────────────┐
-│ Advisor Feedback                               [print] │
-│ ─────────────────────────────────────────────────────│
-│                                                        │
-│ Does this plan feel realistic?                         │
-│ ○ Yes   ○ Somewhat   ○ No                             │
-│                                                        │
-│ What would you challenge? (optional)                   │
-│ [Timeline] [Scope] [Resources] [Priorities]            │
-│                                                        │
-│ What feels unclear or risky? (optional)                │
-│ ┌────────────────────────────────────────────────┐    │
-│ │ Brief observations...                          │    │
-│ └────────────────────────────────────────────────┘    │
-│                                           0/500        │
-│                                                        │
-│ Strategic observation (optional)                       │
-│ ┌────────────────────────────────────────────────┐    │
-│ │ Share deeper insights or recommendations...    │    │
-│ └────────────────────────────────────────────────┘    │
-│                                           0/500        │
-│                                                        │
-│ [                 Submit Feedback                 ]    │
-└────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ getEffectiveSubscription(profile)                           │
+├─────────────────────────────────────────────────────────────┤
+│ Inputs:                                                     │
+│   - subscription_tier                                       │
+│   - subscription_state                                      │
+│   - subscription_expires_at                                 │
+│   - grace_ends_at                                           │
+├─────────────────────────────────────────────────────────────┤
+│ Returns:                                                    │
+│   {                                                         │
+│     tier: ProductTier,                                      │
+│     state: SubscriptionState,                               │
+│     isPaid: boolean,          // tier !== 'standard'        │
+│     inGrace: boolean,         // state === 'grace'          │
+│     isActive: boolean,        // Can use paid features      │
+│     daysRemaining: number | null,                           │
+│   }                                                         │
+├─────────────────────────────────────────────────────────────┤
+│ Logic:                                                      │
+│   1. Read stored values                                     │
+│   2. Check if expired (subscription_expires_at < now)       │
+│   3. Check if in grace (grace_ends_at > now)                │
+│   4. Determine effective access                             │
+│   5. Return composite state                                 │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+### 3. Update AuthContext Profile Mapping
+
+Add new fields to `MappedProfile` interface:
+
+```typescript
+interface MappedProfile {
+  // ... existing fields ...
+  subscriptionTier: string;
+  subscriptionState: SubscriptionState;     // NEW
+  subscriptionExpiresAt: string | null;
+  subscriptionProvider: string | null;
+  graceEndsAt: string | null;               // NEW
+}
+```
+
+### 4. Update useSubscription Hook
+
+Enhance to return full effective subscription:
+
+```typescript
+interface SubscriptionState {
+  tier: ProductTier;
+  state: 'active' | 'trial' | 'grace' | 'canceled' | 'expired';
+  isPaid: boolean;
+  inGrace: boolean;
+  isActive: boolean;
+  daysRemaining: number | null;
+  hasAccess: (requiredTier: ProductTier) => boolean;
+  loading: boolean;
+}
+```
+
+### 5. Update Feature Registry
+
+Add explicit `preview_allowed` (already exists as `previewable`):
+
+```typescript
+interface FeatureDefinition {
+  id: string;
+  name: string;
+  tier: ProductTier;
+  category: 'planning' | 'execution' | 'insights' | 'export';
+  description: string;
+  valueExplanation: string;
+  previewable: boolean;        // Already exists - no change needed
+}
+```
+
+### 6. UI State Indicators (Subtle)
+
+**A. Grace Period Badge** (only shows when in grace):
+- Small badge in settings/profile: "Payment pending"
+- No countdown, no urgency language
+
+**B. Pro Preview Label** (already exists):
+- `LockedFeatureCard` shows tier badge
+- No changes needed
+
+### 7. Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/lib/subscriptionResolver.ts` | **Create** | `getEffectiveSubscription()` and types |
+| `src/lib/subscriptionTiers.ts` | **Modify** | Add `SubscriptionState` type |
+| `src/hooks/useSubscription.ts` | **Modify** | Return full effective subscription |
+| `src/contexts/AuthContext.tsx` | **Modify** | Map new profile fields |
+| Database migration | **Create** | Add `subscription_state`, `grace_ends_at` |
+
+## What This Does NOT Do
+
+- No payment buttons
+- No provider SDKs (Stripe, Paddle)
+- No webhooks
+- No auto-downgrades
+- No trial timers
+- No countdowns
+- No blocking of any features
+- No changes visible to Standard users
+
+## Verification
+
+After implementation:
+
+1. Standard users see no change
+2. Manual Pro test users (set via DB) continue working
+3. Grace period state can be set manually in DB
+4. `getEffectiveSubscription()` returns correct state for all scenarios
+5. Feature access logic uses new resolver
+6. No payment UI elements appear anywhere
 
 ## Technical Details
 
-### Files to Create
-1. `src/components/AdvisorFeedbackForm.tsx`
-   - Professional styling with muted colors
-   - Print-hidden class
-   - Strategic observation textarea
-   - Same submission flow as `SharedReviewFeedbackForm`
+### Database Migration SQL
 
-### Files to Modify
-1. `src/pages/AdvisorView.tsx`
-   - Import and add `AdvisorFeedbackForm` after content
-   - Pass `sharedReviewId={data.id}`
+```sql
+-- Create subscription state enum
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_state') THEN
+    CREATE TYPE public.subscription_state AS ENUM ('active', 'trial', 'grace', 'canceled', 'expired');
+  END IF;
+END $$;
 
-2. Database migration (optional enhancement)
-   - Add `advisor_observation` column to `review_feedback` table
+-- Add columns to profiles
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS subscription_state text DEFAULT 'active',
+ADD COLUMN IF NOT EXISTS grace_ends_at timestamp with time zone;
+```
 
-### Styling Notes
-- Use subtle card styling matching advisor view (less prominent than standard form)
-- Professional heading: "Advisor Feedback" instead of "Share Your Perspective"
-- Muted helper text
-- Print-hidden to maintain clean PDF export
+### Subscription Resolution Logic
 
-## Implementation Order
-1. Create database migration to add `advisor_observation` column
-2. Create `AdvisorFeedbackForm.tsx` component
-3. Integrate form into `AdvisorView.tsx`
-4. Test feedback submission and display
+```typescript
+// src/lib/subscriptionResolver.ts
+
+export type SubscriptionState = 'active' | 'trial' | 'grace' | 'canceled' | 'expired';
+
+export interface EffectiveSubscription {
+  tier: ProductTier;
+  state: SubscriptionState;
+  isPaid: boolean;
+  inGrace: boolean;
+  isActive: boolean;
+  daysRemaining: number | null;
+}
+
+export function getEffectiveSubscription(profile: {
+  subscriptionTier?: string | null;
+  subscriptionState?: string | null;
+  subscriptionExpiresAt?: string | null;
+  graceEndsAt?: string | null;
+}): EffectiveSubscription {
+  const tier = (profile.subscriptionTier || 'standard') as ProductTier;
+  const state = (profile.subscriptionState || 'active') as SubscriptionState;
+  const expiresAt = profile.subscriptionExpiresAt ? new Date(profile.subscriptionExpiresAt) : null;
+  const graceEndsAt = profile.graceEndsAt ? new Date(profile.graceEndsAt) : null;
+  const now = new Date();
+  
+  // Calculate days remaining
+  let daysRemaining: number | null = null;
+  if (expiresAt && expiresAt > now) {
+    daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+  
+  // Determine if in grace period
+  const inGrace = state === 'grace' && graceEndsAt !== null && graceEndsAt > now;
+  
+  // Active = can use paid features
+  // For now, ALL non-expired tiers are active (no enforcement yet)
+  const isActive = tier !== 'standard';
+  
+  return {
+    tier,
+    state,
+    isPaid: tier !== 'standard',
+    inGrace,
+    isActive,
+    daysRemaining,
+  };
+}
+```
+
+### Hook Update
+
+```typescript
+// src/hooks/useSubscription.ts
+
+export function useSubscription(): SubscriptionState {
+  const { profile, loading } = useAuth();
+  
+  const effective = getEffectiveSubscription({
+    subscriptionTier: profile?.subscriptionTier,
+    subscriptionState: profile?.subscriptionState,
+    subscriptionExpiresAt: profile?.subscriptionExpiresAt,
+    graceEndsAt: profile?.graceEndsAt,
+  });
+  
+  return {
+    ...effective,
+    hasAccess: (requiredTier: ProductTier) => 
+      effective.isActive && tierIncludesAccess(effective.tier, requiredTier),
+    loading,
+  };
+}
+```
+
+## Summary
+
+This phase adds the structural foundation for billing without changing user experience. When billing enforcement is enabled in a future phase, it will be a matter of:
+
+1. Connecting a payment provider
+2. Adding webhook handlers to update `subscription_state`
+3. Changing `isActive` logic to respect expiration
+
+All current users continue exactly as before.
