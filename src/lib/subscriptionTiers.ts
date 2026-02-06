@@ -7,6 +7,11 @@
 
 export type ProductTier = 'standard' | 'student' | 'pro' | 'business';
 
+/**
+ * Subscription lifecycle states
+ */
+export type SubscriptionState = 'active' | 'trial' | 'grace' | 'canceled' | 'expired';
+
 export interface TierDefinition {
   id: ProductTier;
   name: string;

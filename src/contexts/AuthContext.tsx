@@ -12,8 +12,10 @@ interface UserProfile {
   project_description: string | null;
   project_deadline: string | null;
   subscription_tier: string | null;
+  subscription_state: string | null;
   subscription_expires_at: string | null;
   subscription_provider: string | null;
+  grace_ends_at: string | null;
   created_at: string;
 }
 
@@ -26,8 +28,10 @@ interface MappedProfile {
   projectDescription: string;
   projectDeadline: string;
   subscriptionTier: string;
+  subscriptionState: string;
   subscriptionExpiresAt: string | null;
   subscriptionProvider: string | null;
+  graceEndsAt: string | null;
 }
 
 // Profile data that can be saved (subscription fields managed separately)
@@ -77,8 +81,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     projectDescription: dbProfile.project_description || '',
     projectDeadline: dbProfile.project_deadline || '',
     subscriptionTier: dbProfile.subscription_tier || 'standard',
+    subscriptionState: dbProfile.subscription_state || 'active',
     subscriptionExpiresAt: dbProfile.subscription_expires_at || null,
     subscriptionProvider: dbProfile.subscription_provider || null,
+    graceEndsAt: dbProfile.grace_ends_at || null,
   });
 
   const fetchProfile = async (userId: string) => {
