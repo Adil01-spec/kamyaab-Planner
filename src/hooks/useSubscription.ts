@@ -1,46 +1,59 @@
 /**
  * Subscription Hook
  * 
- * Fetches user subscription tier from profile and provides tier utilities.
- * Falls back to 'standard' if no subscription data exists.
+ * Provides comprehensive subscription state using the subscription resolver.
+ * Returns effective subscription status with access checking utilities.
  */
 
 import { useAuth } from '@/contexts/AuthContext';
-import { ProductTier, tierIncludesAccess, getTierDefinition } from '@/lib/subscriptionTiers';
+import { 
+  ProductTier, 
+  SubscriptionState as SubscriptionStateType,
+  tierIncludesAccess, 
+} from '@/lib/subscriptionTiers';
+import { 
+  getEffectiveSubscription, 
+  getSubscriptionWarning,
+  type EffectiveSubscription,
+} from '@/lib/subscriptionResolver';
 
-interface SubscriptionState {
-  /** User's current subscription tier */
-  tier: ProductTier;
-  /** Whether subscription has expired (still grants access until refresh) */
-  isExpired: boolean;
+export interface SubscriptionStatus extends EffectiveSubscription {
   /** Check if user has access to a required tier */
   hasAccess: (requiredTier: ProductTier) => boolean;
   /** Loading state while profile is being fetched */
   loading: boolean;
+  /** Warning state if subscription needs attention */
+  warning: { type: 'grace' | 'expiring' | null; message: string | null };
 }
 
 /**
- * Hook to access user's subscription state
+ * Hook to access user's comprehensive subscription state
+ * 
+ * Returns the full effective subscription including:
+ * - tier, state, isPaid, inGrace, isActive, daysRemaining
+ * - hasAccess() utility function
+ * - warning state for grace period or approaching expiration
  */
-export function useSubscription(): SubscriptionState {
+export function useSubscription(): SubscriptionStatus {
   const { profile, loading } = useAuth();
   
-  // Get tier from profile, fallback to standard
-  const tier: ProductTier = (profile as any)?.subscriptionTier || 'standard';
-  const expiresAt = (profile as any)?.subscriptionExpiresAt;
+  // Resolve effective subscription from profile data
+  const effective = getEffectiveSubscription(profile ? {
+    subscriptionTier: profile.subscriptionTier,
+    subscriptionState: profile.subscriptionState,
+    subscriptionExpiresAt: profile.subscriptionExpiresAt,
+    graceEndsAt: profile.graceEndsAt,
+  } : null);
   
-  // Check if subscription has expired
-  const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
-  
-  // For now, even expired subscriptions maintain access (grace period)
-  // In future, this could trigger a renewal prompt
-  const effectiveTier = tier;
+  // Get any warning state
+  const warning = getSubscriptionWarning(effective);
   
   return {
-    tier: effectiveTier,
-    isExpired,
-    hasAccess: (requiredTier: ProductTier) => tierIncludesAccess(effectiveTier, requiredTier),
+    ...effective,
+    hasAccess: (requiredTier: ProductTier) => 
+      effective.isActive && tierIncludesAccess(effective.tier, requiredTier),
     loading,
+    warning,
   };
 }
 
@@ -50,4 +63,13 @@ export function useSubscription(): SubscriptionState {
 export function useShowAds(): boolean {
   const { tier } = useSubscription();
   return tier === 'standard';
+}
+
+/**
+ * Hook to check if subscription needs attention
+ * Returns true if in grace period or expiring soon
+ */
+export function useSubscriptionNeedsAttention(): boolean {
+  const { warning } = useSubscription();
+  return warning.type !== null;
 }

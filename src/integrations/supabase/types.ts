@@ -218,6 +218,7 @@ export type Database = {
         Row: {
           created_at: string
           full_name: string | null
+          grace_ends_at: string | null
           id: string
           profession: string | null
           profession_details: Json | null
@@ -226,12 +227,14 @@ export type Database = {
           project_title: string | null
           subscription_expires_at: string | null
           subscription_provider: string | null
+          subscription_state: string | null
           subscription_tier: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           full_name?: string | null
+          grace_ends_at?: string | null
           id: string
           profession?: string | null
           profession_details?: Json | null
@@ -240,12 +243,14 @@ export type Database = {
           project_title?: string | null
           subscription_expires_at?: string | null
           subscription_provider?: string | null
+          subscription_state?: string | null
           subscription_tier?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           full_name?: string | null
+          grace_ends_at?: string | null
           id?: string
           profession?: string | null
           profession_details?: Json | null
@@ -254,6 +259,7 @@ export type Database = {
           project_title?: string | null
           subscription_expires_at?: string | null
           subscription_provider?: string | null
+          subscription_state?: string | null
           subscription_tier?: string | null
           updated_at?: string
         }
