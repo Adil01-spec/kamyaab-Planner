@@ -5,19 +5,24 @@ import { cn } from '@/lib/utils';
 interface TodayProgressRingProps {
   completed: number;
   total: number;
+  size?: number;
   className?: string;
 }
 
-export function TodayProgressRing({ completed, total, className }: TodayProgressRingProps) {
+export function TodayProgressRing({ completed, total, size = 88, className }: TodayProgressRingProps) {
   const percentage = total > 0 ? (completed / total) * 100 : 0;
   const isAllDone = completed === total && total > 0;
   
-  // SVG parameters
-  const size = 88;
-  const strokeWidth = 6;
+  // SVG parameters - now uses dynamic size
+  const strokeWidth = size >= 100 ? 8 : 6;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  
+  // Scale icon and text based on size
+  const iconSize = size >= 100 ? 'w-8 h-8' : 'w-6 h-6';
+  const textSize = size >= 100 ? 'text-2xl' : 'text-xl';
+  const labelSize = size >= 100 ? 'text-xs' : 'text-[10px]';
 
   return (
     <div className={cn("relative inline-flex items-center justify-center", className)}>
@@ -61,14 +66,14 @@ export function TodayProgressRing({ completed, total, className }: TodayProgress
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 15 }}
           >
-            <Check className="w-6 h-6 text-primary" />
+            <Check className={cn(iconSize, "text-primary")} />
           </motion.div>
         ) : (
           <>
-            <span className="text-xl font-bold text-foreground leading-none">
+            <span className={cn(textSize, "font-bold text-foreground leading-none")}>
               {completed}/{total}
             </span>
-            <span className="text-[10px] text-muted-foreground mt-0.5">
+            <span className={cn(labelSize, "text-muted-foreground mt-0.5")}>
               today
             </span>
           </>
