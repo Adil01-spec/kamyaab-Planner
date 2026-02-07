@@ -86,7 +86,7 @@ export function Footer({
   className
 }: FooterProps) {
   return <footer className={`mt-auto border-t border-border/50 bg-muted/30 print:bg-white print:text-black ${className || ''}`}>
-      <div className="container max-w-6xl mx-auto px-4 py-12 bg-primary-foreground text-sidebar-foreground opacity-75">
+      <div className="container max-w-6xl mx-auto px-4 py-12 bg-primary-foreground text-sidebar-foreground opacity-60">
         {/* Grid: Brand + Navigation + Social */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           
