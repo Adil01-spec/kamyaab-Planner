@@ -1,279 +1,243 @@
 
-# Billing-Ready Infrastructure (Provider-Agnostic)
+# Global Footer Implementation
 
 ## Overview
 
-This phase prepares the app for future billing enforcement while maintaining the current experience for all users. No payments, no blocking, no countdowns—just structural readiness.
+Create a professional, minimal footer component that appears on all public and authenticated pages throughout the Kaamyab app. The footer communicates brand legitimacy and trust without being sales-oriented or visually distracting.
 
 ## Current State
 
-The app already has partial subscription infrastructure:
-- **Database**: `profiles` table has `subscription_tier`, `subscription_expires_at`, `subscription_provider`
-- **Types**: `ProductTier` type with 4 tiers (standard/student/pro/business)
-- **Feature Registry**: 30+ features with tier requirements and `previewable` flags
-- **Access Hooks**: `useSubscription`, `useFeatureAccess` already check tier
-- **UI Components**: `LockedFeatureCard`, `UpgradeExplanationSheet` show locked state
-
-## What's Missing
-
-| Area | Current | Needed |
-|------|---------|--------|
-| Subscription State | Only `tier` stored | Add `subscription_state` (active/trial/grace/canceled/expired) |
-| Grace Period | Not tracked | Add `grace_ends_at` column |
-| Effective Subscription | Basic tier check | `getEffectiveSubscription()` helper with full state resolution |
-| Feature Registry | Has `tier` and `previewable` | Rename for clarity: `preview_allowed` → already `previewable` |
-| UI Awareness | Shows tier badges | Add subtle state indicators (grace, preview) |
+- **Existing footers**: Found minimal footers on `SharedReview.tsx` and `AdvisorView.tsx` (just "Powered by Kaamyab" text)
+- **No global footer component**: Each page manages its own layout without a shared footer
+- **Bottom nav exists**: Mobile devices have `BottomNav.tsx` for navigation (fixed at bottom)
+- **Design tokens ready**: The app has consistent color schemes, glassmorphism patterns, and typography
 
 ## Implementation
 
-### 1. Database Schema Extension
+### 1. Create Footer Component
 
-Add new columns to `profiles` table:
+**File**: `src/components/Footer.tsx`
 
-```sql
--- Subscription state enum
-CREATE TYPE public.subscription_state AS ENUM (
-  'active',    -- Paid and valid
-  'trial',     -- Trial period (not used initially)
-  'grace',     -- Payment failed, grace period active
-  'canceled',  -- User canceled, access until expires_at
-  'expired'    -- Subscription ended
-);
-
--- Add subscription state columns
-ALTER TABLE public.profiles
-ADD COLUMN IF NOT EXISTS subscription_state subscription_state DEFAULT 'active',
-ADD COLUMN IF NOT EXISTS grace_ends_at timestamp with time zone;
-
--- Add comment for clarity
-COMMENT ON COLUMN public.profiles.subscription_state IS 'Current subscription lifecycle state';
-COMMENT ON COLUMN public.profiles.grace_ends_at IS 'End of grace period after failed payment';
-```
-
-### 2. Server-Side Subscription Helper
-
-Create `src/lib/subscriptionResolver.ts`:
+The footer will include:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ getEffectiveSubscription(profile)                           │
-├─────────────────────────────────────────────────────────────┤
-│ Inputs:                                                     │
-│   - subscription_tier                                       │
-│   - subscription_state                                      │
-│   - subscription_expires_at                                 │
-│   - grace_ends_at                                           │
-├─────────────────────────────────────────────────────────────┤
-│ Returns:                                                    │
-│   {                                                         │
-│     tier: ProductTier,                                      │
-│     state: SubscriptionState,                               │
-│     isPaid: boolean,          // tier !== 'standard'        │
-│     inGrace: boolean,         // state === 'grace'          │
-│     isActive: boolean,        // Can use paid features      │
-│     daysRemaining: number | null,                           │
-│   }                                                         │
-├─────────────────────────────────────────────────────────────┤
-│ Logic:                                                      │
-│   1. Read stored values                                     │
-│   2. Check if expired (subscription_expires_at < now)       │
-│   3. Check if in grace (grace_ends_at > now)                │
-│   4. Determine effective access                             │
-│   5. Return composite state                                 │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                           [Divider Line]                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  ┌────────┐  │
+│  │ BRAND       │  │ PRODUCT      │  │ COMPANY       │  │ SOCIAL │  │
+│  │             │  │              │  │               │  │        │  │
+│  │ Kaamyab     │  │ Home         │  │ About         │  │ X      │  │
+│  │ "Plan       │  │ Plan         │  │ Privacy       │  │ LI     │  │
+│  │  better..." │  │ Review       │  │ Terms         │  │ IG     │  │
+│  │             │  │ Pricing      │  │ Contact       │  │ GH     │  │
+│  │             │  │ Help Center  │  │               │  │        │  │
+│  └─────────────┘  └──────────────┘  └───────────────┘  └────────┘  │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                Made in Pakistan 🇵🇰 with ❤️                         │
+│           © 2026 Kaamyab. All rights reserved.                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. Update AuthContext Profile Mapping
+**Mobile Layout** (stacked):
+- Brand section full width
+- Navigation sections stacked 2x2
+- Social icons in a row
+- Footer statement centered
 
-Add new fields to `MappedProfile` interface:
+### 2. Social Icons
 
-```typescript
-interface MappedProfile {
-  // ... existing fields ...
-  subscriptionTier: string;
-  subscriptionState: SubscriptionState;     // NEW
-  subscriptionExpiresAt: string | null;
-  subscriptionProvider: string | null;
-  graceEndsAt: string | null;               // NEW
-}
-```
+Using Lucide icons where available, with custom SVG for brand icons:
+- **X (Twitter)**: Custom SVG (Lucide has `Twitter` but X logo differs)
+- **LinkedIn**: Custom SVG (Lucide doesn't have LinkedIn brand icon)
+- **Instagram**: Lucide `Instagram` icon
+- **GitHub**: Lucide `Github` icon
 
-### 4. Update useSubscription Hook
+Icons will be monochrome (`text-muted-foreground`) with `hover:text-foreground` transition.
 
-Enhance to return full effective subscription:
+### 3. Navigation Links
 
-```typescript
-interface SubscriptionState {
-  tier: ProductTier;
-  state: 'active' | 'trial' | 'grace' | 'canceled' | 'expired';
-  isPaid: boolean;
-  inGrace: boolean;
-  isActive: boolean;
-  daysRemaining: number | null;
-  hasAccess: (requiredTier: ProductTier) => boolean;
-  loading: boolean;
-}
-```
+| Section | Links | Route |
+|---------|-------|-------|
+| Product | Home | `/home` |
+| | Plan | `/plan` |
+| | Review | `/review` |
+| | Pricing | `/pricing` |
+| | Help Center | `/help` (placeholder) |
+| Company | About Kaamyab | `/about` (placeholder) |
+| | Privacy Policy | `/privacy` (placeholder) |
+| | Terms of Service | `/terms` |
+| | Contact | `/contact` (placeholder) |
 
-### 5. Update Feature Registry
+**Note**: Non-existent pages will link to placeholder routes that can be implemented later. Links will use React Router's `Link` component for internal navigation.
 
-Add explicit `preview_allowed` (already exists as `previewable`):
+### 4. Visual Styling
 
-```typescript
-interface FeatureDefinition {
-  id: string;
-  name: string;
-  tier: ProductTier;
-  category: 'planning' | 'execution' | 'insights' | 'export';
-  description: string;
-  valueExplanation: string;
-  previewable: boolean;        // Already exists - no change needed
-}
-```
+- **Background**: `bg-muted/30` (soft, theme-aware)
+- **Divider**: `border-t border-border/50` (subtle, low opacity)
+- **Text colors**:
+  - Section headers: `text-foreground font-medium`
+  - Links: `text-muted-foreground hover:text-foreground`
+  - Footer statement: `text-muted-foreground`
+  - Copyright: `text-muted-foreground/60 text-xs`
+- **No gradients, no animations**
+- **Print-friendly**: `print:bg-white print:text-black`
 
-### 6. UI State Indicators (Subtle)
+### 5. Page Integration
 
-**A. Grace Period Badge** (only shows when in grace):
-- Small badge in settings/profile: "Payment pending"
-- No countdown, no urgency language
+Add the Footer component to these pages:
 
-**B. Pro Preview Label** (already exists):
-- `LockedFeatureCard` shows tier badge
-- No changes needed
+| Page | File | Notes |
+|------|------|-------|
+| Index (loading) | `src/pages/Index.tsx` | Skip (loading screen only) |
+| Auth | `src/pages/Auth.tsx` | Add footer at bottom |
+| Onboarding | `src/pages/Onboarding.tsx` | Add footer at bottom |
+| Home | `src/pages/Home.tsx` | Add footer, account for mobile nav spacing |
+| Today | `src/pages/Today.tsx` | Add footer, account for mobile nav |
+| Plan | `src/pages/Plan.tsx` | Add footer |
+| PlanNew | `src/pages/PlanNew.tsx` | Add footer |
+| PlanReset | `src/pages/PlanReset.tsx` | Add footer |
+| Review | `src/pages/Review.tsx` | Add footer |
+| Pricing | `src/pages/Pricing.tsx` | Add footer |
+| Terms | `src/pages/Terms.tsx` | Add footer |
+| SharedReview | `src/pages/SharedReview.tsx` | Replace existing footer |
+| AdvisorView | `src/pages/AdvisorView.tsx` | Replace existing footer |
+| NotFound | `src/pages/NotFound.tsx` | Add footer |
+
+### 6. Mobile Considerations
+
+- **Bottom nav clearance**: On pages with `BottomNav`, add `pb-20` to ensure content isn't hidden behind the fixed nav
+- **Stacked layout**: Use `flex-col` on small screens, `flex-row` on `sm:` breakpoint and above
+- **Touch targets**: All links have minimum 44px touch target height
+- **Safe area**: Include `safe-area-bottom` utility for iOS devices
 
 ### 7. Files to Create/Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/lib/subscriptionResolver.ts` | **Create** | `getEffectiveSubscription()` and types |
-| `src/lib/subscriptionTiers.ts` | **Modify** | Add `SubscriptionState` type |
-| `src/hooks/useSubscription.ts` | **Modify** | Return full effective subscription |
-| `src/contexts/AuthContext.tsx` | **Modify** | Map new profile fields |
-| Database migration | **Create** | Add `subscription_state`, `grace_ends_at` |
+| `src/components/Footer.tsx` | **Create** | New global footer component |
+| `src/pages/Auth.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Onboarding.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Home.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Today.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Plan.tsx` | **Modify** | Import and add Footer |
+| `src/pages/PlanNew.tsx` | **Modify** | Import and add Footer |
+| `src/pages/PlanReset.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Review.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Pricing.tsx` | **Modify** | Import and add Footer |
+| `src/pages/Terms.tsx` | **Modify** | Import and add Footer |
+| `src/pages/SharedReview.tsx` | **Modify** | Replace inline footer with component |
+| `src/pages/AdvisorView.tsx` | **Modify** | Replace inline footer with component |
+| `src/pages/NotFound.tsx` | **Modify** | Import and add Footer |
+
+## Technical Details
+
+### Footer Component Structure
+
+```tsx
+// src/components/Footer.tsx
+
+import { Link } from 'react-router-dom';
+import { Instagram, Github } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+
+// Custom X and LinkedIn SVG icons (monochrome)
+const XIcon = () => (/* SVG */);
+const LinkedInIcon = () => (/* SVG */);
+
+const productLinks = [
+  { label: 'Home', href: '/home' },
+  { label: 'Plan', href: '/plan' },
+  { label: 'Review', href: '/review' },
+  { label: 'Pricing', href: '/pricing' },
+  { label: 'Help Center', href: '/help' },
+];
+
+const companyLinks = [
+  { label: 'About Kaamyab', href: '/about' },
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Terms of Service', href: '/terms' },
+  { label: 'Contact', href: '/contact' },
+];
+
+const socialLinks = [
+  { icon: XIcon, href: 'https://x.com/kaamyab', label: 'X' },
+  { icon: LinkedInIcon, href: 'https://linkedin.com/company/kaamyab', label: 'LinkedIn' },
+  { icon: Instagram, href: 'https://instagram.com/kaamyab', label: 'Instagram' },
+  { icon: Github, href: 'https://github.com/kaamyab', label: 'GitHub' },
+];
+
+export function Footer() {
+  return (
+    <footer className="mt-auto border-t border-border/50 bg-muted/30 print:bg-white">
+      <div className="container max-w-6xl mx-auto px-4 py-12">
+        {/* Grid: Brand + Navigation + Social */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+          {/* Brand */}
+          {/* Product Links */}
+          {/* Company Links */}
+          {/* Social Icons */}
+        </div>
+        
+        <Separator className="mb-6 bg-border/30" />
+        
+        {/* Footer Statement */}
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground mb-1">
+            Made in Pakistan 🇵🇰 with ❤️
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            © 2026 Kaamyab. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+```
+
+### Integration Pattern
+
+Each page will import the footer and place it at the bottom of the content area:
+
+```tsx
+import { Footer } from '@/components/Footer';
+
+export default function SomePage() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      
+      <main className="flex-1">
+        {/* Page content */}
+      </main>
+      
+      <Footer />
+      
+      {/* BottomNav (if applicable) */}
+    </div>
+  );
+}
+```
 
 ## What This Does NOT Do
 
-- No payment buttons
-- No provider SDKs (Stripe, Paddle)
-- No webhooks
-- No auto-downgrades
-- No trial timers
-- No countdowns
-- No blocking of any features
-- No changes visible to Standard users
+- No logic changes to auth, billing, or features
+- No new state management
+- No API calls
+- No changes to existing navigation behavior
+- No marketing language or CTAs
 
 ## Verification
 
 After implementation:
 
-1. Standard users see no change
-2. Manual Pro test users (set via DB) continue working
-3. Grace period state can be set manually in DB
-4. `getEffectiveSubscription()` returns correct state for all scenarios
-5. Feature access logic uses new resolver
-6. No payment UI elements appear anywhere
-
-## Technical Details
-
-### Database Migration SQL
-
-```sql
--- Create subscription state enum
-DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_state') THEN
-    CREATE TYPE public.subscription_state AS ENUM ('active', 'trial', 'grace', 'canceled', 'expired');
-  END IF;
-END $$;
-
--- Add columns to profiles
-ALTER TABLE public.profiles
-ADD COLUMN IF NOT EXISTS subscription_state text DEFAULT 'active',
-ADD COLUMN IF NOT EXISTS grace_ends_at timestamp with time zone;
-```
-
-### Subscription Resolution Logic
-
-```typescript
-// src/lib/subscriptionResolver.ts
-
-export type SubscriptionState = 'active' | 'trial' | 'grace' | 'canceled' | 'expired';
-
-export interface EffectiveSubscription {
-  tier: ProductTier;
-  state: SubscriptionState;
-  isPaid: boolean;
-  inGrace: boolean;
-  isActive: boolean;
-  daysRemaining: number | null;
-}
-
-export function getEffectiveSubscription(profile: {
-  subscriptionTier?: string | null;
-  subscriptionState?: string | null;
-  subscriptionExpiresAt?: string | null;
-  graceEndsAt?: string | null;
-}): EffectiveSubscription {
-  const tier = (profile.subscriptionTier || 'standard') as ProductTier;
-  const state = (profile.subscriptionState || 'active') as SubscriptionState;
-  const expiresAt = profile.subscriptionExpiresAt ? new Date(profile.subscriptionExpiresAt) : null;
-  const graceEndsAt = profile.graceEndsAt ? new Date(profile.graceEndsAt) : null;
-  const now = new Date();
-  
-  // Calculate days remaining
-  let daysRemaining: number | null = null;
-  if (expiresAt && expiresAt > now) {
-    daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  }
-  
-  // Determine if in grace period
-  const inGrace = state === 'grace' && graceEndsAt !== null && graceEndsAt > now;
-  
-  // Active = can use paid features
-  // For now, ALL non-expired tiers are active (no enforcement yet)
-  const isActive = tier !== 'standard';
-  
-  return {
-    tier,
-    state,
-    isPaid: tier !== 'standard',
-    inGrace,
-    isActive,
-    daysRemaining,
-  };
-}
-```
-
-### Hook Update
-
-```typescript
-// src/hooks/useSubscription.ts
-
-export function useSubscription(): SubscriptionState {
-  const { profile, loading } = useAuth();
-  
-  const effective = getEffectiveSubscription({
-    subscriptionTier: profile?.subscriptionTier,
-    subscriptionState: profile?.subscriptionState,
-    subscriptionExpiresAt: profile?.subscriptionExpiresAt,
-    graceEndsAt: profile?.graceEndsAt,
-  });
-  
-  return {
-    ...effective,
-    hasAccess: (requiredTier: ProductTier) => 
-      effective.isActive && tierIncludesAccess(effective.tier, requiredTier),
-    loading,
-  };
-}
-```
-
-## Summary
-
-This phase adds the structural foundation for billing without changing user experience. When billing enforcement is enabled in a future phase, it will be a matter of:
-
-1. Connecting a payment provider
-2. Adding webhook handlers to update `subscription_state`
-3. Changing `isActive` logic to respect expiration
-
-All current users continue exactly as before.
+1. Footer appears on all listed pages
+2. Links navigate correctly (existing routes work, placeholders go to 404)
+3. Mobile layout stacks properly
+4. Dark mode styling works correctly
+5. Print styling is clean (no background colors, readable text)
+6. Footer doesn't overlap with BottomNav on mobile
+7. Social icons have proper hover states
