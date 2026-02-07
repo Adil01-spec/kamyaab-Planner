@@ -28,7 +28,7 @@ import {
   shouldShowPlanningApproachSelector,
   getFilteredQuestions,
 } from '@/lib/adaptiveOnboarding';
-import { Footer } from '@/components/Footer';
+
 
 interface OnboardingData {
   fullName: string;
@@ -781,7 +781,6 @@ const Onboarding = () => {
         />
       </div>
 
-      <Footer />
     </div>
   );
 };
