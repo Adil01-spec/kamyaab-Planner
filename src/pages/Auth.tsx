@@ -12,7 +12,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
 import { isSafari } from '@/utils/isSafari';
-import { Footer } from '@/components/Footer';
+
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
@@ -914,10 +914,6 @@ const Auth = () => {
         </AnimatePresence>
       </div>
 
-      {/* Footer - Desktop only, mobile layout has its own footer pattern */}
-      <div className="hidden lg:block">
-        <Footer />
-      </div>
     </div>
   );
 };
