@@ -75,22 +75,22 @@ export function Footer({ className }: FooterProps) {
           {/* Brand Section */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/home" className="inline-block mb-3">
-              <h3 className="text-lg font-semibold text-foreground">Kaamyab</h3>
+              <h3 className="text-lg font-semibold text-muted-foreground">Kaamyab</h3>
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-muted-foreground/70 leading-relaxed">
               Plan better. Execute calmly. Reflect honestly.
             </p>
           </div>
 
           {/* Product Links */}
           <div>
-            <h4 className="text-sm font-medium text-foreground mb-4">Product</h4>
+            <h4 className="text-sm font-medium text-muted-foreground mb-4">Product</h4>
             <ul className="space-y-3">
               {productLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     to={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-muted-foreground/70 hover:text-muted-foreground transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -101,13 +101,13 @@ export function Footer({ className }: FooterProps) {
 
           {/* Company Links */}
           <div>
-            <h4 className="text-sm font-medium text-foreground mb-4">Company</h4>
+            <h4 className="text-sm font-medium text-muted-foreground mb-4">Company</h4>
             <ul className="space-y-3">
               {companyLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     to={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-muted-foreground/70 hover:text-muted-foreground transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -118,7 +118,7 @@ export function Footer({ className }: FooterProps) {
 
           {/* Social Links */}
           <div>
-            <h4 className="text-sm font-medium text-foreground mb-4">Follow Us</h4>
+            <h4 className="text-sm font-medium text-muted-foreground mb-4">Follow Us</h4>
             <div className="flex items-center gap-4">
               {socialLinks.map((social) => {
                 const Icon = social.icon;
@@ -129,7 +129,7 @@ export function Footer({ className }: FooterProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.label}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
                   >
                     <Icon className="w-5 h-5" />
                   </a>
@@ -143,10 +143,10 @@ export function Footer({ className }: FooterProps) {
 
         {/* Footer Statement */}
         <div className="text-center">
-          <p className="text-sm text-muted-foreground mb-1">
+          <p className="text-sm text-muted-foreground/70 mb-1">
             Made in Pakistan 🇵🇰 with ❤️
           </p>
-          <p className="text-xs text-muted-foreground/60">
+          <p className="text-xs text-muted-foreground/50">
             © 2026 Kaamyab. All rights reserved.
           </p>
         </div>
