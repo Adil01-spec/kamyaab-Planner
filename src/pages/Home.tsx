@@ -49,6 +49,7 @@ import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 import { DevPanel } from '@/components/DevPanel';
 import { DevModeActivator } from '@/components/DevModeActivator';
+import { Footer } from '@/components/Footer';
 
 interface Task {
   title: string;
@@ -919,6 +920,9 @@ const Home = () => {
           }}
         />
       </div>
+      
+      {/* Footer - with bottom nav spacing on mobile */}
+      <Footer className="pb-20 sm:pb-0" />
     </div>
   );
 };
