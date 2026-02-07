@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { TierComparisonTable } from '@/components/TierComparisonTable';
 import { useSubscription } from '@/hooks/useSubscription';
 import { DynamicBackground } from '@/components/DynamicBackground';
+import { Footer } from '@/components/Footer';
 import { toast } from 'sonner';
 import { type ProductTier, getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
 
@@ -36,10 +37,10 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative flex flex-col">
       <DynamicBackground enabled />
       
-      <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8">
+      <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8 flex-1">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button
@@ -78,6 +79,8 @@ export default function Pricing() {
           Have questions? Reach out anytime—we're here to help.
         </p>
       </div>
+
+      <Footer className="relative z-10" />
     </div>
   );
 }

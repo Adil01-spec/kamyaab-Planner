@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useSharedReview } from '@/hooks/useSharedReview';
 import { SharedReviewContent } from '@/components/SharedReviewContent';
 import { SharedReviewFeedbackForm } from '@/components/SharedReviewFeedbackForm';
+import { Footer } from '@/components/Footer';
 import { isShareExpired, formatExpiryDate } from '@/lib/shareReview';
 import { Loader2, FileX, AlertTriangle, Clock, Rocket } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -105,7 +106,7 @@ export default function SharedReview() {
 
   // Valid shared review
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -120,7 +121,7 @@ export default function SharedReview() {
       </header>
 
       {/* Content */}
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="flex-1 max-w-3xl mx-auto px-4 py-8 w-full">
         <SharedReviewContent
           planSnapshot={data.plan_snapshot}
         />
@@ -128,15 +129,7 @@ export default function SharedReview() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t mt-12">
-        <div className="max-w-3xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          Powered by{' '}
-          <a href="/" className="text-primary hover:underline">
-            Kaamyab
-          </a>{' '}
-          — AI-Powered Productivity Planning
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

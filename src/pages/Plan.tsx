@@ -84,6 +84,7 @@ import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { DevPanel } from '@/components/DevPanel';
+import { Footer } from '@/components/Footer';
 
 interface TaskExplanation {
   how: string;
@@ -1516,6 +1517,8 @@ const Plan = () => {
           }}
         />
       </div>
+      {/* Footer - with bottom nav spacing on mobile */}
+      <Footer className="pb-20 sm:pb-0" />
 
       <BottomNav />
 

@@ -30,6 +30,7 @@ import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { toast } from '@/hooks/use-toast';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
+import { Footer } from '@/components/Footer';
 import { 
   ArrowLeft, Home, Target, ChevronDown, Lightbulb, AlertTriangle,
   Loader2, Calendar, FileText, BarChart3
@@ -529,6 +530,9 @@ const Review = () => {
         </Card>
 
       </main>
+
+      {/* Footer - with bottom nav spacing on mobile */}
+      <Footer className="pb-20 sm:pb-0" />
 
       {/* Bottom Navigation */}
       <BottomNav />

@@ -46,6 +46,7 @@ import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { Footer } from '@/components/Footer';
 interface PlanData {
   overview: string;
   total_weeks: number;
@@ -917,6 +918,8 @@ const Today = () => {
           }}
         />
       </div>
+      {/* Footer - with bottom nav spacing on mobile */}
+      <Footer className="pb-20 sm:pb-0" />
 
       <BottomNav />
       

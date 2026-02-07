@@ -38,6 +38,7 @@ import {
   getTonedCopy,
   shouldShowPlanningApproachSelector,
 } from '@/lib/adaptiveOnboarding';
+import { Footer } from '@/components/Footer';
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -1253,6 +1254,8 @@ const PlanReset = () => {
           </CardContent>
         </Card>
       </main>
+
+      <Footer />
     </div>
   );
 };

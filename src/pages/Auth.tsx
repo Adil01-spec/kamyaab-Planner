@@ -12,6 +12,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
 import { isSafari } from '@/utils/isSafari';
+import { Footer } from '@/components/Footer';
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
 
@@ -587,9 +588,9 @@ const Auth = () => {
   // Mobile form content is now inlined in the JSX to prevent re-renders on typing
 
   return (
-    <div className="min-h-screen flex overflow-hidden bg-background">
+    <div className="min-h-screen flex flex-col overflow-hidden bg-background">
       {/* Mobile Layout - Full Page Background */}
-      <div className="flex lg:hidden flex-col w-full min-h-screen relative">
+      <div className="flex lg:hidden flex-col w-full min-h-screen relative flex-1">
         {/* Full-page Background Illustration with Crossfade */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -861,7 +862,7 @@ const Auth = () => {
       </div>
 
       {/* Desktop Layout - Split screen with animated panel swap */}
-      <div className="hidden lg:flex flex-1 relative">
+      <div className="hidden lg:flex flex-1 relative flex-1">
         <AnimatePresence mode="wait" initial={false}>
           {isLoginView
             ? [
@@ -911,6 +912,11 @@ const Auth = () => {
                 </motion.div>,
               ]}
         </AnimatePresence>
+      </div>
+
+      {/* Footer - Desktop only, mobile layout has its own footer pattern */}
+      <div className="hidden lg:block">
+        <Footer />
       </div>
     </div>
   );

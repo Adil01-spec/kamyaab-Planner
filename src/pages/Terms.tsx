@@ -2,13 +2,14 @@ import { ArrowLeft, Shield, Scale, AlertTriangle, CreditCard, UserX, Cpu, MapPin
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Footer } from '@/components/Footer';
 
 const Terms = () => {
   const navigate = useNavigate();
   const lastUpdated = "February 6, 2026";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
@@ -28,7 +29,7 @@ const Terms = () => {
       </header>
 
       {/* Content */}
-      <main className="container max-w-4xl mx-auto px-4 py-8 pb-20">
+      <main className="flex-1 container max-w-4xl mx-auto px-4 py-8">
         <div className="prose prose-slate dark:prose-invert max-w-none">
           
           {/* Introduction */}
@@ -286,6 +287,8 @@ const Terms = () => {
 
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 };
