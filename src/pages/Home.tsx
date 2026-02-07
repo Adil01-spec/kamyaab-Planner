@@ -50,6 +50,8 @@ import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine'
 import { DevPanel } from '@/components/DevPanel';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { Footer } from '@/components/Footer';
+import { HomeDesktopCard } from '@/components/HomeDesktopCard';
+import { TodayProgressRing } from '@/components/TodayProgressRing';
 
 interface Task {
   title: string;
@@ -515,29 +517,28 @@ const Home = () => {
         />
       )}
 
-      <div className="container max-w-xl mx-auto px-5 py-8 relative z-10">
+      <div className="container max-w-xl lg:max-w-6xl mx-auto px-5 py-8 relative z-10">
         
         {/* ═══════════════════════════════════════════════════════════════
-            ZONE 1 — Personal Context
-            Soft, minimal header answering "Where am I?"
+            HEADER — Personal Context (spans both columns on desktop)
         ═══════════════════════════════════════════════════════════════ */}
-        <header className="mb-10 animate-fade-in">
+        <header className="mb-6 lg:mb-10 animate-fade-in">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground/80 font-normal tracking-wide">
+              <p className="text-sm lg:text-base text-muted-foreground/80 font-normal tracking-wide">
                 {getGreeting()}
               </p>
-              <h2 className="text-base font-medium text-foreground/90">
+              <h2 className="text-base lg:text-xl font-medium text-foreground/90">
                 {profile?.fullName || 'Your Workspace'}
               </h2>
               {planData?.project_title && (
-                <p className="text-xs text-muted-foreground/70 font-normal">
+                <p className="text-xs lg:text-sm text-muted-foreground/70 font-normal">
                   {planData.project_title}
                 </p>
               )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:gap-3">
               <DevModeActivator>
                 <ThemeToggle />
               </DevModeActivator>
@@ -620,7 +621,7 @@ const Home = () => {
           />
         </header>
 
-        {/* Phase 9.8: Calm Re-Entry Banner for returning users */}
+        {/* Phase 9.8: Calm Re-Entry Banner (spans both columns) */}
         {showReEntryBanner && (
           <ReEntryBanner
             message={reEntry.message}
@@ -631,251 +632,346 @@ const Home = () => {
           />
         )}
 
-        {/* Motivational Quote Card - based on user state */}
-        {planData && (
-          <>
-            <MotivationalQuoteCard 
-              userState={signalToUserState(computeDailyContext(null, todaysTasks.length).signalState)}
-              className="mb-6"
-            />
-            <HomeIdentityContext 
-              identityStatement={planData.identity_statement}
-              className="mb-6"
-            />
-          </>
-        )}
-
         {/* ═══════════════════════════════════════════════════════════════
-            ZONE 2 — Today's Focus (Hero Section)
-            Visual anchor of the Home screen
+            DESKTOP TWO-COLUMN LAYOUT
         ═══════════════════════════════════════════════════════════════ */}
-        <section 
-          className="mb-10 animate-fade-in" 
-          style={{ 
-            animationDelay: '50ms',
-            transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`,
-            transition: 'transform 0.1s ease-out'
-          }}
-        >
-          <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
-            Today's Focus
-          </p>
-
-          {todaysTasks.length > 0 ? (
-            <div 
-              className="relative rounded-2xl p-5 space-y-4 transition-shadow"
-              style={{
-                background: 'var(--glass-bg)',
-                backdropFilter: 'blur(28px)',
-                WebkitBackdropFilter: 'blur(28px)',
-                border: '1px solid hsl(var(--border) / 0.12)',
-                boxShadow: 'var(--shadow-glow), 0 4px 20px -6px hsl(var(--dynamic-accent) / 0.08)',
-                transitionDuration: 'var(--color-transition)',
-                transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)`,
+        <div className="lg:grid lg:grid-cols-[1fr,380px] lg:gap-8">
+          
+          {/* ═══════════════════════════════════════════════════════════
+              LEFT COLUMN — Primary Content (Tasks, Quote)
+          ═══════════════════════════════════════════════════════════ */}
+          <div className="space-y-6">
+            
+            {/* Today's Focus Section */}
+            <section 
+              className="animate-fade-in" 
+              style={{ 
+                animationDelay: '50ms',
+                transform: `translate3d(${parallax.x * 0.5}px, ${parallax.y * 0.5}px, 0)`,
+                transition: 'transform 0.1s ease-out'
               }}
             >
-              {/* Dynamic accent gradient at top */}
-              <div 
-                className="absolute inset-x-0 top-0 h-px rounded-t-2xl transition-colors"
-                style={{
-                  background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.4), transparent)',
-                  transitionDuration: 'var(--color-transition)'
-                }}
-              />
+              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest mb-4">
+                Today's Focus
+              </p>
 
-              {todaysTasks.map(({ task, weekIndex, taskIndex }) => {
-                const taskKey = `${weekIndex}-${taskIndex}`;
-                const isHovered = hoveredTaskKey === taskKey;
-                
-                return (
-                  <div
-                    key={taskKey}
-                    onClick={() => toggleTask(weekIndex, taskIndex)}
-                    onMouseEnter={(e) => {
-                      setHoveredTaskKey(taskKey);
-                      e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
-                      e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
-                    }}
-                    onMouseLeave={(e) => {
-                      setHoveredTaskKey(null);
-                      e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
-                      e.currentTarget.style.background = 'transparent';
-                    }}
-                    className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
+              {todaysTasks.length > 0 ? (
+                <div 
+                  className="relative rounded-2xl p-5 lg:p-6 space-y-4 transition-shadow"
+                  style={{
+                    background: 'var(--glass-bg)',
+                    backdropFilter: 'blur(28px)',
+                    WebkitBackdropFilter: 'blur(28px)',
+                    border: '1px solid hsl(var(--border) / 0.12)',
+                    boxShadow: 'var(--shadow-glow), 0 4px 20px -6px hsl(var(--dynamic-accent) / 0.08)',
+                    transitionDuration: 'var(--color-transition)',
+                    transform: `translate3d(${parallax.x * 0.3}px, ${parallax.y * 0.3}px, 0)`,
+                  }}
+                >
+                  {/* Dynamic accent gradient at top */}
+                  <div 
+                    className="absolute inset-x-0 top-0 h-px rounded-t-2xl transition-colors"
                     style={{
-                      boxShadow: 'inset 0 0 0 1px transparent',
-                      transition: 'box-shadow 0.25s ease, background 0.25s ease'
+                      background: 'linear-gradient(90deg, transparent, hsl(var(--dynamic-accent) / 0.4), transparent)',
+                      transitionDuration: 'var(--color-transition)'
+                    }}
+                  />
+
+                  {todaysTasks.map(({ task, weekIndex, taskIndex }) => {
+                    const taskKey = `${weekIndex}-${taskIndex}`;
+                    const isHovered = hoveredTaskKey === taskKey;
+                    
+                    return (
+                      <div
+                        key={taskKey}
+                        onClick={() => toggleTask(weekIndex, taskIndex)}
+                        onMouseEnter={(e) => {
+                          setHoveredTaskKey(taskKey);
+                          e.currentTarget.style.boxShadow = 'inset 0 0 0 1px hsl(var(--dynamic-accent) / 0.12)';
+                          e.currentTarget.style.background = 'hsl(var(--dynamic-accent) / 0.03)';
+                        }}
+                        onMouseLeave={(e) => {
+                          setHoveredTaskKey(null);
+                          e.currentTarget.style.boxShadow = 'inset 0 0 0 1px transparent';
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                        className="group flex items-start gap-4 cursor-pointer rounded-xl p-3 -mx-2 transition-all"
+                        style={{
+                          boxShadow: 'inset 0 0 0 1px transparent',
+                          transition: 'box-shadow 0.25s ease, background 0.25s ease'
+                        }}
+                      >
+                        <div className="pt-0.5">
+                          <Checkbox
+                            checked={task.completed || false}
+                            onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
+                            style={{
+                              '--tw-bg-opacity': task.completed ? '1' : '0',
+                              backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                              borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
+                            } as React.CSSProperties}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
+                            task.completed 
+                              ? 'line-through text-muted-foreground/50' 
+                              : 'text-foreground/90'
+                          }`}>
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-2.5 mt-1.5">
+                            <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {task.estimated_hours}h
+                            </span>
+                          </div>
+                        </div>
+                        <TaskQuickActions
+                          isVisible={isHovered}
+                          onEdit={() => navigate('/plan')}
+                          onDelete={() => {
+                            toggleTask(weekIndex, taskIndex);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {/* Week indicator */}
+                  <p className="text-[11px] text-muted-foreground/40 pt-2 border-t border-border/10">
+                    Week {currentWeekIndex + 1} of {planData?.total_weeks || 0}
+                  </p>
+
+                  {/* Start Today CTA - Mobile only (desktop has sidebar Quick Actions) */}
+                  <div className="lg:hidden pt-2">
+                    <CursorExplosionButton
+                      variant="default"
+                      className="w-full h-10 text-sm font-medium"
+                      onClick={() => navigate('/today')}
+                    >
+                      <Sun className="mr-2 w-4 h-4" />
+                      Start Today
+                    </CursorExplosionButton>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="rounded-2xl p-8 text-center transition-colors"
+                  style={{
+                    background: 'var(--glass-bg)',
+                    backdropFilter: 'blur(28px)',
+                    WebkitBackdropFilter: 'blur(28px)',
+                    border: '1px solid hsl(var(--border) / 0.12)',
+                    transitionDuration: 'var(--color-transition)'
+                  }}
+                >
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors"
+                    style={{ 
+                      background: 'hsl(var(--dynamic-accent-muted) / 0.4)',
+                      transitionDuration: 'var(--color-transition)'
                     }}
                   >
-                    <div className="pt-0.5">
-                      <Checkbox
-                        checked={task.completed || false}
-                        onCheckedChange={() => toggleTask(weekIndex, taskIndex)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-[18px] w-[18px] rounded-[5px] border border-border/50 transition-all duration-150"
-                        style={{
-                          '--tw-bg-opacity': task.completed ? '1' : '0',
-                          backgroundColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
-                          borderColor: task.completed ? 'hsl(var(--dynamic-accent-fill))' : undefined,
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[15px] leading-snug font-normal transition-colors duration-150 ${
-                        task.completed 
-                          ? 'line-through text-muted-foreground/50' 
-                          : 'text-foreground/90'
-                      }`}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-2.5 mt-1.5">
-                        <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {task.estimated_hours}h
-                        </span>
-                      </div>
-                    </div>
-                    <TaskQuickActions
-                      isVisible={isHovered}
-                      onEdit={() => navigate('/plan')}
-                      onDelete={() => {
-                        // Mark as complete to "remove" for today
-                        toggleTask(weekIndex, taskIndex);
-                      }}
+                    <Check 
+                      className="w-4 h-4 transition-colors" 
+                      style={{ 
+                        color: 'hsl(var(--dynamic-accent))',
+                        transitionDuration: 'var(--color-transition)'
+                      }} 
                     />
                   </div>
-                );
-              })}
+                  <p className="text-sm text-muted-foreground/60">
+                    You're clear for today.
+                  </p>
+                </div>
+              )}
+            </section>
 
-              {/* Week indicator */}
-              <p className="text-[11px] text-muted-foreground/40 pt-2 border-t border-border/10">
-                Week {currentWeekIndex + 1} of {planData?.total_weeks || 0}
-              </p>
-            </div>
-          ) : (
-            <div 
-              className="rounded-2xl p-8 text-center transition-colors"
-              style={{
-                background: 'var(--glass-bg)',
-                backdropFilter: 'blur(28px)',
-                WebkitBackdropFilter: 'blur(28px)',
-                border: '1px solid hsl(var(--border) / 0.12)',
-                transitionDuration: 'var(--color-transition)'
-              }}
-            >
-              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors"
-                style={{ 
-                  background: 'hsl(var(--dynamic-accent-muted) / 0.4)',
-                  transitionDuration: 'var(--color-transition)'
-                }}
-              >
-                <Check 
-                  className="w-4 h-4 transition-colors" 
-                  style={{ 
-                    color: 'hsl(var(--dynamic-accent))',
-                    transitionDuration: 'var(--color-transition)'
-                  }} 
+            {/* Resume Focus CTA - shows if a task is in "doing" state */}
+            {activeTimer && (
+              <ResumeFocusCTA
+                taskTitle={activeTimer.taskTitle}
+                elapsedSeconds={timerElapsed}
+                onResume={() => navigate('/today')}
+              />
+            )}
+
+            {/* Daily Nudge Banner */}
+            <DailyNudgeBanner
+              hasUnlockedTasks={todaysTasks.length > 0}
+              hasActiveOrDoneToday={!!activeTimer || todaysTasks.some(t => t.task.completed)}
+            />
+
+            {/* Motivational Quote Card */}
+            {planData && (
+              <MotivationalQuoteCard 
+                userState={signalToUserState(computeDailyContext(null, todaysTasks.length).signalState)}
+              />
+            )}
+
+            {/* Identity Context - Mobile only (desktop shows in sidebar) */}
+            {planData && (
+              <div className="lg:hidden">
+                <HomeIdentityContext 
+                  identityStatement={planData.identity_statement}
                 />
               </div>
-              <p className="text-sm text-muted-foreground/60">
-                You're clear for today.
-              </p>
-            </div>
-          )}
-        </section>
+            )}
 
-        {/* Resume Focus CTA - shows if a task is in "doing" state */}
-        {activeTimer && (
-          <ResumeFocusCTA
-            taskTitle={activeTimer.taskTitle}
-            elapsedSeconds={timerElapsed}
-            onResume={() => navigate('/today')}
-            className="mb-6"
-          />
-        )}
-
-        {/* Daily Nudge Banner - shows once per day if no activity */}
-        <DailyNudgeBanner
-          hasUnlockedTasks={todaysTasks.length > 0}
-          hasActiveOrDoneToday={!!activeTimer || todaysTasks.some(t => t.task.completed)}
-          className="mb-6"
-        />
-
-        {/* ═══════════════════════════════════════════════════════════════
-            ZONE 3 — Progress & Momentum (Visual Momentum Indicator)
-            Glassmorphism segmented progress
-        ═══════════════════════════════════════════════════════════════ */}
-        {planData && (
-          <section 
-            className="animate-fade-in" 
-            style={{ 
-              animationDelay: '100ms',
-              transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0)`,
-              transition: 'transform 0.1s ease-out'
-            }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
-                Momentum
-              </p>
-              <StreakBadge streak={streak} variant="default" />
-            </div>
-
-            <div 
-              className="rounded-xl p-4 transition-colors"
-              style={{
-                background: 'hsl(var(--card) / 0.35)',
-                border: '1px solid hsl(var(--border) / 0.08)',
-                backdropFilter: 'blur(12px)',
-                transitionDuration: 'var(--color-transition)',
-                transform: `translate3d(${parallax.x * 0.2}px, ${parallax.y * 0.2}px, 0)`,
-              }}
-            >
-              {/* Momentum Indicator - replaces simple progress bar */}
-              <MomentumIndicator
-                weekNumber={currentWeekIndex + 1}
-                totalWeeks={planData.total_weeks || 1}
-                weekTasksDone={planData.weeks?.[currentWeekIndex]?.tasks?.filter(t => t.completed).length || 0}
-                weekTasksTotal={planData.weeks?.[currentWeekIndex]?.tasks?.length || 0}
-                todayTasksDone={todaysTasks.filter(t => t.task.completed).length}
-                todayTasksTotal={todaysTasks.length}
-                className="mb-5"
-              />
-
-              {/* Go to Today's Focus CTA - with cursor explosion effect */}
-              <CursorExplosionButton
-                variant="default"
-                className="w-full h-10 text-sm font-medium mb-2"
-                onClick={() => navigate('/today')}
+            {/* Momentum section - Mobile only (desktop shows in sidebar) */}
+            {planData && (
+              <section 
+                className="lg:hidden animate-fade-in" 
+                style={{ 
+                  animationDelay: '100ms',
+                  transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0)`,
+                  transition: 'transform 0.1s ease-out'
+                }}
               >
-                <Sun className="mr-2 w-4 h-4" />
-                Go to Today's Focus
-              </CursorExplosionButton>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+                    Momentum
+                  </p>
+                  <StreakBadge streak={streak} variant="default" />
+                </div>
 
-              {/* Secondary CTA - View Full Plan */}
-              <CursorExplosionButton
-                variant="ghost"
-                className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-                onClick={() => navigate('/plan')}
-              >
-                View Full Plan
-                <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
-              </CursorExplosionButton>
+                <div 
+                  className="rounded-xl p-4 transition-colors"
+                  style={{
+                    background: 'hsl(var(--card) / 0.35)',
+                    border: '1px solid hsl(var(--border) / 0.08)',
+                    backdropFilter: 'blur(12px)',
+                    transitionDuration: 'var(--color-transition)',
+                    transform: `translate3d(${parallax.x * 0.2}px, ${parallax.y * 0.2}px, 0)`,
+                  }}
+                >
+                  <MomentumIndicator
+                    weekNumber={currentWeekIndex + 1}
+                    totalWeeks={planData.total_weeks || 1}
+                    weekTasksDone={planData.weeks?.[currentWeekIndex]?.tasks?.filter(t => t.completed).length || 0}
+                    weekTasksTotal={planData.weeks?.[currentWeekIndex]?.tasks?.length || 0}
+                    todayTasksDone={todaysTasks.filter(t => t.task.completed).length}
+                    todayTasksTotal={todaysTasks.length}
+                    className="mb-5"
+                  />
 
-              {/* Plan Review Entry */}
-              <CursorExplosionButton
-                variant="outline"
-                className="w-full h-9 text-sm font-medium text-muted-foreground hover:text-foreground border-dashed"
-                onClick={() => navigate('/review')}
-              >
-                <BarChart3 className="mr-2 w-4 h-4" />
-                Plan Review
-                <span className="ml-2 text-xs opacity-60">Strategy & insights</span>
-              </CursorExplosionButton>
-            </div>
-          </section>
-        )}
+                  <CursorExplosionButton
+                    variant="default"
+                    className="w-full h-10 text-sm font-medium mb-2"
+                    onClick={() => navigate('/today')}
+                  >
+                    <Sun className="mr-2 w-4 h-4" />
+                    Go to Today's Focus
+                  </CursorExplosionButton>
+
+                  <CursorExplosionButton
+                    variant="ghost"
+                    className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                    onClick={() => navigate('/plan')}
+                  >
+                    View Full Plan
+                    <ArrowRight className="ml-2 w-3.5 h-3.5 opacity-40" />
+                  </CursorExplosionButton>
+
+                  <CursorExplosionButton
+                    variant="outline"
+                    className="w-full h-9 text-sm font-medium text-muted-foreground hover:text-foreground border-dashed"
+                    onClick={() => navigate('/review')}
+                  >
+                    <BarChart3 className="mr-2 w-4 h-4" />
+                    Plan Review
+                    <span className="ml-2 text-xs opacity-60">Strategy & insights</span>
+                  </CursorExplosionButton>
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+              RIGHT COLUMN — Desktop Sidebar (Progress, Actions, Identity)
+          ═══════════════════════════════════════════════════════════ */}
+          <div className="hidden lg:flex lg:flex-col lg:gap-6">
+            
+            {/* Momentum & Progress Card */}
+            {planData && (
+              <HomeDesktopCard>
+                <div className="flex items-start gap-5 mb-6">
+                  {/* Progress Ring - larger on desktop */}
+                  <TodayProgressRing
+                    completed={todaysTasks.filter(t => t.task.completed).length}
+                    total={todaysTasks.length}
+                    size={100}
+                  />
+                  
+                  {/* Week context */}
+                  <div className="flex-1 pt-1">
+                    <p className="text-sm font-medium text-foreground/90 mb-1">
+                      Week {currentWeekIndex + 1} of {planData.total_weeks || 1}
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mb-3">
+                      {planData.weeks?.[currentWeekIndex]?.focus || 'Making progress'}
+                    </p>
+                    <StreakBadge streak={streak} variant="default" />
+                  </div>
+                </div>
+
+                {/* Segmented progress bars */}
+                <MomentumIndicator
+                  weekNumber={currentWeekIndex + 1}
+                  totalWeeks={planData.total_weeks || 1}
+                  weekTasksDone={planData.weeks?.[currentWeekIndex]?.tasks?.filter(t => t.completed).length || 0}
+                  weekTasksTotal={planData.weeks?.[currentWeekIndex]?.tasks?.length || 0}
+                  todayTasksDone={todaysTasks.filter(t => t.task.completed).length}
+                  todayTasksTotal={todaysTasks.length}
+                />
+              </HomeDesktopCard>
+            )}
+
+            {/* Quick Actions Card */}
+            <HomeDesktopCard title="Quick Actions">
+              <div className="space-y-2">
+                <CursorExplosionButton
+                  variant="default"
+                  className="w-full h-11 text-sm font-medium justify-start"
+                  onClick={() => navigate('/today')}
+                >
+                  <Sun className="mr-2 w-4 h-4" />
+                  Go to Today's Focus
+                </CursorExplosionButton>
+
+                <CursorExplosionButton
+                  variant="ghost"
+                  className="w-full h-10 text-sm font-medium text-foreground/70 hover:text-foreground justify-between group"
+                  onClick={() => navigate('/plan')}
+                >
+                  View Full Plan
+                  <ArrowRight className="w-4 h-4 opacity-40 group-hover:translate-x-0.5 transition-transform" />
+                </CursorExplosionButton>
+
+                <CursorExplosionButton
+                  variant="outline"
+                  className="w-full h-10 text-sm font-medium text-muted-foreground hover:text-foreground border-dashed justify-start"
+                  onClick={() => navigate('/review')}
+                >
+                  <BarChart3 className="mr-2 w-4 h-4" />
+                  Plan Review
+                </CursorExplosionButton>
+              </div>
+            </HomeDesktopCard>
+
+            {/* Identity Context Card */}
+            {planData?.identity_statement && (
+              <HomeDesktopCard title="Identity Context">
+                <p className="text-sm text-foreground/80 italic leading-relaxed">
+                  "{planData.identity_statement}"
+                </p>
+              </HomeDesktopCard>
+            )}
+          </div>
+        </div>
       </div>
       
       {/* Mobile Settings Dialog */}
