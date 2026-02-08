@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.verify-email-otp]
 verify_jwt = false
+
+[functions.send-collaboration-invite]
+verify_jwt = false
