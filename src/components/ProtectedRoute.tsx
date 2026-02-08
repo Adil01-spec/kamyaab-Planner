@@ -9,6 +9,16 @@ interface ProtectedRouteProps {
   requireEmailVerification?: boolean;
 }
 
+/**
+ * Check if the profile has essential onboarding fields completed.
+ * A profile row may exist (from email verification) but not be "complete".
+ */
+const isProfileComplete = (profile: { fullName: string; profession: string; projectTitle: string } | null): boolean => {
+  if (!profile) return false;
+  // Profile is complete if user has filled in the onboarding essentials
+  return !!(profile.fullName?.trim() && profile.profession?.trim() && profile.projectTitle?.trim());
+};
+
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
   requireProfile = false,
@@ -41,13 +51,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/verify-email" replace />;
   }
 
-  // If this route should redirect when profile exists (e.g., onboarding)
-  if (redirectIfProfile && profile) {
+  const profileComplete = isProfileComplete(profile);
+
+  // If this route should redirect when profile is complete (e.g., onboarding)
+  if (redirectIfProfile && profileComplete) {
     return <Navigate to={redirectIfProfile} replace />;
   }
 
-  // User exists but no profile and we require profile → redirect to onboarding
-  if (requireProfile && !profile) {
+  // User exists but profile not complete and we require profile → redirect to onboarding
+  if (requireProfile && !profileComplete) {
     return <Navigate to="/onboarding" replace />;
   }
 
