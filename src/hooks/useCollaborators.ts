@@ -142,6 +142,32 @@ export function useCollaborators(planId: string | null): UseCollaboratorsResult 
         throw insertError;
       }
 
+      // Send invitation email via edge function
+      try {
+        const { data: planData } = await supabase
+          .from('plans')
+          .select('plan_json')
+          .eq('id', planId)
+          .single();
+        
+        const planJson = planData?.plan_json as { title?: string } | null;
+        const planTitle = planJson?.title || 'Untitled Plan';
+        const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone';
+        
+        await supabase.functions.invoke('send-collaboration-invite', {
+          body: {
+            collaboratorEmail: trimmedEmail,
+            ownerName,
+            planTitle,
+            role,
+            appUrl: window.location.origin,
+          },
+        });
+      } catch (emailError) {
+        // Email sending is non-blocking - log but don't fail the invite
+        console.error('Failed to send invitation email:', emailError);
+      }
+
       toast({
         title: 'Collaborator added',
         description: `${trimmedEmail} can now view your plan.`,
