@@ -86,8 +86,36 @@ const VerifyEmail = () => {
       if (error) throw error;
 
       if (data?.verified) {
+        // Verify that the profile update is readable before navigating
+        // This prevents the redirect loop caused by RLS timing issues
+        let verified = false;
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (!verified && attempts < maxAttempts) {
+          await refreshProfile();
+          
+          // Check if profile now has email_verified_at
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('email_verified_at')
+            .eq('id', user!.id)
+            .maybeSingle();
+          
+          if (profileData?.email_verified_at) {
+            verified = true;
+          } else {
+            attempts++;
+            // Small delay before retry
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+        
+        if (!verified) {
+          console.warn('Profile verification state not confirmed, proceeding anyway');
+        }
+        
         toast.success('Email verified!');
-        await refreshProfile();
         navigate('/onboarding', { replace: true });
       } else {
         toast.error(data?.message || 'Invalid or expired code. Please try again.');
