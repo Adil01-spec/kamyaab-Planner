@@ -161,6 +161,63 @@ serve(async (req) => {
 
     const { profile, retryCount = 0 } = await req.json();
 
+    // ============================================
+    // THROTTLING & COST PROTECTION (Phase 8.1)
+    // ============================================
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Fetch user's strategic access fields
+    const { data: userProfile } = await adminClient
+      .from('profiles')
+      .select('strategic_calls_lifetime, strategic_last_call_at, subscription_tier')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // Check if this is a strategic mode request
+    const planContext = profile.professionDetails?.plan_context;
+    const isStrategicModeRequest = planContext?.strategic_mode === true;
+
+    // Apply throttling for strategic mode requests
+    if (isStrategicModeRequest) {
+      const lifetimeCalls = userProfile?.strategic_calls_lifetime || 0;
+      const lastCallAt = userProfile?.strategic_last_call_at;
+      const isPaidUser = userProfile?.subscription_tier && userProfile.subscription_tier !== 'standard';
+
+      // Lifetime cap: 20 calls for free users, unlimited for paid
+      const LIFETIME_CAP = 20;
+      if (!isPaidUser && lifetimeCalls >= LIFETIME_CAP) {
+        console.log(`User ${user.id} exceeded strategic call lifetime cap`);
+        // Return cached/generic plan instead of error (silent failure)
+        return new Response(JSON.stringify({ 
+          error: "Strategic planning is evolving. Please try standard planning.",
+          fallback: true
+        }), {
+          status: 200, // Not 429 - calm response
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Rate limit: 30 seconds between calls
+      if (lastCallAt) {
+        const secondsSinceLastCall = (Date.now() - new Date(lastCallAt).getTime()) / 1000;
+        if (secondsSinceLastCall < 30) {
+          console.log(`User ${user.id} rate limited - ${secondsSinceLastCall}s since last call`);
+          return new Response(JSON.stringify({ 
+            error: "Please wait a moment before generating another plan." 
+          }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Update counters after successful checks
+      // Note: We'll update these at the end after successful generation
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -664,6 +721,18 @@ RESPOND WITH ONLY THE JSON OBJECT.`;
         .from("plans")
         .insert({ user_id: user.id, plan_json: planJson });
       if (insertError) throw insertError;
+    }
+
+    // Update strategic call counters for strategic mode plans
+    if (isStrategicMode) {
+      const currentCalls = userProfile?.strategic_calls_lifetime || 0;
+      await adminClient
+        .from('profiles')
+        .update({
+          strategic_calls_lifetime: currentCalls + 1,
+          strategic_last_call_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
     }
 
     return new Response(JSON.stringify({ plan: planJson }), {

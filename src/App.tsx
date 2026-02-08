@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthRoute from "@/components/AuthRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import VerifyEmail from "./pages/VerifyEmail";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import Today from "./pages/Today";
@@ -42,11 +43,20 @@ const App = () => (
                 </AuthRoute>
               } 
             />
-            {/* Onboarding - only accessible if no profile exists */}
+            {/* Email Verification - for email/password signups */}
+            <Route 
+              path="/verify-email" 
+              element={
+                <ProtectedRoute requireEmailVerification={false}>
+                  <VerifyEmail />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Onboarding - only accessible if no profile exists and email is verified */}
             <Route 
               path="/onboarding" 
               element={
-                <ProtectedRoute redirectIfProfile="/home">
+                <ProtectedRoute redirectIfProfile="/home" requireEmailVerification>
                   <Onboarding />
                 </ProtectedRoute>
               } 

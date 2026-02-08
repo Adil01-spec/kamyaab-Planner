@@ -16,6 +16,7 @@ interface UserProfile {
   subscription_expires_at: string | null;
   subscription_provider: string | null;
   grace_ends_at: string | null;
+  email_verified_at: string | null;
   created_at: string;
 }
 
@@ -32,6 +33,7 @@ interface MappedProfile {
   subscriptionExpiresAt: string | null;
   subscriptionProvider: string | null;
   graceEndsAt: string | null;
+  emailVerifiedAt: string | null;
 }
 
 // Profile data that can be saved (subscription fields managed separately)
@@ -49,6 +51,8 @@ interface AuthContextType {
   session: Session | null;
   profile: MappedProfile | null;
   loading: boolean;
+  isEmailVerified: boolean;
+  isOAuthUser: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
@@ -85,7 +89,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     subscriptionExpiresAt: dbProfile.subscription_expires_at || null,
     subscriptionProvider: dbProfile.subscription_provider || null,
     graceEndsAt: dbProfile.grace_ends_at || null,
+    emailVerifiedAt: dbProfile.email_verified_at || null,
   });
+
+  // Determine if user signed in via OAuth (Google/Apple)
+  const isOAuthUser = user?.app_metadata?.provider === 'google' || 
+                      user?.app_metadata?.provider === 'apple' ||
+                      (user?.app_metadata?.providers || []).some((p: string) => ['google', 'apple'].includes(p));
+
+  // Email is verified if:
+  // 1. OAuth user (already verified by provider)
+  // 2. Profile has email_verified_at set
+  const isEmailVerified = isOAuthUser || !!profile?.emailVerifiedAt;
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -300,7 +315,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signIn, signUp, signInWithGoogle, logout, saveProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, isEmailVerified, isOAuthUser, signIn, signUp, signInWithGoogle, logout, saveProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

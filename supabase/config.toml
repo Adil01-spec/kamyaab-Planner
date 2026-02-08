@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.operating-style-summary]
 verify_jwt = false
+
+[functions.send-verification-otp]
+verify_jwt = false
+
+[functions.verify-email-otp]
+verify_jwt = false

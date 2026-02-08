@@ -7,7 +7,7 @@ interface AuthRouteProps {
 }
 
 const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isEmailVerified, isOAuthUser } = useAuth();
 
   if (loading) {
     return (
@@ -21,8 +21,13 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
     );
   }
 
-  // If user is logged in, redirect based on profile status
+  // If user is logged in, redirect based on profile and verification status
   if (user) {
+    // Email/password users without verification go to verify-email
+    if (!isOAuthUser && !isEmailVerified) {
+      return <Navigate to="/verify-email" replace />;
+    }
+    
     if (profile) {
       return <Navigate to="/today" replace />;
     }
