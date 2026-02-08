@@ -112,11 +112,23 @@ serve(async (req: Request) => {
       );
     }
 
-    // Update profile with email domain type
-    await adminClient
+    // Ensure profile exists + persist email domain type (verification state lives on profile)
+    const { error: profileUpsertError } = await adminClient
       .from('profiles')
-      .update({ email_domain_type: domainType })
-      .eq('id', user.id);
+      .upsert(
+        {
+          id: user.id,
+          email_domain_type: domainType,
+        },
+        {
+          onConflict: 'id',
+        }
+      );
+
+    if (profileUpsertError) {
+      console.error('Error upserting profile domain type:', profileUpsertError);
+      // Non-fatal: OTP email can still be sent
+    }
 
     // Send email via Resend
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
