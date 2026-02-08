@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      email_verifications: {
+        Row: {
+          code_hash: string
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plan_collaborators: {
         Row: {
           accepted_at: string | null
@@ -217,14 +244,21 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          email_domain_type: string | null
+          email_verified_at: string | null
           full_name: string | null
           grace_ends_at: string | null
           id: string
+          last_plan_completed_at: string | null
           profession: string | null
           profession_details: Json | null
           project_deadline: string | null
           project_description: string | null
           project_title: string | null
+          strategic_access_level: string | null
+          strategic_calls_lifetime: number | null
+          strategic_last_call_at: string | null
+          strategic_trial_used: boolean | null
           subscription_expires_at: string | null
           subscription_provider: string | null
           subscription_state: string | null
@@ -233,14 +267,21 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email_domain_type?: string | null
+          email_verified_at?: string | null
           full_name?: string | null
           grace_ends_at?: string | null
           id: string
+          last_plan_completed_at?: string | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null
           project_description?: string | null
           project_title?: string | null
+          strategic_access_level?: string | null
+          strategic_calls_lifetime?: number | null
+          strategic_last_call_at?: string | null
+          strategic_trial_used?: boolean | null
           subscription_expires_at?: string | null
           subscription_provider?: string | null
           subscription_state?: string | null
@@ -249,14 +290,21 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email_domain_type?: string | null
+          email_verified_at?: string | null
           full_name?: string | null
           grace_ends_at?: string | null
           id?: string
+          last_plan_completed_at?: string | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null
           project_description?: string | null
           project_title?: string | null
+          strategic_access_level?: string | null
+          strategic_calls_lifetime?: number | null
+          strategic_last_call_at?: string | null
+          strategic_trial_used?: boolean | null
           subscription_expires_at?: string | null
           subscription_provider?: string | null
           subscription_state?: string | null

@@ -107,15 +107,18 @@ const Auth = () => {
           return;
         }
         toast.success('Welcome back!');
+        // Login goes to onboarding (ProtectedRoute will handle redirect based on profile/verification)
+        navigate('/onboarding');
       } else {
         const { error } = await signUp(email.trim(), password);
         if (error) {
           toast.error(getErrorMessage(error));
           return;
         }
-        toast.success('Account created successfully!');
+        toast.success('Account created! Please verify your email.');
+        // Signup redirects to email verification
+        navigate('/verify-email');
       }
-      navigate('/onboarding');
     } catch (error: any) {
       toast.error(getErrorMessage(error));
     } finally {

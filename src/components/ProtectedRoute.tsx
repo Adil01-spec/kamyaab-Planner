@@ -6,14 +6,16 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requireProfile?: boolean;
   redirectIfProfile?: string;
+  requireEmailVerification?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
   requireProfile = false,
-  redirectIfProfile 
+  redirectIfProfile,
+  requireEmailVerification = false,
 }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isEmailVerified, isOAuthUser } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -31,6 +33,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // No user → redirect to auth
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // Check email verification for email/password users
+  // OAuth users (Google/Apple) skip OTP as they're already verified
+  if (requireEmailVerification && !isOAuthUser && !isEmailVerified) {
+    return <Navigate to="/verify-email" replace />;
   }
 
   // If this route should redirect when profile exists (e.g., onboarding)

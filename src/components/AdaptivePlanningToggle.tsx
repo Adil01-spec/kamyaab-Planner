@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { Zap, Target, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTonedCopy, getToneProfile, type ToneProfile, type Profession } from '@/lib/adaptiveOnboarding';
+import { useStrategicAccess, markStrategicTrialUsed } from '@/hooks/useStrategicAccess';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AdaptivePlanningToggleProps {
   value: 'standard' | 'strategic';
@@ -17,6 +19,7 @@ interface AdaptivePlanningToggleProps {
  * Adjusts tone and labels based on:
  * - User's profession (professional tone for Executive/Business Owner)
  * - Whether user selected "Other" (uses intent-based language instead of internal terminology)
+ * - User's strategic access level (none, preview, or full)
  */
 export function AdaptivePlanningToggle({ 
   value, 
@@ -25,6 +28,8 @@ export function AdaptivePlanningToggle({
   showIntentLabels = false,
 }: AdaptivePlanningToggleProps) {
   const tone: ToneProfile = profession ? getToneProfile(profession) : 'casual';
+  const { user } = useAuth();
+  const { level, reason, canRegenerate } = useStrategicAccess();
 
   // Labels adapt based on context
   const questionText = getTonedCopy('planningModeQuestion', tone);
@@ -46,6 +51,50 @@ export function AdaptivePlanningToggle({
   const strategicDescription = showIntentLabels
     ? 'Include context, dependencies, and broader considerations'
     : getTonedCopy('strategicPlanningDescription', tone);
+
+  // Handle strategic selection with access control
+  const handleStrategicSelect = async () => {
+    if (level === 'none') {
+      // Don't allow selection if no access
+      return;
+    }
+
+    // Mark trial as used when user first selects strategic mode (preview level)
+    if (level === 'preview' && user?.id) {
+      await markStrategicTrialUsed(user.id);
+    }
+
+    onChange('strategic');
+  };
+
+  // Determine if strategic option should be disabled
+  const isStrategicDisabled = level === 'none';
+
+  // Get appropriate label for strategic option based on access
+  const getStrategicBadge = () => {
+    if (level === 'full') {
+      return null; // No badge for full access
+    }
+    if (level === 'preview') {
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] h-4 px-1.5 font-medium bg-primary/10 text-primary border-primary/20"
+        >
+          Preview
+        </Badge>
+      );
+    }
+    // No access - show unlock hint
+    return (
+      <Badge
+        variant="outline"
+        className="text-[10px] h-4 px-1.5 font-medium bg-muted text-muted-foreground border-border"
+      >
+        Complete a plan to unlock
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -92,14 +141,17 @@ export function AdaptivePlanningToggle({
         </motion.button>
 
         <motion.button
-          onClick={() => onChange('strategic')}
+          onClick={handleStrategicSelect}
+          disabled={isStrategicDisabled}
           className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left ${
-            value === 'strategic'
-              ? 'border-primary bg-primary/5 shadow-soft'
-              : 'border-border/50 hover:border-primary/30'
+            isStrategicDisabled 
+              ? 'opacity-60 cursor-not-allowed border-border/30'
+              : value === 'strategic'
+                ? 'border-primary bg-primary/5 shadow-soft'
+                : 'border-border/50 hover:border-primary/30'
           }`}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
+          whileHover={isStrategicDisabled ? {} : { scale: 1.01 }}
+          whileTap={isStrategicDisabled ? {} : { scale: 0.99 }}
         >
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
             value === 'strategic' ? 'bg-primary text-primary-foreground' : 'bg-muted'
@@ -107,19 +159,12 @@ export function AdaptivePlanningToggle({
             <Target className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-foreground">{strategicTitle}</h3>
-              {!showIntentLabels && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] h-4 px-1.5 font-medium bg-primary/10 text-primary border-primary/20"
-                >
-                  Pro
-                </Badge>
-              )}
+              {!showIntentLabels && getStrategicBadge()}
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {strategicDescription}
+              {isStrategicDisabled ? reason : strategicDescription}
             </p>
           </div>
           {value === 'strategic' && (
@@ -127,6 +172,19 @@ export function AdaptivePlanningToggle({
           )}
         </motion.button>
       </div>
+
+      {/* Preview access message */}
+      {value === 'strategic' && level === 'preview' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg bg-accent/50 border border-border/50 p-3"
+        >
+          <p className="text-xs text-muted-foreground text-center">
+            This is a strategic preview. To refine your strategy, complete a plan cycle first.
+          </p>
+        </motion.div>
+      )}
     </div>
   );
 }
