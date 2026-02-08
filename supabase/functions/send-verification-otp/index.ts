@@ -135,7 +135,7 @@ serve(async (req: Request) => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Kaamyab <noreply@kamyaab.lovable.app>",
+        from: "Kaamyab <noreply@verify-otp.kamyaab-ai.com>",
         to: [targetEmail],
         subject: "Your verification code",
         html: `
