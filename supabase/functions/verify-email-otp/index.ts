@@ -105,14 +105,21 @@ serve(async (req: Request) => {
     // Success! Update profile and delete verification record
     const now = new Date().toISOString();
 
-    // Update email_verified_at on profile
-    const { error: updateError } = await adminClient
+    // Upsert email_verified_at on profile (profile row might not exist yet)
+    const { error: upsertError } = await adminClient
       .from('profiles')
-      .update({ email_verified_at: now })
-      .eq('id', user.id);
+      .upsert(
+        {
+          id: user.id,
+          email_verified_at: now,
+        },
+        {
+          onConflict: 'id',
+        }
+      );
 
-    if (updateError) {
-      console.error('Error updating profile:', updateError);
+    if (upsertError) {
+      console.error('Error upserting profile:', upsertError);
       // Continue anyway - verification was successful
     }
 
