@@ -17,60 +17,19 @@ interface ProfileWithStrategicFields {
 
 /**
  * Hook to determine strategic planning access level for the current user.
+ * 
+ * Access rules (simplified per Phase 10.3):
+ * - Paid tier = full access
+ * - Standard tier + trial unused = preview (one-time)
+ * - Standard tier + trial used = none (must upgrade)
+ * 
+ * Plan history and task completion do NOT affect access.
  */
 export function useStrategicAccess() {
   const { user, profile } = useAuth();
 
-  // Fetch plan history count
-  const { data: planHistoryCount = 0 } = useQuery({
-    queryKey: ['plan-history-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      const { count, error } = await supabase
-        .from('plan_history')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      
-      if (error) {
-        console.error('Error fetching plan history count:', error);
-        return 0;
-      }
-      return count || 0;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch current plan completed tasks
-  const { data: completedTasksCount = 0 } = useQuery({
-    queryKey: ['completed-tasks-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      
-      const { data: plan, error } = await supabase
-        .from('plans')
-        .select('plan_json')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (error || !plan?.plan_json) return 0;
-      
-      // Count completed tasks across all weeks
-      const planJson = plan.plan_json as { weeks?: { tasks?: { completed?: boolean }[] }[] };
-      let completed = 0;
-      
-      for (const week of planJson.weeks || []) {
-        for (const task of week.tasks || []) {
-          if (task.completed) completed++;
-        }
-      }
-      
-      return completed;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch strategic access fields from profile (these are new columns)
-  const { data: strategicProfile } = useQuery({
+  // Fetch strategic access fields from profile
+  const { data: strategicProfile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['strategic-profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -105,26 +64,24 @@ export function useStrategicAccess() {
     const input: StrategicAccessInput = {
       subscriptionTier: strategicProfile?.subscription_tier || profile.subscriptionTier || 'standard',
       subscriptionState: strategicProfile?.subscription_state || profile.subscriptionState || 'active',
-      planHistoryCount,
-      completedTasksCurrentPlan: completedTasksCount,
       strategicTrialUsed: strategicProfile?.strategic_trial_used ?? false,
       emailDomainType: (strategicProfile?.email_domain_type as 'standard' | 'disposable' | 'enterprise') || 'standard',
     };
 
     return resolveStrategicAccess(input);
-  }, [user, profile, strategicProfile, planHistoryCount, completedTasksCount]);
+  }, [user, profile, strategicProfile]);
 
   return {
     ...accessResult,
-    isLoading: !profile,
-    planHistoryCount,
-    completedTasksCount,
+    isLoading: !profile || isProfileLoading,
   };
 }
 
 /**
  * Mark strategic trial as used.
- * Call this when a user generates their first strategic preview.
+ * NOTE: This is now primarily handled server-side in the edge function.
+ * This client-side function is kept for backward compatibility but 
+ * the server is the source of truth.
  */
 export async function markStrategicTrialUsed(userId: string): Promise<void> {
   const { error } = await supabase
@@ -139,7 +96,7 @@ export async function markStrategicTrialUsed(userId: string): Promise<void> {
 
 /**
  * Increment strategic call counter.
- * Call this after each strategic AI generation.
+ * NOTE: This is now primarily handled server-side in the edge function.
  */
 export async function incrementStrategicCallCount(userId: string): Promise<void> {
   // Use raw SQL for atomic increment

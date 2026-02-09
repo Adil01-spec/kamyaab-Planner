@@ -271,7 +271,15 @@ const Onboarding = () => {
         },
       });
 
+      // Handle STRATEGIC_ACCESS_EXHAUSTED error specifically
       if (planError) {
+        const errorBody = planError.message || '';
+        if (errorBody.includes('STRATEGIC_ACCESS_EXHAUSTED') || planError.context?.status === 403) {
+          toast.error('Strategic Planning requires a subscription. Redirecting to pricing...');
+          setTimeout(() => navigate('/pricing'), 2000);
+          setLoading(false);
+          return;
+        }
         console.error('Plan generation error:', planError);
         toast.error('Plan generation failed. Please try again.');
         setLoading(false);
@@ -280,8 +288,17 @@ const Onboarding = () => {
 
       toast.success('Your plan is ready!');
       navigate('/plan');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Onboarding error:', error);
+      
+      // Check for strategic access exhausted in caught error
+      if (error?.message?.includes('STRATEGIC_ACCESS_EXHAUSTED')) {
+        toast.error('Strategic Planning requires a subscription. Redirecting to pricing...');
+        setTimeout(() => navigate('/pricing'), 2000);
+        setLoading(false);
+        return;
+      }
+      
       toast.error('Failed to complete setup. Please try again.');
     } finally {
       setLoading(false);

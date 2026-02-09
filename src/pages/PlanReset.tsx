@@ -400,7 +400,22 @@ const PlanReset = () => {
         },
       });
 
-      if (error) throw error;
+      // Handle STRATEGIC_ACCESS_EXHAUSTED error specifically
+      if (error) {
+        // Check if error response contains our specific error code
+        const errorBody = error.message || '';
+        if (errorBody.includes('STRATEGIC_ACCESS_EXHAUSTED') || error.context?.status === 403) {
+          toast({
+            title: "Strategic Planning Locked",
+            description: "Upgrade to Pro for unlimited strategic planning.",
+            variant: "default",
+          });
+          // Navigate to pricing after showing toast
+          setTimeout(() => navigate('/pricing'), 2000);
+          return;
+        }
+        throw error;
+      }
 
       toast({
         title: "Plan generated!",
@@ -408,8 +423,20 @@ const PlanReset = () => {
       });
 
       navigate('/plan');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating plan:', error);
+      
+      // Check for strategic access exhausted in caught error
+      if (error?.message?.includes('STRATEGIC_ACCESS_EXHAUSTED')) {
+        toast({
+          title: "Strategic Planning Locked",
+          description: "Upgrade to Pro for unlimited strategic planning.",
+          variant: "default",
+        });
+        setTimeout(() => navigate('/pricing'), 2000);
+        return;
+      }
+      
       toast({
         title: "Generation failed",
         description: "Could not generate your plan. Please try again.",
