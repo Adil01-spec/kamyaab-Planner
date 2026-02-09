@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
  * Check if the profile has essential onboarding fields completed.
  * A profile row may exist (from email verification) but not be "complete".
  */
-const isProfileComplete = (profile: { fullName: string; profession: string; projectTitle: string } | null): boolean => {
+const isProfileComplete = (profile: { fullName?: string; profession?: string; projectTitle?: string } | null): boolean => {
   if (!profile) return false;
   // Profile is complete if user has filled in the onboarding essentials
   return !!(profile.fullName?.trim() && profile.profession?.trim() && profile.projectTitle?.trim());
