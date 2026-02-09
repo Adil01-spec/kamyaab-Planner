@@ -242,8 +242,7 @@ serve(async (req) => {
     const strategicPlanning = profile.strategicPlanning;
     const isExecutive = strategicPlanning && Object.keys(strategicPlanning).length > 0;
 
-    // NEW: Check for Phase 8.1 strategic planning context
-    const planContext = profile.professionDetails?.plan_context;
+    // NEW: Check for Phase 8.1 strategic planning context (planContext already declared above)
     const isStrategicMode = planContext?.strategic_mode === true;
 
     // Adjust weeks based on strategic horizon if provided (legacy or new)
