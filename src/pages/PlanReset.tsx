@@ -12,11 +12,22 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { 
   Rocket, Sparkles, CalendarIcon, Briefcase, Bot, 
-  Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle
+  Loader2, ArrowRight, ArrowLeft, Home, RefreshCw, Shuffle, LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
 import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
 import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
@@ -55,8 +66,14 @@ const stepTransition: Transition = {
 type IntentType = 'same_field' | 'new_field' | null;
 
 const PlanReset = () => {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, logout } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth', { replace: true });
+  };
   
   // Flow state
   const [intent, setIntent] = useState<IntentType>(null);
@@ -1187,6 +1204,35 @@ const PlanReset = () => {
             <DevModeActivator>
               <ThemeToggle />
             </DevModeActivator>
+            <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="btn-press text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline ml-1">Logout</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Leave plan creation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    All progress in this setup will be lost. When you log back in, you'll return to this page to create your plan.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleLogout}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Logout
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </header>
