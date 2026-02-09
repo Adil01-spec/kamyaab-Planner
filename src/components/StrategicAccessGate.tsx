@@ -1,8 +1,9 @@
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Clock, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Lock } from 'lucide-react';
 import { useStrategicAccess } from '@/hooks/useStrategicAccess';
-import { getStrategicAccessMessage } from '@/lib/strategicAccessResolver';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface StrategicAccessGateProps {
   children: ReactNode;
@@ -15,13 +16,16 @@ interface StrategicAccessGateProps {
  * based on user's access level.
  * 
  * Uses calm, non-accusatory language per the design philosophy.
+ * 
+ * Access is now strictly: paid = full, trial unused = preview, trial used = none.
+ * No progress indicators needed since completion doesn't grant access.
  */
 export function StrategicAccessGate({ 
   children, 
   fallback,
   showPreviewMessage = true,
 }: StrategicAccessGateProps) {
-  const { level, reason, isLoading, planHistoryCount, completedTasksCount } = useStrategicAccess();
+  const { level, reason, isLoading } = useStrategicAccess();
 
   if (isLoading) {
     return (
@@ -43,12 +47,7 @@ export function StrategicAccessGate({
     return (
       <div className="space-y-4">
         {children}
-        {showPreviewMessage && (
-          <PreviewAccessMessage 
-            planHistoryCount={planHistoryCount} 
-            completedTasksCount={completedTasksCount}
-          />
-        )}
+        {showPreviewMessage && <PreviewAccessMessage />}
       </div>
     );
   }
@@ -64,13 +63,7 @@ export function StrategicAccessGate({
 /**
  * Calm message shown after strategic preview generation
  */
-function PreviewAccessMessage({ 
-  planHistoryCount, 
-  completedTasksCount 
-}: { 
-  planHistoryCount: number;
-  completedTasksCount: number;
-}) {
+function PreviewAccessMessage() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -83,27 +76,11 @@ function PreviewAccessMessage({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground font-medium">
-            To refine this strategy, Kaamyab needs to learn how you actually work.
+            This is your one-time strategic preview.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Complete your first plan cycle to unlock full strategic planning.
+            Upgrade to Pro for unlimited strategic planning and regeneration.
           </p>
-          
-          {/* Progress indicators */}
-          <div className="flex items-center gap-4 mt-3">
-            <ProgressIndicator
-              icon={<Clock className="w-3 h-3" />}
-              label="Plan cycles"
-              current={planHistoryCount}
-              target={1}
-            />
-            <ProgressIndicator
-              icon={<CheckCircle2 className="w-3 h-3" />}
-              label="Tasks completed"
-              current={completedTasksCount}
-              target={3}
-            />
-          </div>
         </div>
       </div>
     </motion.div>
@@ -114,53 +91,36 @@ function PreviewAccessMessage({
  * Message shown when user has no strategic access
  */
 function NoAccessMessage({ reason }: { reason: string }) {
+  const navigate = useNavigate();
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-xl bg-muted/50 border border-border/50 p-4"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-          <Sparkles className="w-4 h-4 text-muted-foreground" />
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+          <Lock className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {reason}
-          </p>
+        <div className="flex-1 min-w-0 space-y-3">
+          <div>
+            <p className="text-sm text-foreground font-medium">
+              Strategic Planning
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {reason}
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/pricing')}
+          >
+            View Plans
+          </Button>
         </div>
       </div>
     </motion.div>
-  );
-}
-
-/**
- * Small progress indicator for access requirements
- */
-function ProgressIndicator({
-  icon,
-  label,
-  current,
-  target,
-}: {
-  icon: ReactNode;
-  label: string;
-  current: number;
-  target: number;
-}) {
-  const isComplete = current >= target;
-  
-  return (
-    <div className="flex items-center gap-1.5 text-xs">
-      <span className={isComplete ? 'text-primary' : 'text-muted-foreground'}>
-        {icon}
-      </span>
-      <span className={isComplete ? 'text-primary font-medium' : 'text-muted-foreground'}>
-        {current}/{target} {label}
-      </span>
-      {isComplete && (
-        <CheckCircle2 className="w-3 h-3 text-primary" />
-      )}
-    </div>
   );
 }

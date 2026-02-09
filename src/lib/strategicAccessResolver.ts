@@ -3,9 +3,10 @@
  * 
  * Determines a user's access level for Strategic Planning based on:
  * - Subscription tier (paid = full access)
- * - Plan history (1+ completed plans = full access)
- * - Current plan execution (3+ tasks completed = full access)
- * - Strategic trial status (unused = preview access)
+ * - Strategic trial status (unused = preview access, one-time only)
+ * 
+ * IMPORTANT: Access is NOT granted by plan history, task completion, or any other
+ * activity signals. These are for analysis only, never entitlement.
  */
 
 export type StrategicAccessLevel = 'none' | 'preview' | 'full';
@@ -13,8 +14,6 @@ export type StrategicAccessLevel = 'none' | 'preview' | 'full';
 export interface StrategicAccessInput {
   subscriptionTier: string;
   subscriptionState?: string;
-  planHistoryCount: number;
-  completedTasksCurrentPlan: number;
   strategicTrialUsed: boolean;
   emailDomainType?: 'standard' | 'disposable' | 'enterprise';
 }
@@ -29,13 +28,18 @@ export interface StrategicAccessResult {
 /**
  * Resolve strategic planning access level based on user state.
  * Pure function - no side effects.
+ * 
+ * Access rules (server-enforced):
+ * - Paid tier (non-standard, active) = full access
+ * - Disposable email + trial used = none
+ * - Disposable email + trial available = preview
+ * - Standard tier + trial available = preview (one-time)
+ * - Standard tier + trial used = none (must upgrade)
  */
 export function resolveStrategicAccess(input: StrategicAccessInput): StrategicAccessResult {
   const {
     subscriptionTier,
     subscriptionState = 'active',
-    planHistoryCount,
-    completedTasksCurrentPlan,
     strategicTrialUsed,
     emailDomainType = 'standard',
   } = input;
@@ -45,26 +49,6 @@ export function resolveStrategicAccess(input: StrategicAccessInput): StrategicAc
     return {
       level: 'full',
       reason: 'Active subscription',
-      canRegenerate: true,
-      canViewFullPlan: true,
-    };
-  }
-
-  // Users with at least one completed plan get full access
-  if (planHistoryCount >= 1) {
-    return {
-      level: 'full',
-      reason: 'Completed plan history',
-      canRegenerate: true,
-      canViewFullPlan: true,
-    };
-  }
-
-  // Users with meaningful execution history get full access
-  if (completedTasksCurrentPlan >= 3) {
-    return {
-      level: 'full',
-      reason: 'Meaningful execution history',
       canRegenerate: true,
       canViewFullPlan: true,
     };
@@ -90,10 +74,10 @@ export function resolveStrategicAccess(input: StrategicAccessInput): StrategicAc
     };
   }
 
-  // No access - trial used, no history
+  // No access - trial used, must upgrade
   return {
     level: 'none',
-    reason: 'Complete a plan cycle to unlock Strategic Planning.',
+    reason: 'Upgrade to Pro for unlimited strategic planning.',
     canRegenerate: false,
     canViewFullPlan: false,
   };
@@ -107,7 +91,7 @@ export function getStrategicAccessMessage(result: StrategicAccessResult): string
     case 'full':
       return '';
     case 'preview':
-      return 'To refine this strategy, Kaamyab needs to learn how you actually work.';
+      return 'This is your one-time strategic preview. Upgrade to Pro for unlimited access.';
     case 'none':
       return result.reason;
   }
