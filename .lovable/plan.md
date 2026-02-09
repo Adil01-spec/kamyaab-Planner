@@ -1,95 +1,215 @@
-# Strategic Access Control, Email Verification & Abuse Discouragement
 
-## Implementation Status: ✅ COMPLETE
+# Strategic Planning Access Enforcement - Implementation Plan
 
-All core components have been implemented. The system is now live.
+## Current State Analysis
 
----
+### What Exists Today
+1. **`strategic_trial_used` column** already exists in `profiles` table (boolean, default false)
+2. **Client-side access resolver** (`src/lib/strategicAccessResolver.ts`) determines access level as:
+   - `full`: Paid tier OR 1+ completed plans OR 3+ completed tasks
+   - `preview`: Trial not used yet
+   - `none`: Trial used and no qualifying history
+3. **UI gating** (`AdaptivePlanningToggle.tsx`) disables strategic selection when access is `none`
+4. **Trial marking** (`markStrategicTrialUsed()`) is called client-side when user selects strategic mode
+5. **Edge function** (`generate-plan`) has:
+   - Rate limiting (30s between calls)
+   - Lifetime cap (20 calls for free users) - but this is a soft cap with generic error
+   - No hard blocking based on `strategic_trial_used`
 
-## ✅ Completed
+### Security Gap Identified
+The current system has **no server-side enforcement**:
+- Users can bypass UI gating by calling the edge function directly
+- The `strategic_trial_used` flag is updated client-side, which is not atomic with plan creation
+- The 20-call lifetime cap is a separate mechanism from the one-time trial policy
+- Plan history/task count grants access, which violates the requirement that these signals should NOT unlock strategic access
 
-### Part 1: Database Schema
-- Added new columns to `profiles` table:
-  - `email_verified_at` - timestamp for OTP verification
-  - `email_domain_type` - 'standard', 'disposable', or 'enterprise'
-  - `strategic_trial_used` - boolean for one-time preview
-  - `strategic_access_level` - 'none', 'preview', or 'full'
-  - `strategic_calls_lifetime` - counter for AI cost protection
-  - `strategic_last_call_at` - rate limiting timestamp
-  - `last_plan_completed_at` - for history tracking
-- Created `email_verifications` table with RLS policies
+## Implementation Plan
 
-### Part 2: Email Verification Flow
-- Created `send-verification-otp` edge function (Resend API)
-- Created `verify-email-otp` edge function
-- Created `/verify-email` page with OTP input
-- Updated `Auth.tsx` to redirect to verify-email after signup
-- Updated `AuthContext` with `isEmailVerified` and `isOAuthUser` flags
-- Updated `ProtectedRoute` with `requireEmailVerification` prop
-- OAuth users (Google/Apple) skip OTP verification
+### Phase 1: Data Model Verification (No Migration Needed)
+The `strategic_trial_used` column already exists with correct defaults. No schema changes required.
 
-### Part 3: Disposable Email Detection
-- Created `src/lib/disposableEmailDomains.ts` with ~100 known domains
-- Server-side classification during OTP send
-- Soft gating: caps strategic access at 'preview' for disposable emails
+### Phase 2: Server-Side Access Resolution (Edge Function)
 
-### Part 4: Strategic Access Resolver
-- Created `src/lib/strategicAccessResolver.ts` with pure logic
-- Created `src/hooks/useStrategicAccess.ts` hook
-- Access levels: 'none', 'preview', 'full'
-- Eligibility based on:
-  - Paid subscription → full
-  - 1+ completed plans → full
-  - 3+ tasks completed → full
-  - Trial not used → preview
-  - Otherwise → none
+Update `supabase/functions/generate-plan/index.ts` to:
 
-### Part 5: Strategic Access Gate
-- Created `src/components/StrategicAccessGate.tsx` wrapper
-- Updated `AdaptivePlanningToggle` with access control
-- Calm messaging without mention of abuse/limits
+1. **Fetch strategic access state** early (before AI call):
+   ```text
+   - subscription_tier
+   - subscription_state
+   - strategic_trial_used
+   ```
 
-### Part 6: Backend Throttling
-- Added rate limiting to `generate-plan` (30s between calls)
-- Added lifetime cap (20 calls for free users)
-- Added counter increment after successful generation
-- Silent fallback when limits exceeded
+2. **Implement hard access check** for strategic mode requests:
+   ```text
+   IF subscription_tier != 'standard':
+     ALLOW strategic generation
+   
+   ELSE IF strategic_trial_used == false:
+     ALLOW strategic generation (trial)
+   
+   ELSE:
+     BLOCK with 403 error:
+     {
+       "error": "STRATEGIC_ACCESS_EXHAUSTED",
+       "message": "Strategic planning requires a subscription."
+     }
+   ```
 
----
+3. **Atomic trial consumption** - only after successful plan save:
+   ```text
+   - Use conditional update: UPDATE profiles SET strategic_trial_used = true 
+     WHERE id = user.id AND strategic_trial_used = false
+   - If plan generation fails, trial is preserved
+   ```
 
-## UX Principles Applied
+### Phase 3: Remove Conflicting Logic (Edge Function + Client)
 
-All messaging follows the "trust-preserving" guidelines:
-- ✅ No mention of abuse, fraud, or cheating
-- ✅ Focus on "earning" features through continuity
-- ✅ Preview message: "To refine this strategy, Kaamyab needs to learn how you actually work."
-- ✅ No access message: "Complete a plan cycle to unlock Strategic Planning."
-- ✅ Silent failures for throttling (return cached/generic data)
+1. **Edge function changes**:
+   - Remove the "plan history count grants access" logic (lines ~53-70 in resolver)
+   - Remove the "completed tasks count grants access" logic
+   - Keep the 20-call lifetime cap as a backup cost control (separate from trial logic)
 
----
+2. **Client-side resolver update** (`src/lib/strategicAccessResolver.ts`):
+   - Remove plan history count condition
+   - Remove completed tasks count condition
+   - Keep only: paid tier OR trial not used
+   - This ensures UI matches server truth
 
-## Files Created
+3. **Hook update** (`src/hooks/useStrategicAccess.ts`):
+   - Remove plan history count query (no longer affects access)
+   - Remove completed tasks count query (no longer affects access)
+   - Simplify to only fetch subscription tier and strategic_trial_used
 
-| File | Purpose |
-|------|---------|
-| `src/pages/VerifyEmail.tsx` | OTP verification page |
-| `src/components/StrategicAccessGate.tsx` | Access control wrapper |
-| `src/hooks/useStrategicAccess.ts` | Strategic eligibility hook |
-| `src/lib/strategicAccessResolver.ts` | Pure function for access level |
-| `src/lib/disposableEmailDomains.ts` | Disposable domain list |
-| `supabase/functions/send-verification-otp/index.ts` | Send OTP email |
-| `supabase/functions/verify-email-otp/index.ts` | Validate OTP |
+### Phase 4: UI Alignment
 
-## Files Modified
+Update error handling in `src/pages/PlanReset.tsx` and `src/pages/Onboarding.tsx`:
+- If edge function returns `STRATEGIC_ACCESS_EXHAUSTED`, show upgrade explanation
+- Ensure no hidden retries for this specific error
+- Clear messaging: "Upgrade to Pro for unlimited strategic planning"
+
+### Phase 5: RLS Protection (Database)
+
+Add a Row Level Security policy to prevent direct API bypass:
+
+```text
+CREATE POLICY "prevent strategic plan abuse"
+ON public.plans
+FOR INSERT
+WITH CHECK (
+  (plan_json->>'is_strategic_plan')::boolean IS NOT TRUE
+  OR EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE id = auth.uid()
+      AND (
+        subscription_tier != 'standard'
+        OR strategic_trial_used = false
+      )
+  )
+);
+```
+
+This ensures even direct Supabase client calls cannot insert strategic plans without proper access.
+
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/App.tsx` | Added `/verify-email` route |
-| `src/pages/Auth.tsx` | Redirect to verify-email after signup |
-| `src/contexts/AuthContext.tsx` | Added email verification state |
-| `src/components/ProtectedRoute.tsx` | Added `requireEmailVerification` prop |
-| `src/components/AuthRoute.tsx` | Email verification redirect logic |
-| `src/components/AdaptivePlanningToggle.tsx` | Strategic access gating |
-| `supabase/functions/generate-plan/index.ts` | Throttling & counter updates |
-| `supabase/config.toml` | Added new edge function configs |
+| `supabase/functions/generate-plan/index.ts` | Add hard access check, atomic trial consumption |
+| `src/lib/strategicAccessResolver.ts` | Remove plan history and task count conditions |
+| `src/hooks/useStrategicAccess.ts` | Remove unused queries, simplify access logic |
+| `src/pages/PlanReset.tsx` | Handle STRATEGIC_ACCESS_EXHAUSTED error |
+| `src/pages/Onboarding.tsx` | Handle STRATEGIC_ACCESS_EXHAUSTED error |
+| `src/components/StrategicAccessGate.tsx` | Remove progress indicators (no longer relevant) |
+| Database migration | Add RLS policy for strategic plan abuse prevention |
 
+## Technical Details
+
+### Edge Function Access Check Logic
+
+```text
+// Pseudocode for generate-plan function
+
+const isStrategicModeRequest = planContext?.strategic_mode === true;
+
+if (isStrategicModeRequest) {
+  // Fetch current strategic access state
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('subscription_tier, subscription_state, strategic_trial_used')
+    .eq('id', user.id)
+    .single();
+
+  const isPaidUser = profile?.subscription_tier !== 'standard' 
+    && profile?.subscription_state === 'active';
+  const trialUsed = profile?.strategic_trial_used === true;
+
+  // HARD BLOCK: No access
+  if (!isPaidUser && trialUsed) {
+    return new Response(JSON.stringify({
+      error: "STRATEGIC_ACCESS_EXHAUSTED",
+      message: "Strategic planning requires a subscription."
+    }), { status: 403, headers: corsHeaders });
+  }
+
+  // Track if this is a trial usage (for post-save update)
+  const isTrialUsage = !isPaidUser && !trialUsed;
+}
+
+// ... AI generation happens ...
+
+// After successful plan save:
+if (isStrategicMode && isTrialUsage) {
+  // Atomic update - only marks if still false
+  await adminClient
+    .from('profiles')
+    .update({ strategic_trial_used: true })
+    .eq('id', user.id)
+    .eq('strategic_trial_used', false);
+}
+```
+
+### Client-Side Resolver Simplification
+
+```text
+function resolveStrategicAccess(input) {
+  // Paid subscribers always get full access
+  if (input.subscriptionTier !== 'standard' && input.subscriptionState === 'active') {
+    return { level: 'full', ... };
+  }
+
+  // Disposable email users are capped at preview
+  if (input.emailDomainType === 'disposable') {
+    return { level: input.strategicTrialUsed ? 'none' : 'preview', ... };
+  }
+
+  // New users without history can use their one-time preview
+  if (!input.strategicTrialUsed) {
+    return { level: 'preview', ... };
+  }
+
+  // No access - trial used
+  return { level: 'none', ... };
+}
+```
+
+## What This Implementation Achieves
+
+1. **Server-side blocking** - Edge function returns 403 for exhausted trials
+2. **Atomic trial consumption** - Trial only marked after successful plan creation
+3. **Race condition prevention** - Conditional update prevents double-consumption
+4. **RLS protection** - Direct API calls blocked at database level
+5. **UI/server parity** - Client resolver matches server logic exactly
+6. **No behavioral changes to existing features** - Standard planning unaffected
+7. **Cost control maintained** - AI calls blocked before they occur
+
+## What Is NOT Changed (Per Requirements)
+
+- Plan completion does NOT restore access
+- Plan deletion does NOT restore access
+- Plan reset does NOT restore access
+- Onboarding reset does NOT restore access
+- Task completion counts do NOT affect access
+- Plan history entries do NOT affect access
+- Prompts remain unchanged
+- Standard planning flow unchanged
