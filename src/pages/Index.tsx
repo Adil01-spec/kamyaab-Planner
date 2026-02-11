@@ -1,10 +1,30 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Rocket, Target, Route, RefreshCw, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
-import heroIllustration from '@/assets/hero-illustration.png';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
+
+const useFadeInOnScroll = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add('opacity-100', 'translate-y-0');
+          el.classList.remove('opacity-0', 'translate-y-6');
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+};
 
 const Index = () => {
   const { user, profile, loading } = useAuth();
@@ -37,6 +57,13 @@ const Index = () => {
   // Authenticated users are redirected above
   if (user) return null;
 
+  const problemRef = useFadeInOnScroll();
+  const howItWorksRef = useFadeInOnScroll();
+  const strategicRef = useFadeInOnScroll();
+  const useCasesRef = useFadeInOnScroll();
+  const comparisonRef = useFadeInOnScroll();
+  const ctaRef = useFadeInOnScroll();
+
   const scrollToHowItWorks = () => {
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -47,34 +74,24 @@ const Index = () => {
         {/* Hero Section */}
         <section className="relative overflow-hidden gradient-subtle">
           <div className="container max-w-6xl mx-auto px-4 py-20 md:py-32">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="animate-slide-up">
-                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-                  <Rocket className="w-4 h-4" />
-                  AI-Powered Execution System
-                </div>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
-                  Turn Goals Into Structured Action Plans
-                </h1>
-                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl">
-                  Define your objective. Kaamyab generates a milestone-driven plan with adaptive strategy — so you execute with clarity, not chaos.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <Button asChild size="lg" className="text-base px-8">
-                    <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
-                  </Button>
-                  <Button variant="outline" size="lg" className="text-base px-8" onClick={scrollToHowItWorks}>
-                    See How It Works
-                  </Button>
-                </div>
+            <div className="max-w-3xl mx-auto text-center animate-slide-up">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
+                <Rocket className="w-4 h-4" />
+                AI-Powered Execution System
               </div>
-              <div className="hidden lg:block">
-                <img
-                  src={heroIllustration}
-                  alt="From scattered goals to structured milestones — Kaamyab transforms chaos into a clear execution path"
-                  className="w-full rounded-2xl shadow-2xl"
-                  loading="eager"
-                />
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
+                Turn Goals Into Structured Action Plans
+              </h1>
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
+                Define your objective. Kaamyab generates a milestone-driven plan with adaptive strategy — so you execute with clarity, not chaos.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Button asChild size="lg" className="text-base px-8">
+                  <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
+                </Button>
+                <Button variant="outline" size="lg" className="text-base px-8" onClick={scrollToHowItWorks}>
+                  See How It Works
+                </Button>
               </div>
             </div>
           </div>
@@ -82,7 +99,7 @@ const Index = () => {
 
         {/* Problem Section */}
         <section className="py-20 bg-background">
-          <div className="container max-w-5xl mx-auto px-4">
+          <div ref={problemRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Goals Fail</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -109,7 +126,7 @@ const Index = () => {
 
         {/* How It Works */}
         <section id="how-it-works" className="py-20 gradient-subtle">
-          <div className="container max-w-5xl mx-auto px-4">
+          <div ref={howItWorksRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Works</h2>
               <p className="text-muted-foreground text-lg">Three steps from idea to execution.</p>
@@ -135,7 +152,7 @@ const Index = () => {
 
         {/* Strategic Planning Highlight */}
         <section className="py-20 bg-background">
-          <div className="container max-w-4xl mx-auto px-4">
+          <div ref={strategicRef} className="container max-w-4xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <article className="glass-card rounded-2xl p-8 md:p-12">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Strategic Planning, Not Just Task Lists</h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
@@ -150,7 +167,7 @@ const Index = () => {
 
         {/* Use Cases */}
         <section className="py-20 gradient-subtle">
-          <div className="container max-w-5xl mx-auto px-4">
+          <div ref={useCasesRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What Can You Plan?</h2>
               <p className="text-muted-foreground text-lg">From professional milestones to personal growth — structured execution for any goal.</p>
@@ -177,7 +194,7 @@ const Index = () => {
 
         {/* Comparison Section */}
         <section className="py-20 bg-background">
-          <div className="container max-w-5xl mx-auto px-4">
+          <div ref={comparisonRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
@@ -221,7 +238,7 @@ const Index = () => {
 
         {/* Final CTA */}
         <section className="py-20 gradient-subtle">
-          <div className="container max-w-3xl mx-auto px-4 text-center">
+          <div ref={ctaRef} className="container max-w-3xl mx-auto px-4 text-center opacity-0 translate-y-6 transition-all duration-700 ease-out">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Stop Planning in Your Head. Start Executing with Structure.
             </h2>
