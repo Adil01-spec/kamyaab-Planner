@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Rocket, Target, Route, RefreshCw, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
+import heroIllustration from '@/assets/hero-illustration.png';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 
@@ -46,24 +47,34 @@ const Index = () => {
         {/* Hero Section */}
         <section className="relative overflow-hidden gradient-subtle">
           <div className="container max-w-6xl mx-auto px-4 py-20 md:py-32">
-            <div className="max-w-3xl mx-auto text-center animate-slide-up">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-                <Rocket className="w-4 h-4" />
-                AI-Powered Execution System
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="animate-slide-up">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
+                  <Rocket className="w-4 h-4" />
+                  AI-Powered Execution System
+                </div>
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
+                  Turn Goals Into Structured Action Plans
+                </h1>
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl">
+                  Define your objective. Kaamyab generates a milestone-driven plan with adaptive strategy — so you execute with clarity, not chaos.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <Button asChild size="lg" className="text-base px-8">
+                    <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
+                  </Button>
+                  <Button variant="outline" size="lg" className="text-base px-8" onClick={scrollToHowItWorks}>
+                    See How It Works
+                  </Button>
+                </div>
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
-                Turn Goals Into Structured Action Plans
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
-                Define your objective. Kaamyab generates a milestone-driven plan with adaptive strategy — so you execute with clarity, not chaos.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button asChild size="lg" className="text-base px-8">
-                  <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
-                </Button>
-                <Button variant="outline" size="lg" className="text-base px-8" onClick={scrollToHowItWorks}>
-                  See How It Works
-                </Button>
+              <div className="hidden lg:block">
+                <img
+                  src={heroIllustration}
+                  alt="From scattered goals to structured milestones — Kaamyab transforms chaos into a clear execution path"
+                  className="w-full rounded-2xl shadow-2xl"
+                  loading="eager"
+                />
               </div>
             </div>
           </div>
