@@ -30,9 +30,16 @@ const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
+  const problemRef = useFadeInOnScroll();
+  const howItWorksRef = useFadeInOnScroll();
+  const strategicRef = useFadeInOnScroll();
+  const useCasesRef = useFadeInOnScroll();
+  const comparisonRef = useFadeInOnScroll();
+  const ctaRef = useFadeInOnScroll();
+
   useEffect(() => {
     if (!loading) {
-      if (!user) return; // Show landing page
+      if (!user) return;
       if (!profile) {
         navigate('/onboarding', { replace: true });
       } else {
@@ -41,7 +48,6 @@ const Index = () => {
     }
   }, [user, profile, loading, navigate]);
 
-  // Show loader while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
@@ -54,15 +60,7 @@ const Index = () => {
     );
   }
 
-  // Authenticated users are redirected above
   if (user) return null;
-
-  const problemRef = useFadeInOnScroll();
-  const howItWorksRef = useFadeInOnScroll();
-  const strategicRef = useFadeInOnScroll();
-  const useCasesRef = useFadeInOnScroll();
-  const comparisonRef = useFadeInOnScroll();
-  const ctaRef = useFadeInOnScroll();
 
   const scrollToHowItWorks = () => {
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
