@@ -21,6 +21,10 @@ import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import RefundPolicy from "./pages/RefundPolicy";
+import ServicePolicy from "./pages/ServicePolicy";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -115,8 +119,12 @@ const App = () => (
             />
             {/* Pricing page - public */}
             <Route path="/pricing" element={<Pricing />} />
-            {/* Terms of Service - public */}
+            {/* Legal & Trust Pages - public */}
             <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/service-policy" element={<ServicePolicy />} />
+            <Route path="/contact" element={<Contact />} />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}
