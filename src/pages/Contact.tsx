@@ -10,32 +10,33 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Footer } from '@/components/Footer';
 import { toast } from '@/hooks/use-toast';
-
 const contactSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be under 100 characters'),
   email: z.string().trim().email('Please enter a valid email address').max(255, 'Email must be under 255 characters'),
-  message: z.string().trim().min(1, 'Message is required').max(1000, 'Message must be under 1000 characters'),
+  message: z.string().trim().min(1, 'Message is required').max(1000, 'Message must be under 1000 characters')
 });
-
 type ContactForm = z.infer<typeof contactSchema>;
-
 const Contact = () => {
   const navigate = useNavigate();
-
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ContactForm>({
-    resolver: zodResolver(contactSchema),
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: {
+      errors,
+      isSubmitting
+    }
+  } = useForm<ContactForm>({
+    resolver: zodResolver(contactSchema)
   });
-
   const onSubmit = (_data: ContactForm) => {
     toast({
       title: "Message sent",
-      description: "Thank you for reaching out. We'll get back to you within 48 hours.",
+      description: "Thank you for reaching out. We'll get back to you within 48 hours."
     });
     reset();
   };
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
@@ -79,7 +80,7 @@ const Contact = () => {
                 </div>
                 <h3 className="text-base font-medium m-0">Phone</h3>
               </div>
-              <p className="text-sm text-muted-foreground m-0">+92 XXX XXXXXXX</p>
+              <p className="text-sm text-muted-foreground m-0">+92 3175799089 </p>
             </div>
 
             <div className="bg-muted/50 rounded-xl p-5">
@@ -121,12 +122,7 @@ const Contact = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
-                <Textarea
-                  id="message"
-                  placeholder="How can we help?"
-                  rows={5}
-                  {...register('message')}
-                />
+                <Textarea id="message" placeholder="How can we help?" rows={5} {...register('message')} />
                 {errors.message && <p className="text-sm text-destructive">{errors.message.message}</p>}
               </div>
 
@@ -146,8 +142,6 @@ const Contact = () => {
       </main>
 
       <Footer />
-    </div>
-  );
+    </div>;
 };
-
 export default Contact;
