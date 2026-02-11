@@ -1,48 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Rocket, Target, Route, RefreshCw, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 
-const useFadeInOnScroll = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Small delay to ensure layout is settled before observing
-    const timeout = setTimeout(() => {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-            observer.unobserve(el);
-          }
-        },
-        { threshold: 0.05, rootMargin: '0px 0px -40px 0px' }
-      );
-      observer.observe(el);
-    }, 100);
-    return () => clearTimeout(timeout);
-  }, []);
-  return ref;
-};
-
 const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
-  const problemRef = useFadeInOnScroll();
-  const howItWorksRef = useFadeInOnScroll();
-  const strategicRef = useFadeInOnScroll();
-  const useCasesRef = useFadeInOnScroll();
-  const comparisonRef = useFadeInOnScroll();
-  const ctaRef = useFadeInOnScroll();
-
   useEffect(() => {
     if (!loading) {
-      if (!user) return;
+      if (!user) return; // Show landing page
       if (!profile) {
         navigate('/onboarding', { replace: true });
       } else {
@@ -51,6 +20,7 @@ const Index = () => {
     }
   }, [user, profile, loading, navigate]);
 
+  // Show loader while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
@@ -63,6 +33,7 @@ const Index = () => {
     );
   }
 
+  // Authenticated users are redirected above
   if (user) return null;
 
   const scrollToHowItWorks = () => {
@@ -100,7 +71,7 @@ const Index = () => {
 
         {/* Problem Section */}
         <section className="py-20 bg-background">
-          <div ref={problemRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Goals Fail</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -127,7 +98,7 @@ const Index = () => {
 
         {/* How It Works */}
         <section id="how-it-works" className="py-20 gradient-subtle">
-          <div ref={howItWorksRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Works</h2>
               <p className="text-muted-foreground text-lg">Three steps from idea to execution.</p>
@@ -153,7 +124,7 @@ const Index = () => {
 
         {/* Strategic Planning Highlight */}
         <section className="py-20 bg-background">
-          <div ref={strategicRef} className="container max-w-4xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-4xl mx-auto px-4">
             <article className="glass-card rounded-2xl p-8 md:p-12">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Strategic Planning, Not Just Task Lists</h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
@@ -168,7 +139,7 @@ const Index = () => {
 
         {/* Use Cases */}
         <section className="py-20 gradient-subtle">
-          <div ref={useCasesRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What Can You Plan?</h2>
               <p className="text-muted-foreground text-lg">From professional milestones to personal growth — structured execution for any goal.</p>
@@ -195,7 +166,7 @@ const Index = () => {
 
         {/* Comparison Section */}
         <section className="py-20 bg-background">
-          <div ref={comparisonRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
@@ -239,7 +210,7 @@ const Index = () => {
 
         {/* Final CTA */}
         <section className="py-20 gradient-subtle">
-          <div ref={ctaRef} className="container max-w-3xl mx-auto px-4 text-center" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
+          <div className="container max-w-3xl mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Stop Planning in Your Head. Start Executing with Structure.
             </h2>
