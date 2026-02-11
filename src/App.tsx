@@ -25,6 +25,7 @@ import Privacy from "./pages/Privacy";
 import RefundPolicy from "./pages/RefundPolicy";
 import ServicePolicy from "./pages/ServicePolicy";
 import Contact from "./pages/Contact";
+import Ownership from "./pages/Ownership";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -125,6 +126,7 @@ const App = () => (
             <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/service-policy" element={<ServicePolicy />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/ownership" element={<Ownership />} />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}

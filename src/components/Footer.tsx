@@ -56,6 +56,9 @@ const companyLinks = [{
 }, {
   label: 'Contact',
   href: '/contact'
+}, {
+  label: 'Ownership',
+  href: '/ownership'
 }];
 const socialLinks = [{
   icon: XIcon,
