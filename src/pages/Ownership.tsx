@@ -3,22 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Footer } from '@/components/Footer';
-
 const Ownership = () => {
   const navigate = useNavigate();
   const lastUpdated = "February 11, 2026";
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="shrink-0"
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -34,9 +26,7 @@ const Ownership = () => {
 
           <section className="mb-10">
             <h2 className="text-xl font-semibold mb-4">Operator</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              Kaamyab AI is owned and operated by [YOUR FULL LEGAL NAME], an independent software developer based in Pakistan.
-            </p>
+            <p className="text-muted-foreground leading-relaxed">Kaamyab AI is owned and operated by Adil Zia, an independent software developer based in Pakistan.</p>
           </section>
 
           <Separator className="my-8" />
@@ -58,7 +48,7 @@ const Ownership = () => {
             </p>
             <ul className="list-none pl-0 space-y-2 text-muted-foreground">
               <li><strong>Email:</strong> support@kamyaab-ai.com</li>
-              <li><strong>Phone:</strong> +92-XXXXXXXXXX</li>
+              <li><strong>Phone:</strong>Phone: +923175799089</li>
             </ul>
           </section>
 
@@ -66,10 +56,7 @@ const Ownership = () => {
 
           <section className="mb-10">
             <h2 className="text-xl font-semibold mb-4">Intellectual Property</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              All platform content, software, AI systems, branding, and intellectual property are the exclusive property 
-              of [YOUR FULL LEGAL NAME], unless otherwise stated.
-            </p>
+            <p className="text-muted-foreground leading-relaxed">All platform content, software, AI systems, branding, and intellectual property are the exclusive property of Adil Zia, unless otherwise stated.</p>
           </section>
 
           <Separator className="my-8" />
@@ -84,8 +71,6 @@ const Ownership = () => {
       </main>
 
       <Footer />
-    </div>
-  );
+    </div>;
 };
-
 export default Ownership;
