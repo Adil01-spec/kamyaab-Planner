@@ -10,18 +10,21 @@ const useFadeInOnScroll = () => {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.classList.add('opacity-100', 'translate-y-0');
-          el.classList.remove('opacity-0', 'translate-y-6');
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.15 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    // Small delay to ensure layout is settled before observing
+    const timeout = setTimeout(() => {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+            observer.unobserve(el);
+          }
+        },
+        { threshold: 0.05, rootMargin: '0px 0px -40px 0px' }
+      );
+      observer.observe(el);
+    }, 100);
+    return () => clearTimeout(timeout);
   }, []);
   return ref;
 };
@@ -97,7 +100,7 @@ const Index = () => {
 
         {/* Problem Section */}
         <section className="py-20 bg-background">
-          <div ref={problemRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={problemRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Goals Fail</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -124,7 +127,7 @@ const Index = () => {
 
         {/* How It Works */}
         <section id="how-it-works" className="py-20 gradient-subtle">
-          <div ref={howItWorksRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={howItWorksRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Works</h2>
               <p className="text-muted-foreground text-lg">Three steps from idea to execution.</p>
@@ -150,7 +153,7 @@ const Index = () => {
 
         {/* Strategic Planning Highlight */}
         <section className="py-20 bg-background">
-          <div ref={strategicRef} className="container max-w-4xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={strategicRef} className="container max-w-4xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <article className="glass-card rounded-2xl p-8 md:p-12">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Strategic Planning, Not Just Task Lists</h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
@@ -165,7 +168,7 @@ const Index = () => {
 
         {/* Use Cases */}
         <section className="py-20 gradient-subtle">
-          <div ref={useCasesRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={useCasesRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What Can You Plan?</h2>
               <p className="text-muted-foreground text-lg">From professional milestones to personal growth — structured execution for any goal.</p>
@@ -192,7 +195,7 @@ const Index = () => {
 
         {/* Comparison Section */}
         <section className="py-20 bg-background">
-          <div ref={comparisonRef} className="container max-w-5xl mx-auto px-4 opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={comparisonRef} className="container max-w-5xl mx-auto px-4" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
@@ -236,7 +239,7 @@ const Index = () => {
 
         {/* Final CTA */}
         <section className="py-20 gradient-subtle">
-          <div ref={ctaRef} className="container max-w-3xl mx-auto px-4 text-center opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <div ref={ctaRef} className="container max-w-3xl mx-auto px-4 text-center" style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease-out, transform 0.7s ease-out' }}>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Stop Planning in Your Head. Start Executing with Structure.
             </h2>
