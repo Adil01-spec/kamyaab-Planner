@@ -42,11 +42,14 @@ const productLinks = [{
   href: '/help'
 }];
 const companyLinks = [{
-  label: 'About Kaamyab',
-  href: '/about'
-}, {
   label: 'Privacy Policy',
   href: '/privacy'
+}, {
+  label: 'Refund Policy',
+  href: '/refund-policy'
+}, {
+  label: 'Service Policy',
+  href: '/service-policy'
 }, {
   label: 'Terms of Service',
   href: '/terms'
