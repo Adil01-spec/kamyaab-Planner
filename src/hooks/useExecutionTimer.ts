@@ -49,10 +49,17 @@ export function useExecutionTimer({
   const [isCompleting, setIsCompleting] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isLocalOpRef = useRef(false);
 
   // Initialize timer state from local storage and plan data
   useEffect(() => {
     if (!planData) return;
+
+    // Skip re-initialization if this planData change was triggered by a local operation
+    if (isLocalOpRef.current) {
+      isLocalOpRef.current = false;
+      return;
+    }
 
     // Check for active task in plan data
     const activeTask = findActiveTask(planData);
@@ -132,6 +139,7 @@ export function useExecutionTimer({
         const result = await startTask(user.id, planData, weekIndex, taskIndex);
         
         if (result.success) {
+          isLocalOpRef.current = true;
           onPlanUpdate(result.updatedPlan);
           const task = result.updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
           if (task?.execution_started_at) {
@@ -172,6 +180,7 @@ export function useExecutionTimer({
       );
       
       if (result.success) {
+        isLocalOpRef.current = true;
         onPlanUpdate(result.updatedPlan);
         setActiveTimer(null);
         setElapsedSeconds(0);
@@ -197,6 +206,7 @@ export function useExecutionTimer({
       );
       
       if (result.success) {
+        isLocalOpRef.current = true;
         onPlanUpdate(result.updatedPlan);
         setActiveTimer(null);
         setElapsedSeconds(0);
