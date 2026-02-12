@@ -175,6 +175,7 @@ const Plan = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
   const [showStartTaskModal, setShowStartTaskModal] = useState(false);
   const [showPatternUpdate, setShowPatternUpdate] = useState(false);
@@ -550,13 +551,16 @@ const Plan = () => {
     navigate('/auth');
   };
 
-  // Delete plan and redirect to reset flow
-  const handleDeletePlan = async () => {
+  // Inline plan regeneration — no route navigation
+  const handleRegeneratePlan = async () => {
     if (!user || !plan) return;
     
     setIsDeleting(true);
+    setShowDeleteDialog(false);
+    setIsRegenerating(true);
+    
     try {
-      // Archive the current plan to history before deleting
+      // 1. Archive current plan
       if (planCreatedAt) {
         await archiveCurrentPlan(
           user.id,
@@ -567,29 +571,65 @@ const Plan = () => {
         );
       }
 
-      const { error } = await supabase
+      // 2. Delete current plan from database
+      const { error: deleteError } = await supabase
         .from('plans')
         .delete()
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
-      toast({
-        title: "Plan archived",
-        description: "Your plan has been saved to history. Creating a fresh one...",
+      // 3. Generate new plan inline via edge function
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-plan', {
+        body: {
+          profile: {
+            projectTitle: profile?.projectTitle || '',
+            projectDescription: profile?.projectDescription || '',
+            projectDeadline: profile?.projectDeadline || '',
+            profession: profile?.profession || '',
+            professionDetails: profile?.professionDetails || {},
+          }
+        }
       });
 
-      setShowDeleteDialog(false);
-      navigate('/plan/reset');
-    } catch (error) {
-      console.error('Error deleting plan:', error);
+      if (fnError) throw fnError;
+
+      const newPlanData = fnData?.plan || fnData;
+      if (!newPlanData) throw new Error('No plan data returned');
+
+      // 4. Save new plan to database
+      const { data: savedPlan, error: saveError } = await supabase
+        .from('plans')
+        .insert({
+          user_id: user.id,
+          plan_json: newPlanData,
+        })
+        .select('id, plan_json, created_at')
+        .single();
+
+      if (saveError) throw saveError;
+
+      // 5. Update local state in-place — no navigation
+      setPlan(savedPlan.plan_json as unknown as PlanData);
+      setPlanId(savedPlan.id);
+      setPlanCreatedAt(savedPlan.created_at);
+      celebratedWeeks.current.clear();
+      hasCompletedPlan.current = false;
+
       toast({
-        title: "Delete failed",
-        description: "Could not delete your plan. Please try again.",
+        title: "New plan generated!",
+        description: "Your fresh execution plan is ready.",
+      });
+    } catch (error) {
+      console.error('Error regenerating plan:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate a new plan. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
+      setIsRegenerating(false);
     }
   };
 
@@ -876,6 +916,20 @@ const Plan = () => {
     return (
       <div className="min-h-screen gradient-subtle flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Full-page loading overlay during plan regeneration
+  if (isRegenerating) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
+        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 animate-pulse-soft">
+          <Rocket className="w-8 h-8 text-primary-foreground" />
+        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">Generating your execution plan...</h2>
+        <p className="text-muted-foreground text-center max-w-sm">This may take a few seconds. Your previous plan has been archived.</p>
       </div>
     );
   }
@@ -1458,7 +1512,7 @@ const Plan = () => {
       <DeletePlanDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        onConfirm={handleDeletePlan}
+        onConfirm={handleRegeneratePlan}
         isDeleting={isDeleting}
       />
       
