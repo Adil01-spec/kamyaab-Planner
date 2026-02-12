@@ -23,8 +23,9 @@ export function CursorExplosionButton({
 }: CursorExplosionButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   
-  // Check if cursor effects are enabled
-  const effectsEnabled = !disableEffect && getDesktopSettings().cursorEffects;
+  // Check if cursor effects are enabled - only on devices with fine pointer (mouse)
+  const hasFinePointer = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+  const effectsEnabled = !disableEffect && hasFinePointer && getDesktopSettings().cursorEffects;
 
   // Generate cursor positions in concentric circles
   const cursors = useMemo(() => {

@@ -564,16 +564,29 @@ const generateICSContent = (task: CalendarTask): string => {
   return icsContent;
 };
 
-// Open Apple Calendar using data URI (triggers native iOS/macOS calendar dialog)
+// Open Apple Calendar using Blob + object URL with .ics extension
+// This ensures Safari opens the file directly in Apple Calendar
 const openAppleCalendar = (task: CalendarTask): boolean => {
   try {
     const icsContent = generateICSContent(task);
     
-    // Create data URI for the ICS content
-    const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+    // Create a Blob with correct MIME type
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     
-    // Open the data URI - on Apple devices this triggers the native "Add to Calendar" dialog
-    window.location.href = dataUri;
+    // Create a temporary link with .ics extension to hint the OS
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kaamyab-event.ics';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
     
     return true;
   } catch (error) {

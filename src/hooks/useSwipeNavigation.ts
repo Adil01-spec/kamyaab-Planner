@@ -18,8 +18,27 @@ export function useSwipeNavigation({ currentRoute, threshold = 50, enabled = tru
 
   const currentIndex = routes.indexOf(currentRoute);
 
+  const shouldIgnore = useRef(false);
+
+  const isInsideScrollableContainer = (element: EventTarget | null): boolean => {
+    let el = element as HTMLElement | null;
+    while (el) {
+      if (el.getAttribute?.('data-no-swipe-nav') !== null && el.getAttribute?.('data-no-swipe-nav') !== undefined) {
+        if (el.hasAttribute('data-no-swipe-nav')) return true;
+      }
+      const overflowX = window.getComputedStyle(el).overflowX;
+      if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+        return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  };
+
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
+    shouldIgnore.current = isInsideScrollableContainer(e.target);
+    if (shouldIgnore.current) return;
     touchEnd.current = null;
     touchStart.current = {
       x: e.targetTouches[0].clientX,
@@ -28,7 +47,7 @@ export function useSwipeNavigation({ currentRoute, threshold = 50, enabled = tru
   }, [enabled]);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!enabled) return;
+    if (!enabled || shouldIgnore.current) return;
     touchEnd.current = {
       x: e.targetTouches[0].clientX,
       y: e.targetTouches[0].clientY,
@@ -36,7 +55,7 @@ export function useSwipeNavigation({ currentRoute, threshold = 50, enabled = tru
   }, [enabled]);
 
   const onTouchEnd = useCallback(() => {
-    if (!enabled || !touchStart.current || !touchEnd.current) return;
+    if (!enabled || shouldIgnore.current || !touchStart.current || !touchEnd.current) return;
 
     const distanceX = touchStart.current.x - touchEnd.current.x;
     const distanceY = touchStart.current.y - touchEnd.current.y;

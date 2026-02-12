@@ -58,16 +58,18 @@ export function useExecutionTimer({
     const activeTask = findActiveTask(planData);
     
     if (activeTask) {
-      const elapsed = calculateElapsedSeconds(activeTask.task.execution_started_at);
+      const liveElapsed = calculateElapsedSeconds(activeTask.task.execution_started_at);
+      const accumulated = activeTask.task.time_spent_seconds || 0;
       const timerState: ActiveTimerState = {
         weekIndex: activeTask.weekIndex,
         taskIndex: activeTask.taskIndex,
         taskTitle: activeTask.task.title,
         started_at: activeTask.task.execution_started_at,
-        elapsed_seconds: elapsed,
+        elapsed_seconds: accumulated + liveElapsed,
+        accumulated_seconds: accumulated,
       };
       setActiveTimer(timerState);
-      setElapsedSeconds(elapsed);
+      setElapsedSeconds(accumulated + liveElapsed);
       setLocalActiveTimer(timerState);
     } else {
       // Check local storage as fallback
@@ -97,8 +99,8 @@ export function useExecutionTimer({
   useEffect(() => {
     if (activeTimer) {
       intervalRef.current = setInterval(() => {
-        const newElapsed = calculateElapsedSeconds(activeTimer.started_at);
-        setElapsedSeconds(newElapsed);
+        const liveElapsed = calculateElapsedSeconds(activeTimer.started_at);
+        setElapsedSeconds((activeTimer.accumulated_seconds || 0) + liveElapsed);
       }, 1000);
     } else {
       if (intervalRef.current) {
@@ -133,14 +135,16 @@ export function useExecutionTimer({
           onPlanUpdate(result.updatedPlan);
           const task = result.updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
           if (task?.execution_started_at) {
+            const accumulated = task.time_spent_seconds || 0;
             setActiveTimer({
               weekIndex,
               taskIndex,
               taskTitle,
               started_at: task.execution_started_at,
-              elapsed_seconds: 0,
+              elapsed_seconds: accumulated,
+              accumulated_seconds: accumulated,
             });
-            setElapsedSeconds(0);
+            setElapsedSeconds(accumulated);
           }
         }
         
