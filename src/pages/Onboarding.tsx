@@ -690,6 +690,20 @@ const Onboarding = () => {
   const isLastStep = step === totalSteps;
   const isStrategicStep = type === 'strategicStep';
 
+  // Full-page loading overlay during plan generation
+  if (loading) {
+    return (
+      <div className="min-h-screen gradient-subtle flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-6 animate-pulse-soft">
+          <Rocket className="w-8 h-8 text-primary-foreground" />
+        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">Generating your execution plan…</h2>
+        <p className="text-muted-foreground text-sm text-center">This may take a few seconds.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-subtle">
       <div className="w-full max-w-md">

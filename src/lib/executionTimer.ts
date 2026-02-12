@@ -19,6 +19,7 @@ export interface ActiveTimerState {
   taskTitle: string;
   started_at: string;
   elapsed_seconds: number;
+  accumulated_seconds: number;
 }
 
 // Get the active timer from localStorage (for quick access before Supabase sync)
@@ -279,6 +280,7 @@ export async function startTask(
       taskTitle: task?.title || 'Task',
       started_at: now,
       elapsed_seconds: 0,
+      accumulated_seconds: task?.time_spent_seconds || 0,
     });
   }
   

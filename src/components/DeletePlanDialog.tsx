@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface DeletePlanDialogProps {
   open: boolean;
@@ -29,9 +29,9 @@ export const DeletePlanDialog = ({
           <div className="mx-auto sm:mx-0 w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mb-2">
             <AlertTriangle className="w-6 h-6 text-destructive" />
           </div>
-          <DialogTitle className="text-xl">Delete current plan?</DialogTitle>
+          <DialogTitle className="text-xl">Generate New Plan?</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            This will permanently remove your current plan. Your profile and preferences will stay safe.
+            Creating a new plan will permanently delete your current plan. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
@@ -52,12 +52,12 @@ export const DeletePlanDialog = ({
             {isDeleting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Deleting...
+                Generating...
               </>
             ) : (
               <>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Plan
+                <Sparkles className="w-4 h-4 mr-2" />
+                Confirm
               </>
             )}
           </Button>

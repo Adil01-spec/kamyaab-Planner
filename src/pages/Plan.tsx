@@ -1439,19 +1439,11 @@ const Plan = () => {
               </Card>
             )}
 
-            {/* Action Buttons - Touch optimized */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4">
+            {/* Action Button - Touch optimized */}
+            <div className="flex items-center justify-center pt-4">
               <Button 
                 variant="outline" 
                 onClick={() => setShowDeleteDialog(true)}
-                className="touch-press glass border-border/50 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 min-h-[48px]"
-              >
-                <Trash2 className="w-5 h-5 mr-2" />
-                Delete this plan
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/plan/new')}
                 className="touch-press glass border-primary/30 hover:bg-primary/5 min-h-[48px]"
               >
                 <Sparkles className="w-5 h-5 mr-2" />
