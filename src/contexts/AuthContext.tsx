@@ -134,9 +134,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        if (!isMounted) return;
+
         // Handle token errors (common on iOS Safari after OAuth)
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('Token refresh failed, clearing session');
@@ -148,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        // Handle sign in errors
+        // Handle sign out
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
@@ -160,16 +164,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer profile fetch with setTimeout to avoid deadlock
+        // CRITICAL: Fetch profile BEFORE setting loading=false
+        // No setTimeout — profile must be resolved before routes render
         if (session?.user) {
-          setTimeout(async () => {
-            await fetchProfile(session.user.id);
-            setLoading(false);
-          }, 0);
+          await fetchProfile(session.user.id);
         } else {
           setProfile(null);
-          setLoading(false);
         }
+        if (isMounted) setLoading(false);
       }
     );
 
@@ -178,6 +180,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (!isMounted) return;
+
         // Handle stale/invalid tokens
         if (error) {
           const isTokenError = error.message?.includes('Refresh Token') || 
@@ -212,20 +216,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           await fetchProfile(session.user.id);
         }
-        setLoading(false);
+        if (isMounted) setLoading(false);
       } catch (err) {
         console.error('Session init error:', err);
         clearPartialSession();
         setSession(null);
         setUser(null);
         setProfile(null);
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     initSession();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
