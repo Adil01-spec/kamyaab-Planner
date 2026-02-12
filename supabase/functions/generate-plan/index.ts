@@ -668,24 +668,88 @@ RESPOND WITH ONLY THE JSON OBJECT.`;
       throw new Error("No content in AI response");
     }
 
-    // Parse JSON from response
-    let planJson;
-    try {
-      planJson = JSON.parse(content);
-    } catch {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        planJson = JSON.parse(jsonMatch[1].trim());
+    // Robust JSON extraction that handles truncated LLM output
+    function extractJsonFromResponse(raw: string): unknown {
+      // Step 1: Remove markdown code blocks
+      let cleaned = raw
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // Step 2: Find JSON boundaries
+      const jsonStart = cleaned.search(/[\{\[]/);
+      if (jsonStart === -1) throw new Error("No JSON found in AI response");
+      
+      const isArray = cleaned[jsonStart] === '[';
+      const closeChar = isArray ? ']' : '}';
+      const jsonEnd = cleaned.lastIndexOf(closeChar);
+
+      if (jsonEnd > jsonStart) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
       } else {
-        const jsonStart = content.indexOf("{");
-        const jsonEnd = content.lastIndexOf("}");
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          planJson = JSON.parse(content.slice(jsonStart, jsonEnd + 1));
-        } else {
-          throw new Error("Could not parse JSON from AI response");
+        // Closing char missing — truncated output
+        cleaned = cleaned.substring(jsonStart);
+      }
+
+      // Step 3: Try direct parse
+      try {
+        return JSON.parse(cleaned);
+      } catch (_firstErr) {
+        // Step 4: Repair common issues
+        cleaned = cleaned
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, "");
+
+        // Step 5: Balance braces/brackets for truncated output
+        const openBraces = (cleaned.match(/{/g) || []).length;
+        const closeBraces = (cleaned.match(/}/g) || []).length;
+        const openBrackets = (cleaned.match(/\[/g) || []).length;
+        const closeBrackets = (cleaned.match(/]/g) || []).length;
+
+        // Remove any trailing partial key-value (e.g. `"title": "Some incompl`)
+        // by trimming back to the last complete value
+        if (openBraces > closeBraces || openBrackets > closeBrackets) {
+          // Find last complete JSON element boundary
+          const lastGoodComma = cleaned.lastIndexOf(',');
+          const lastGoodBrace = cleaned.lastIndexOf('}');
+          const lastGoodBracket = cleaned.lastIndexOf(']');
+          const cutPoint = Math.max(lastGoodComma, lastGoodBrace, lastGoodBracket);
+          
+          if (cutPoint > jsonStart) {
+            // Remove trailing comma if we cut at one
+            cleaned = cleaned.substring(0, cutPoint + 1);
+            if (cleaned.endsWith(',')) {
+              cleaned = cleaned.slice(0, -1);
+            }
+          }
+        }
+
+        // Re-count after trimming
+        const ob = (cleaned.match(/{/g) || []).length;
+        const cb = (cleaned.match(/}/g) || []).length;
+        const obk = (cleaned.match(/\[/g) || []).length;
+        const cbk = (cleaned.match(/]/g) || []).length;
+
+        if (obk > cbk) cleaned += ']'.repeat(obk - cbk);
+        if (ob > cb) cleaned += '}'.repeat(ob - cb);
+
+        // Final trailing-comma cleanup after adding closers
+        cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+
+        try {
+          return JSON.parse(cleaned);
+        } catch (finalErr) {
+          console.error("JSON repair failed. First 500 chars:", cleaned.substring(0, 500));
+          console.error("Last 500 chars:", cleaned.substring(cleaned.length - 500));
+          throw new Error(`Failed to parse AI response as JSON: ${(finalErr as Error).message}`);
         }
       }
     }
+
+    // Parse JSON from response
+    let planJson;
+    planJson = extractJsonFromResponse(content);
 
     // Validate required fields
     if (!planJson.overview || !planJson.weeks || !Array.isArray(planJson.weeks)) {
