@@ -133,15 +133,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Auth state listener — synchronous only, no await
   useEffect(() => {
     let isMounted = true;
 
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!isMounted) return;
 
-        // Handle token errors (common on iOS Safari after OAuth)
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('Token refresh failed, clearing session');
           clearPartialSession();
@@ -152,7 +151,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
-        // Handle sign out
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
@@ -163,77 +161,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // CRITICAL: Fetch profile BEFORE setting loading=false
-        // No setTimeout — profile must be resolved before routes render
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-        if (isMounted) setLoading(false);
       }
     );
-
-    // THEN check for existing session
-    const initSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!isMounted) return;
-
-        // Handle stale/invalid tokens
-        if (error) {
-          const isTokenError = error.message?.includes('Refresh Token') || 
-                               error.message?.includes('token') ||
-                               error.message?.includes('signature');
-          if (isTokenError) {
-            console.warn('Invalid session token, clearing');
-            clearPartialSession();
-            await supabase.auth.signOut();
-          }
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-        
-        // Validate session has required tokens
-        if (session && (!session.access_token || !session.refresh_token)) {
-          console.warn('Incomplete session, clearing');
-          clearPartialSession();
-          await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        }
-        if (isMounted) setLoading(false);
-      } catch (err) {
-        console.error('Session init error:', err);
-        clearPartialSession();
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    initSession();
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
+  // Fetch profile when user changes — separate from auth callback to avoid SDK lock deadlock
+  useEffect(() => {
+    if (user === null) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    fetchProfile(user.id).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
