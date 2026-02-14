@@ -1,69 +1,63 @@
 
 
-# Fix: Timer Pause Resets Instead of Preserving State
+# Fix: Infinite Loading Screen (Auth Deadlock)
 
 ## Root Cause
 
-The `useEffect([planData])` hook in `useExecutionTimer.ts` (line 54-96) runs every time `planData` changes. When the user pauses:
-
-1. `pauseTask()` sets `execution_state` to `'pending'` and clears `execution_started_at`
-2. `onPlanUpdate()` triggers a `planData` change
-3. The effect runs, calls `findActiveTask()` which returns `null` (no task is 'doing')
-4. The effect resets `activeTimer` to `null` and `elapsedSeconds` to `0`
-
-This happens AFTER `pauseTaskTimer` already set `activeTimer = null` and `elapsedSeconds = 0` on lines 200-201. But even without those lines, the effect would still wipe the state. The core problem is that **the effect doesn't know the difference between "no active task because user paused" vs "no active task on initial load"**.
+In `src/contexts/AuthContext.tsx` (lines 140-176), the `onAuthStateChange` callback is `async` and `await`s `fetchProfile()`. Supabase's JS SDK holds an internal lock during auth state change dispatch. The `await` suspends the callback mid-execution, preventing the lock from releasing. Meanwhile, `initSession()` calls `getSession()` which also needs that lock -- creating a deadlock. Both hang forever, `loading` never becomes `false`.
 
 ## Solution
 
-Two changes in `src/hooks/useExecutionTimer.ts`:
+**Do not `await` inside `onAuthStateChange`**. Instead, use the callback only to set `user` and `session`, then trigger profile fetching in a **separate `useEffect`** that watches the `user` state.
 
-### Change 1: Guard the planData effect against local operations
+## Changes to `src/contexts/AuthContext.tsx`
 
-Add a ref `isLocalOperation` that is set to `true` before calling `onPlanUpdate` in pause/complete/start flows, and checked by the `useEffect([planData])`. When `isLocalOperation` is true, the effect skips re-initialization (the local state is already correct).
+### 1. Make `onAuthStateChange` synchronous (no await)
 
-### Change 2: Preserve elapsed time on pause
+Replace the async callback with a synchronous one that only sets `user`, `session`, and handles sign-out/error cases. It should NOT call `fetchProfile` or `setLoading(false)`.
 
-In `pauseTaskTimer`, do NOT reset `elapsedSeconds` to 0. Instead, keep the current value so the UI shows the accumulated time. Set `activeTimer` to null (stopping the interval) but preserve `elapsedSeconds` as a display value.
+### 2. Remove `initSession` function entirely
 
-Actually, the user's requirement is Start -> Pause -> Resume -> Done. After pause, the task goes back to 'pending/idle' UI and the user clicks "Start" again to resume. At that point, `startTask` picks up `time_spent_seconds` from the task data (which was accumulated during pause). So the real fix is:
+The `onAuthStateChange` listener already fires an `INITIAL_SESSION` event which provides the current session. There is no need for a separate `getSession()` call -- that is what causes the deadlock.
 
-- In `startTaskTimer`, when the task already has `time_spent_seconds`, set `accumulated_seconds` to that value and display `accumulated + liveElapsed`.
-- The current code already does this at line 138: `const accumulated = task.time_spent_seconds || 0`.
-
-But the bug is that `onPlanUpdate` triggers the `useEffect([planData])` which re-runs and overwrites the state set by `startTaskTimer`. So the guard ref is the critical fix.
-
-### Files Modified
-
-**`src/hooks/useExecutionTimer.ts`**:
-- Add `const isLocalOpRef = useRef(false)` 
-- In the `useEffect([planData])`, add early return if `isLocalOpRef.current` is true, then reset the ref
-- In `startTaskTimer`, `pauseTaskTimer`, and `completeTaskTimer`: set `isLocalOpRef.current = true` before calling `onPlanUpdate`
-- This prevents the planData effect from stomping on locally-set timer state
-
-### Why This Fixes It
-
-- **Pause**: `pauseTaskTimer` sets `isLocalOpRef = true`, calls `onPlanUpdate`. The effect sees the flag, skips re-init. Timer state (`activeTimer = null`, `elapsedSeconds = 0`) stays as set by pauseTaskTimer. The accumulated time is saved in the DB's `time_spent_seconds`.
-- **Resume (Start again)**: `startTaskTimer` reads `task.time_spent_seconds` (which has the accumulated value from pause), sets `accumulated_seconds` correctly. Sets `isLocalOpRef = true` before `onPlanUpdate` so the effect doesn't overwrite.
-- **No memory leaks**: The interval cleanup in the effect's return function handles this. The `isLocalOpRef` doesn't create any new intervals.
-- **No double intervals in React Strict Mode**: The effect depends on `activeTimer?.started_at` and always clears existing interval before setting a new one via the cleanup return.
-
-### Technical Details
+### 3. Add a `useEffect` that watches `user` to fetch the profile
 
 ```text
-Before fix:
-  Pause click
-    -> pauseTask() saves time to DB
-    -> onPlanUpdate(newPlan) 
-    -> useEffect([planData]) fires
-    -> findActiveTask() = null (task is 'pending')
-    -> setElapsedSeconds(0)  <-- BUG: wipes display
-    
-After fix:
-  Pause click
-    -> pauseTask() saves time to DB  
-    -> isLocalOpRef.current = true
-    -> onPlanUpdate(newPlan)
-    -> useEffect([planData]) fires
-    -> sees isLocalOpRef.current === true
-    -> resets ref, returns early  <-- no wipe
+useEffect:
+  dependency: [user]
+  if user is null:
+    setProfile(null)
+    setLoading(false)   // no user = auth resolved, done
+    return
+  if user exists:
+    fetchProfile(user.id).then(() => setLoading(false))
 ```
+
+This guarantees:
+- The Supabase lock is never held during a network request
+- `loading` stays `true` until the profile fetch completes (or confirms no profile)
+- No race condition between two parallel code paths
+
+### 4. Handle the initial "no session" case
+
+When `onAuthStateChange` fires with `INITIAL_SESSION` and `session` is `null`, the user state becomes `null`. The `useEffect([user])` sees `user === null` and sets `loading = false`. The landing page renders.
+
+## Resulting Flow
+
+```text
+App mounts
+  -> onAuthStateChange registered
+  -> INITIAL_SESSION fires (sync, no await)
+  -> sets user + session (or null)
+  -> useEffect([user]) runs
+     -> user exists: fetchProfile, then setLoading(false)
+     -> user null: setLoading(false) immediately
+  -> Routes render with settled state
+```
+
+## Files Modified
+- `src/contexts/AuthContext.tsx` -- restructure to avoid awaiting inside onAuthStateChange
+
+## What This Fixes
+- Infinite loading screen caused by Supabase SDK internal lock deadlock
+- No behavioral change to the auth flow -- same end result, just no deadlock
