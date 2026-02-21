@@ -18,7 +18,7 @@ import {
 } from '@/lib/dayClosure';
 
 interface TaskData {
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   completed?: boolean;
   partial_progress?: 'some' | 'most' | 'almost';
   deferred_to?: string;

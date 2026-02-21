@@ -100,7 +100,7 @@ interface Task {
   explanation?: TaskExplanation | string;
   how_to?: string;
   expected_outcome?: string;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   [key: string]: any;
 }
 
@@ -493,9 +493,11 @@ const Plan = () => {
     task: Task,
     weekIndex: number,
     taskIndex: number
-  ): 'pending' | 'doing' | 'done' => {
+  ): 'idle' | 'doing' | 'paused' | 'done' => {
     if (task.execution_state === 'doing') return 'doing';
     if (task.execution_state === 'done') return 'done';
+    if (task.execution_state === 'paused') return 'paused';
+    if (task.execution_state === 'idle') return 'idle';
     
     if (
       executionTimer.activeTimer?.weekIndex === weekIndex &&
@@ -504,7 +506,12 @@ const Plan = () => {
       return 'doing';
     }
     
-    return 'pending';
+    // Legacy migration: 'pending' or missing
+    if (task.execution_state === 'pending') {
+      return ((task as any).time_spent_seconds ?? 0) > 0 ? 'paused' : 'idle';
+    }
+    
+    return task.completed ? 'done' : 'idle';
   }, [executionTimer.activeTimer]);
 
   // Helper to get elapsed seconds for a task
@@ -643,7 +650,7 @@ const Plan = () => {
     
     // Update execution_state (source of truth) and legacy completed
     if (wasCompleted) {
-      task.execution_state = 'pending';
+      task.execution_state = 'idle';
       task.completed = false;
     } else {
       task.execution_state = 'done';
@@ -698,7 +705,7 @@ const Plan = () => {
         task.execution_state = 'done';
         task.completed = true;
       } else {
-        task.execution_state = 'pending';
+        task.execution_state = 'idle';
         task.completed = false;
       }
       setPlan({ ...updatedPlan });

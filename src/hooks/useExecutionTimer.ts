@@ -34,7 +34,7 @@ interface UseExecutionTimerReturn {
   completeTaskTimer: () => Promise<{ success: boolean; timeSpent: number }>;
   pauseTaskTimer: () => Promise<boolean>;
   isTaskActive: (weekIndex: number, taskIndex: number) => boolean;
-  getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'done';
+  getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'paused' | 'done';
 }
 
 export function useExecutionTimer({
@@ -228,15 +228,23 @@ export function useExecutionTimer({
     [activeTimer]
   );
 
-  // Get the status of a specific task
+  // Get the status of a specific task using normalized execution state
   const getTaskStatus = useCallback(
-    (weekIndex: number, taskIndex: number): 'idle' | 'doing' | 'done' => {
+    (weekIndex: number, taskIndex: number): 'idle' | 'doing' | 'paused' | 'done' => {
       const task = planData?.weeks?.[weekIndex]?.tasks?.[taskIndex];
       if (!task) return 'idle';
 
-      if (task.execution_state === 'doing') return 'doing';
-      if (task.execution_state === 'done' || task.completed) return 'done';
-      return 'idle'; // pending maps to idle for UI compatibility
+      // Import is at top level; use inline to avoid circular deps
+      const state = task.execution_state;
+      if (state === 'doing') return 'doing';
+      if (state === 'done') return 'done';
+      if (state === 'paused') return 'paused';
+      if (state === 'idle') return 'idle';
+      // Legacy: 'pending' or missing
+      if (state === 'pending') {
+        return (task.time_spent_seconds ?? 0) > 0 ? 'paused' : 'idle';
+      }
+      return task.completed ? 'done' : 'idle';
     },
     [planData]
   );

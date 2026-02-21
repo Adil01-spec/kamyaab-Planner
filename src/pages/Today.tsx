@@ -61,9 +61,9 @@ interface PlanData {
         completed_at?: string;
         scheduled_at?: string;
         // New explicit execution state for Today flows
-        execution_state?: 'pending' | 'doing' | 'done';
-        // Legacy / backward-compat fields (still present in older plans)
-        execution_status?: 'idle' | 'doing' | 'done';
+        execution_state?: 'idle' | 'doing' | 'paused' | 'done';
+        // Legacy fields (still present in older plans, no longer written)
+        execution_status?: string;
         execution_started_at?: string;
         time_spent_seconds?: number;
         explanation?: {
@@ -227,20 +227,24 @@ const Today = () => {
   });
 
 
-  type ExecutionState = 'pending' | 'doing' | 'done';
+  type ExecutionState = 'idle' | 'doing' | 'paused' | 'done';
 
   const getExecutionState = useCallback((task: any): ExecutionState => {
     const s = task?.execution_state;
 
     // Source of truth: explicit execution_state
-    if (s === 'pending' || s === 'doing' || s === 'done') {
-      return s;
+    if (s === 'doing') return 'doing';
+    if (s === 'done') return 'done';
+    if (s === 'paused') return 'paused';
+    if (s === 'idle') return 'idle';
+
+    // Legacy migration: 'pending' maps based on time spent
+    if (s === 'pending') {
+      return (task?.time_spent_seconds ?? 0) > 0 ? 'paused' : 'idle';
     }
 
-    // Backward compat: ONLY honor legacy `completed` boolean.
-    // We intentionally ignore legacy `execution_status` because stale values have been
-    // causing tasks to appear "done" on page load.
-    return task?.completed ? 'done' : 'pending';
+    // No execution_state at all (legacy tasks)
+    return task?.completed ? 'done' : 'idle';
   }, []);
 
   // Get tasks scheduled for today
@@ -372,7 +376,7 @@ const Today = () => {
     };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex];
 
-    // Hard guard: pending tasks cannot be completed
+    // Hard guard: idle/paused tasks cannot be completed directly
     if (getExecutionState(task) !== 'doing') {
       console.warn('[Today] Prohibited completion: task is not doing', { weekIndex, taskIndex, state: getExecutionState(task) });
       return;
@@ -386,8 +390,7 @@ const Today = () => {
 
     // Mark as done
     (task as any).execution_state = 'done';
-    (task as any).execution_status = 'done'; // legacy
-    task.completed = true; // legacy
+    task.completed = true; // legacy compat
     task.completed_at = new Date().toISOString();
 
     // Store scheduled_at for duration tracking
@@ -415,8 +418,7 @@ const Today = () => {
     } catch (err) {
       console.error('Error completing task:', err);
       // Revert on error
-      (task as any).execution_state = 'pending';
-      (task as any).execution_status = 'idle';
+      (task as any).execution_state = 'doing';
       task.completed = false;
       task.completed_at = undefined;
       (task as any).scheduled_at = undefined;

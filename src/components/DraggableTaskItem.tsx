@@ -26,7 +26,7 @@ interface Task {
   explanation?: TaskExplanation | string;
   how_to?: string;
   expected_outcome?: string;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   [key: string]: any;
 }
 
@@ -43,7 +43,7 @@ interface DraggableTaskItemProps {
   onToggle: () => void;
   onCalendarStatusChange?: () => void;
   onStartTask?: () => void;
-  executionState: 'pending' | 'doing' | 'done';
+  executionState: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds: number;
   canDrag: boolean;
   blockReason?: string;
