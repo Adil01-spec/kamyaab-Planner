@@ -9,7 +9,7 @@ interface Task {
   priority: 'High' | 'Medium' | 'Low';
   estimated_hours: number;
   completed?: boolean;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   [key: string]: any;
 }
 
@@ -100,7 +100,7 @@ export function useTaskMutations({
       priority: task.priority,
       estimated_hours: task.estimated_hours,
       completed: false,
-      execution_state: 'pending',
+      execution_state: 'idle',
       // Optional description as explanation
       ...(task.description && { how_to: task.description }),
     };
@@ -230,7 +230,7 @@ export function useTaskMutations({
       priority: originalTask.priority,
       estimated_hours: task1.estimated_hours,
       completed: false,
-      execution_state: 'pending',
+      execution_state: 'idle',
     };
 
     const newTask2: Task = {
@@ -238,7 +238,7 @@ export function useTaskMutations({
       priority: originalTask.priority,
       estimated_hours: task2.estimated_hours,
       completed: false,
-      execution_state: 'pending',
+      execution_state: 'idle',
     };
 
     // Replace original task with two new tasks

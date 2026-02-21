@@ -16,9 +16,9 @@ interface Task {
   completed_at?: string;
   scheduled_at?: string;
   /** execution_state is the source of truth for task state */
-  execution_state?: 'pending' | 'doing' | 'done';
-  /** @deprecated Use execution_state instead */
-  execution_status?: 'idle' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
+  /** @deprecated Legacy field, no longer written */
+  execution_status?: string;
   execution_started_at?: string;
   time_spent_seconds?: number;
   explanation?: {

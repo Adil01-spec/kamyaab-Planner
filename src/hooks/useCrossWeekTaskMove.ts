@@ -8,7 +8,7 @@ interface Task {
   priority: 'High' | 'Medium' | 'Low';
   estimated_hours: number;
   completed?: boolean;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   [key: string]: any;
 }
 

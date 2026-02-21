@@ -3,7 +3,7 @@ interface Task {
   priority: string;
   estimated_hours: number;
   completed?: boolean;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
 }
 
 interface Week {
@@ -34,7 +34,9 @@ export interface PlanProgress {
 function isTaskDone(task: Task): boolean {
   // execution_state is the source of truth
   if (task.execution_state === 'done') return true;
-  if (task.execution_state === 'pending' || task.execution_state === 'doing') return false;
+  if (task.execution_state === 'idle' || task.execution_state === 'doing' || task.execution_state === 'paused') return false;
+  // Legacy migration: 'pending' is never done
+  if (task.execution_state === 'pending') return false;
   // Legacy fallback: only use completed if execution_state is not set
   return task.completed === true;
 }

@@ -128,7 +128,7 @@ interface SnapshotTask {
   completed?: boolean;
   completed_at?: string;
   deferred_to?: string;
-  execution_state?: 'pending' | 'doing' | 'done';
+  execution_state?: 'idle' | 'doing' | 'paused' | 'done';
 }
 
 interface SnapshotWeek {

@@ -9,7 +9,7 @@ interface Week {
   week: number;
   tasks: {
     completed?: boolean;
-    execution_state?: 'pending' | 'doing' | 'done';
+    execution_state?: 'idle' | 'doing' | 'paused' | 'done';
   }[];
 }
 

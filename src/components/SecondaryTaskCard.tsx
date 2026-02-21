@@ -38,7 +38,7 @@ interface SecondaryTaskCardProps {
   isScheduled?: boolean;
   fallbackExplanation?: string;
   onStartTask?: () => void;
-  executionStatus?: 'idle' | 'doing' | 'done';
+  executionStatus?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
 }
 
@@ -151,6 +151,33 @@ export function SecondaryTaskCard({
                 className="text-xs text-muted-foreground"
               >
                 In progress
+              </motion.div>
+            ) : executionStatus === 'paused' ? (
+              <motion.div
+                key="paused"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <Button
+                  onClick={() => {
+                    hapticSelection();
+                    onStartTask?.();
+                  }}
+                  disabled={isCompleting}
+                  size="sm"
+                  variant="outline"
+                  className="touch-press h-9 px-3 shrink-0 border-primary/30 text-primary"
+                >
+                  {isCompleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Clock className="w-4 h-4 mr-1" />
+                      Resume
+                    </>
+                  )}
+                </Button>
               </motion.div>
             ) : (
               <motion.div

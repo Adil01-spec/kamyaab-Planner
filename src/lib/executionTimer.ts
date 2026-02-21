@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
 
-export type TaskExecutionStatus = 'idle' | 'doing' | 'done';
+export type TaskExecutionStatus = 'idle' | 'doing' | 'paused' | 'done';
 
 export interface TaskExecutionState {
   status: TaskExecutionStatus;
@@ -20,6 +20,27 @@ export interface ActiveTimerState {
   started_at: string;
   elapsed_seconds: number;
   accumulated_seconds: number;
+}
+
+/**
+ * Normalize legacy execution_state values to the new 4-state model.
+ * Maps 'pending' -> 'paused' (if time spent) or 'idle' (if not).
+ * Handles missing/undefined values for legacy tasks.
+ */
+export function normalizeExecutionState(
+  task: { execution_state?: string; completed?: boolean; time_spent_seconds?: number }
+): TaskExecutionStatus {
+  const state = task.execution_state;
+  if (state === 'doing') return 'doing';
+  if (state === 'done') return 'done';
+  if (state === 'paused') return 'paused';
+  if (state === 'idle') return 'idle';
+  // Legacy migration: 'pending' or missing
+  if (state === 'pending') {
+    return (task.time_spent_seconds ?? 0) > 0 ? 'paused' : 'idle';
+  }
+  // No execution_state at all (legacy tasks)
+  return task.completed ? 'done' : 'idle';
 }
 
 // Get the active timer from localStorage (for quick access before Supabase sync)
@@ -102,15 +123,7 @@ export function getTaskExecutionState(
     };
   }
 
-  const explicitState = task.execution_state;
-  const status: TaskExecutionStatus =
-    explicitState === 'doing'
-      ? 'doing'
-      : explicitState === 'done'
-        ? 'done'
-        : task.completed
-          ? 'done'
-          : 'idle';
+  const status = normalizeExecutionState(task);
 
   return {
     status,
@@ -164,7 +177,8 @@ export function areAllTasksCompleted(planData: any): boolean {
   for (const week of planData.weeks) {
     if (!week?.tasks) continue;
     for (const task of week.tasks) {
-      if (task.execution_state !== 'done' && !task.completed) {
+      const state = normalizeExecutionState(task);
+      if (state !== 'done') {
         return false;
       }
     }
@@ -179,8 +193,7 @@ export async function updateTaskExecution(
   weekIndex: number,
   taskIndex: number,
   updates: Partial<{
-    execution_state: 'pending' | 'doing' | 'done';
-    execution_status: TaskExecutionStatus;
+    execution_state: TaskExecutionStatus;
     execution_started_at: string | null;
     completed_at: string | null;
     time_spent_seconds: number;
@@ -244,8 +257,7 @@ export async function startTask(
       activeTask.weekIndex,
       activeTask.taskIndex,
       {
-        execution_state: 'pending',
-        execution_status: 'idle',
+        execution_state: 'paused',
         execution_started_at: null,
         time_spent_seconds: (activeTask.task.time_spent_seconds || 0) + elapsed,
       }
@@ -266,7 +278,6 @@ export async function startTask(
     taskIndex,
      {
        execution_state: 'doing',
-       execution_status: 'doing',
        execution_started_at: now,
      }
   );
@@ -324,7 +335,6 @@ export async function completeTask(
     taskIndex,
     {
       execution_state: 'done',
-      execution_status: 'done',
       execution_started_at: null,
       completed_at: now,
       time_spent_seconds: timeSpent,
@@ -340,7 +350,7 @@ export async function completeTask(
   return { ...result, timeSpent };
 }
 
-// Pause a task (set status to 'idle', preserve time)
+// Pause a task (set status to 'paused', preserve time)
 export async function pauseTask(
   userId: string,
   planData: any,
@@ -365,8 +375,7 @@ export async function pauseTask(
     weekIndex,
     taskIndex,
     {
-      execution_state: 'pending',
-      execution_status: 'idle',
+      execution_state: 'paused',
       execution_started_at: null,
       time_spent_seconds: (task.time_spent_seconds || 0) + additionalTime,
     }

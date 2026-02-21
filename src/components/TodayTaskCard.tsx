@@ -40,7 +40,7 @@ interface TodayTaskCardProps {
   showExpandable?: boolean;
   fallbackExplanation?: string;
   onStartTask?: () => void;
-  executionStatus?: 'idle' | 'doing' | 'done';
+  executionStatus?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
 }
 
@@ -180,6 +180,38 @@ export function TodayTaskCard({
               <span className="text-sm text-muted-foreground">
                 Use the timer below to complete
               </span>
+            </motion.div>
+          ) : executionStatus === 'paused' ? (
+            <motion.div
+              key="resume-btn"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  hapticSelection();
+                  onStartTask?.();
+                }}
+                disabled={isCompleting}
+                size={isPrimary ? "lg" : "default"}
+                className={cn(
+                  "w-full touch-press font-medium",
+                  isPrimary 
+                    ? "gradient-kaamyab hover:opacity-90 h-12 text-base" 
+                    : "h-10"
+                )}
+              >
+                {isCompleting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Clock className="w-5 h-5 mr-2" />
+                    {isPrimary ? 'Resume this task' : 'Resume'}
+                  </>
+                )}
+              </Button>
             </motion.div>
           ) : (
             <motion.div

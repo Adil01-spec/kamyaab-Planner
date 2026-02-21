@@ -38,7 +38,7 @@ interface PrimaryTaskCardProps {
   isScheduled?: boolean;
   fallbackExplanation?: string;
   onStartTask?: () => void;
-  executionStatus?: 'idle' | 'doing' | 'done';
+  executionStatus?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
 }
 
@@ -174,6 +174,32 @@ export function PrimaryTaskCard({
               className="text-center py-3 text-sm text-muted-foreground"
             >
               Use the timer below to mark as complete
+            </motion.div>
+          ) : executionStatus === 'paused' ? (
+            <motion.div
+              key="paused"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <Button
+                onClick={() => {
+                  hapticSelection();
+                  onStartTask?.();
+                }}
+                disabled={isCompleting}
+                size="lg"
+                className="w-full gradient-kaamyab hover:opacity-90 touch-press h-14 text-base font-semibold rounded-xl"
+              >
+                {isCompleting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 mr-2 fill-current" />
+                    Resume this task
+                  </>
+                )}
+              </Button>
             </motion.div>
           ) : (
             <motion.div
