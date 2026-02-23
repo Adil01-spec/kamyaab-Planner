@@ -8,8 +8,10 @@ import {
   Target,
   Lightbulb,
   Loader2,
-  CalendarCheck
+  CalendarCheck,
+  Pause
 } from 'lucide-react';
+import { formatTimerDisplay } from '@/lib/executionTimer';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticSelection } from '@/lib/hapticFeedback';
@@ -124,9 +126,17 @@ export function SecondaryTaskCard({
               <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded-md bg-primary/10 w-fit">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-primary font-mono">
-                  {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
-                  {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
-                  {(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  {formatTimerDisplay(elapsedSeconds)}
+                </span>
+              </div>
+            )}
+
+            {/* Paused Indicator */}
+            {executionStatus === 'paused' && elapsedSeconds > 0 && (
+              <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded-md bg-muted/40 w-fit">
+                <Pause className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground/80">
+                  Paused at {formatTimerDisplay(elapsedSeconds)}
                 </span>
               </div>
             )}
