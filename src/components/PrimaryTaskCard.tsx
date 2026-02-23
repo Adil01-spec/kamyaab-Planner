@@ -9,8 +9,10 @@ import {
   Lightbulb,
   Check,
   Loader2,
-  CalendarCheck
+  CalendarCheck,
+  Pause
 } from 'lucide-react';
+import { formatTimerDisplay } from '@/lib/executionTimer';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticSelection } from '@/lib/hapticFeedback';
@@ -146,11 +148,19 @@ export function PrimaryTaskCard({
           <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
             <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
             <span className="text-lg font-bold text-primary font-mono">
-              {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
-              {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
-              {(elapsedSeconds % 60).toString().padStart(2, '0')}
+              {formatTimerDisplay(elapsedSeconds)}
             </span>
             <span className="text-sm text-primary/70">In progress</span>
+          </div>
+        )}
+
+        {/* Paused Indicator */}
+        {executionStatus === 'paused' && elapsedSeconds > 0 && (
+          <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-muted/50 border border-border/30">
+            <Pause className="w-4 h-4 text-muted-foreground" />
+            <span className="text-lg font-bold text-muted-foreground/80 font-mono">
+              Paused at {formatTimerDisplay(elapsedSeconds)}
+            </span>
           </div>
         )}
 

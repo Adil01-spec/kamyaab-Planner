@@ -387,3 +387,16 @@ export async function pauseTask(
   
   return result;
 }
+
+// Apply task updates locally (synchronous, no DB) for optimistic UI
+export function applyTaskUpdatesLocally(
+  planData: any,
+  weekIndex: number,
+  taskIndex: number,
+  updates: Record<string, any>
+): any {
+  const updatedPlan = JSON.parse(JSON.stringify(planData));
+  const task = updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
+  if (task) Object.assign(task, updates);
+  return updatedPlan;
+}
