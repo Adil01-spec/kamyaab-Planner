@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Check, 
   ChevronDown, 
   Clock, 
+  Pause,
   Target,
   Lightbulb,
   Loader2,
@@ -13,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticSelection } from '@/lib/hapticFeedback';
+import { formatTimerDisplay } from '@/lib/executionTimer';
 
 interface TaskExplanation {
   how: string;
@@ -42,6 +44,7 @@ interface TodayTaskCardProps {
   onStartTask?: () => void;
   executionStatus?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
+  pausedTimeSeconds?: number;
 }
 
 // Convert hours to friendly time hint
@@ -76,8 +79,17 @@ export function TodayTaskCard({
   onStartTask,
   executionStatus = 'idle',
   elapsedSeconds = 0,
+  pausedTimeSeconds = 0,
 }: TodayTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [debounced, setDebounced] = useState(false);
+
+  const withDebounce = useCallback((fn: () => void) => {
+    if (debounced) return;
+    setDebounced(true);
+    fn();
+    setTimeout(() => setDebounced(false), 300);
+  }, [debounced]);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const hasFallback = !hasExplanation && fallbackExplanation;
   const showHowSection = showExpandable && (hasExplanation || hasFallback);
@@ -149,12 +161,21 @@ export function TodayTaskCard({
         {isActive && (
           <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm font-medium text-primary">
-              {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
-              {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
-              {(elapsedSeconds % 60).toString().padStart(2, '0')}
+            <span className="text-sm font-medium text-primary font-mono">
+              {formatTimerDisplay(elapsedSeconds)}
             </span>
             <span className="text-xs text-primary/70">In progress</span>
+          </div>
+        )}
+
+        {/* Paused Timer Display */}
+        {executionStatus === 'paused' && pausedTimeSeconds > 0 && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-muted/30 border border-border/30 opacity-70">
+            <Pause className="w-3 h-3 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground font-mono">
+              {formatTimerDisplay(pausedTimeSeconds)}
+            </span>
+            <span className="text-xs text-muted-foreground/70">Paused</span>
           </div>
         )}
 
@@ -191,10 +212,12 @@ export function TodayTaskCard({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  hapticSelection();
-                  onStartTask?.();
+                  withDebounce(() => {
+                    hapticSelection();
+                    onStartTask?.();
+                  });
                 }}
-                disabled={isCompleting}
+                disabled={isCompleting || debounced}
                 size={isPrimary ? "lg" : "default"}
                 className={cn(
                   "w-full touch-press font-medium",
@@ -223,10 +246,12 @@ export function TodayTaskCard({
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  hapticSelection();
-                  onStartTask?.();
+                  withDebounce(() => {
+                    hapticSelection();
+                    onStartTask?.();
+                  });
                 }}
-                disabled={isCompleting}
+                disabled={isCompleting || debounced}
                 size={isPrimary ? "lg" : "default"}
                 className={cn(
                   "w-full touch-press font-medium",

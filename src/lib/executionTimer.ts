@@ -186,6 +186,56 @@ export function areAllTasksCompleted(planData: any): boolean {
   return true;
 }
 
+// Shallow clone plan with targeted task update (avoids JSON.parse(JSON.stringify()))
+export function shallowClonePlanWithTaskUpdate(
+  planData: any,
+  weekIndex: number,
+  taskIndex: number,
+  updates: Record<string, any>
+): any {
+  const weeks = [...planData.weeks];
+  const week = { ...weeks[weekIndex], tasks: [...weeks[weekIndex].tasks] };
+  week.tasks[taskIndex] = { ...week.tasks[taskIndex], ...updates };
+  weeks[weekIndex] = week;
+  return { ...planData, weeks };
+}
+
+// Shallow clone with multiple task updates (for auto-pause + start)
+export function shallowClonePlanWithMultiTaskUpdate(
+  planData: any,
+  updates: Array<{ weekIndex: number; taskIndex: number; changes: Record<string, any> }>
+): any {
+  const weeks = [...planData.weeks];
+  for (const { weekIndex, taskIndex, changes } of updates) {
+    if (weeks[weekIndex] === planData.weeks[weekIndex]) {
+      weeks[weekIndex] = { ...weeks[weekIndex], tasks: [...weeks[weekIndex].tasks] };
+    }
+    weeks[weekIndex].tasks[taskIndex] = { ...weeks[weekIndex].tasks[taskIndex], ...changes };
+  }
+  return { ...planData, weeks };
+}
+
+// Persist plan to database (fire-and-forget helper)
+export async function persistPlanToDb(
+  userId: string,
+  plan: any
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('plans')
+      .update({ plan_json: plan as unknown as Json })
+      .eq('user_id', userId);
+    if (error) {
+      console.error('Error persisting plan:', error);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('Error persisting plan:', err);
+    return { success: false, error: 'Unknown error' };
+  }
+}
+
 // Update task execution state in plan data
 export async function updateTaskExecution(
   userId: string,
@@ -201,27 +251,11 @@ export async function updateTaskExecution(
   }>
 ): Promise<{ success: boolean; updatedPlan: any; error?: string }> {
   try {
-    const updatedPlan = JSON.parse(JSON.stringify(planData)); // Deep clone
-    const task = updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
-    
-    if (!task) {
-      return { success: false, updatedPlan: planData, error: 'Task not found' };
+    const updatedPlan = shallowClonePlanWithTaskUpdate(planData, weekIndex, taskIndex, updates);
+    const result = await persistPlanToDb(userId, updatedPlan);
+    if (!result.success) {
+      return { success: false, updatedPlan: planData, error: result.error };
     }
-    
-    // Apply updates
-    Object.assign(task, updates);
-    
-    // Persist to Supabase
-    const { error } = await supabase
-      .from('plans')
-      .update({ plan_json: updatedPlan as unknown as Json })
-      .eq('user_id', userId);
-    
-    if (error) {
-      console.error('Error updating task execution:', error);
-      return { success: false, updatedPlan: planData, error: error.message };
-    }
-    
     return { success: true, updatedPlan };
   } catch (err) {
     console.error('Error updating task execution:', err);

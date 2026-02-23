@@ -1,33 +1,50 @@
 // Active Timer Banner - Shows current task timer prominently
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Clock, CheckCircle, Pause, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { formatTimerDisplay } from '@/lib/executionTimer';
+
 interface ActiveTimerBannerProps {
   taskTitle: string;
   elapsedSeconds: number;
   onComplete: () => void;
   onPause: () => void;
+  onResume?: () => void;
   isCompleting?: boolean;
   isPausing?: boolean;
   variant?: 'prominent' | 'compact';
+  executionStatus?: 'doing' | 'paused';
+  pausedTimeSeconds?: number;
   className?: string;
 }
+
 export function ActiveTimerBanner({
   taskTitle,
   elapsedSeconds,
   onComplete,
   onPause,
+  onResume,
   isCompleting = false,
   isPausing = false,
   variant = 'prominent',
+  executionStatus = 'doing',
+  pausedTimeSeconds = 0,
   className
 }: ActiveTimerBannerProps) {
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [debounced, setDebounced] = useState(false);
+
+  const withDebounce = useCallback((fn: () => void) => {
+    if (debounced) return;
+    setDebounced(true);
+    fn();
+    setTimeout(() => setDebounced(false), 300);
+  }, [debounced]);
+
   const handleCompleteClick = () => {
     setShowCompleteDialog(true);
   };
@@ -35,7 +52,12 @@ export function ActiveTimerBanner({
     setShowCompleteDialog(false);
     onComplete();
   };
-  const timerDisplay = formatTimerDisplay(elapsedSeconds);
+
+  const isPaused = executionStatus === 'paused';
+  const timerDisplay = isPaused
+    ? formatTimerDisplay(pausedTimeSeconds)
+    : formatTimerDisplay(elapsedSeconds);
+
   if (variant === 'compact') {
     return <>
         <motion.div initial={{
@@ -47,14 +69,21 @@ export function ActiveTimerBanner({
       }} className={cn("flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20", className)}>
           {/* Pulsing indicator */}
           <div className="relative">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <div className="absolute inset-0 w-2 h-2 rounded-full bg-primary/50 animate-ping" />
+            {isPaused ? (
+              <Pause className="w-3 h-3 text-muted-foreground" />
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <div className="absolute inset-0 w-2 h-2 rounded-full bg-primary/50 animate-ping" />
+              </>
+            )}
           </div>
           
           {/* Timer display */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className={cn("flex items-center gap-2 text-sm", isPaused && "opacity-70")}>
             <Clock className="w-3.5 h-3.5 text-primary" />
             <span className="font-mono font-medium text-primary">{timerDisplay}</span>
+            {isPaused && <span className="text-xs text-muted-foreground">Paused</span>}
           </div>
           
           {/* Task title - truncated */}
@@ -64,12 +93,21 @@ export function ActiveTimerBanner({
           
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto">
-            <Button variant="ghost" size="sm" onClick={onPause} disabled={isPausing} className="h-7 w-7 p-0" title="Pause">
-              <Pause className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="default" size="sm" onClick={handleCompleteClick} disabled={isCompleting} className="h-7 px-2 text-xs gradient-kaamyab">
-              Done
-            </Button>
+            {isPaused ? (
+              <Button variant="default" size="sm" onClick={() => withDebounce(() => onResume?.())} disabled={debounced} className="h-7 px-2 text-xs gradient-kaamyab">
+                <Play className="w-3.5 h-3.5 mr-1 fill-current" />
+                Resume
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => withDebounce(onPause)} disabled={debounced} className="h-7 w-7 p-0" title="Pause">
+                  <Pause className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="default" size="sm" onClick={handleCompleteClick} disabled={isCompleting || debounced} className="h-7 px-2 text-xs gradient-kaamyab">
+                  Done
+                </Button>
+              </>
+            )}
           </div>
         </motion.div>
 
@@ -113,11 +151,17 @@ export function ActiveTimerBanner({
         {/* Header with pulsing indicator */}
         <div className="flex items-center gap-2 mb-3">
           <div className="relative">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <div className="absolute inset-0 w-3 h-3 rounded-full bg-primary/50 animate-ping" />
+            {isPaused ? (
+              <Pause className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <>
+                <div className="w-3 h-3 rounded-full bg-primary" />
+                <div className="absolute inset-0 w-3 h-3 rounded-full bg-primary/50 animate-ping" />
+              </>
+            )}
           </div>
           <span className="text-xs font-medium text-primary uppercase tracking-wider">
-            Currently working on
+            {isPaused ? 'Paused' : 'Currently working on'}
           </span>
         </div>
 
@@ -128,9 +172,19 @@ export function ActiveTimerBanner({
 
         {/* Timer display */}
         <div className="flex items-center justify-center mb-5">
-          <div className="flex items-center gap-3 px-6 py-3 rounded-xl bg-background/80 border border-border/50">
-            <Clock className="w-5 h-5 text-primary" />
-            <span className="text-3xl font-mono font-bold text-foreground tracking-wider">
+          <div className={cn(
+            "flex items-center gap-3 px-6 py-3 rounded-xl bg-background/80 border border-border/50",
+            isPaused && "opacity-70"
+          )}>
+            {isPaused ? (
+              <Pause className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <Clock className="w-5 h-5 text-primary" />
+            )}
+            <span className={cn(
+              "text-3xl font-mono font-bold tracking-wider",
+              isPaused ? "text-muted-foreground" : "text-foreground"
+            )}>
               {timerDisplay}
             </span>
           </div>
@@ -138,14 +192,23 @@ export function ActiveTimerBanner({
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onPause} disabled={isPausing} className="flex-1 h-12 border-primary/30 hover:bg-primary/5">
-            <Pause className="w-5 h-5 mr-2" />
-            Pause
-          </Button>
-          <Button onClick={handleCompleteClick} disabled={isCompleting} className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium">
-            <CheckCircle className="w-5 h-5 mr-2" />
-            Done
-          </Button>
+          {isPaused ? (
+            <Button onClick={() => withDebounce(() => onResume?.())} disabled={debounced} className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium">
+              <Play className="w-5 h-5 mr-2 fill-current" />
+              Resume
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => withDebounce(onPause)} disabled={debounced} className="flex-1 h-12 border-primary/30 hover:bg-primary/5">
+                <Pause className="w-5 h-5 mr-2" />
+                Pause
+              </Button>
+              <Button onClick={handleCompleteClick} disabled={isCompleting || debounced} className="flex-1 h-12 gradient-kaamyab hover:opacity-90 font-medium">
+                <CheckCircle className="w-5 h-5 mr-2" />
+                Done
+              </Button>
+            </>
+          )}
         </div>
       </motion.div>
 

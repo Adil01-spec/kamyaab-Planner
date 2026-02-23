@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Check, 
   ChevronDown, 
   Clock, 
+  Pause,
   Target,
   Lightbulb,
   Loader2,
@@ -13,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticSelection } from '@/lib/hapticFeedback';
+import { formatTimerDisplay } from '@/lib/executionTimer';
 
 interface TaskExplanation {
   how: string;
@@ -40,6 +42,7 @@ interface SecondaryTaskCardProps {
   onStartTask?: () => void;
   executionStatus?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
+  pausedTimeSeconds?: number;
 }
 
 // Convert hours to friendly time hint
@@ -72,8 +75,17 @@ export function SecondaryTaskCard({
   onStartTask,
   executionStatus = 'idle',
   elapsedSeconds = 0,
+  pausedTimeSeconds = 0,
 }: SecondaryTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [debounced, setDebounced] = useState(false);
+
+  const withDebounce = useCallback((fn: () => void) => {
+    if (debounced) return;
+    setDebounced(true);
+    fn();
+    setTimeout(() => setDebounced(false), 300);
+  }, [debounced]);
   const hasExplanation = task.explanation && (task.explanation.how || task.explanation.why);
   const hasFallback = !hasExplanation && fallbackExplanation;
   const showHowSection = hasExplanation || hasFallback;
@@ -124,9 +136,17 @@ export function SecondaryTaskCard({
               <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded-md bg-primary/10 w-fit">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-primary font-mono">
-                  {Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0')}:
-                  {Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0')}:
-                  {(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  {formatTimerDisplay(elapsedSeconds)}
+                </span>
+              </div>
+            )}
+
+            {/* Paused Timer Display */}
+            {executionStatus === 'paused' && pausedTimeSeconds > 0 && (
+              <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded-md bg-muted/30 w-fit opacity-70">
+                <Pause className="w-3 h-3 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground font-mono">
+                  {formatTimerDisplay(pausedTimeSeconds)}
                 </span>
               </div>
             )}
@@ -160,11 +180,11 @@ export function SecondaryTaskCard({
                 exit={{ opacity: 0 }}
               >
                 <Button
-                  onClick={() => {
+                  onClick={() => withDebounce(() => {
                     hapticSelection();
                     onStartTask?.();
-                  }}
-                  disabled={isCompleting}
+                  })}
+                  disabled={isCompleting || debounced}
                   size="sm"
                   variant="outline"
                   className="touch-press h-9 px-3 shrink-0 border-primary/30 text-primary"
@@ -187,11 +207,11 @@ export function SecondaryTaskCard({
                 exit={{ opacity: 0 }}
               >
                 <Button
-                  onClick={() => {
+                  onClick={() => withDebounce(() => {
                     hapticSelection();
                     onStartTask?.();
-                  }}
-                  disabled={isCompleting}
+                  })}
+                  disabled={isCompleting || debounced}
                   size="sm"
                   variant="outline"
                   className="touch-press h-9 px-3 shrink-0"

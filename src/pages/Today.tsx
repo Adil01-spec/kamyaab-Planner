@@ -661,6 +661,7 @@ const Today = () => {
                         onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
                         executionStatus={status as any}
                         elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
+                        pausedTimeSeconds={item.task.time_spent_seconds || 0}
                       />
                     );
                   })}
@@ -816,6 +817,7 @@ const Today = () => {
                       onStartTask={() => handleStartTaskClick(primaryTask.weekIndex, primaryTask.taskIndex, primaryTask.task.title, primaryTask.task.estimated_hours)}
                       executionStatus={(executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? 'doing' : getExecutionState(primaryTask.task)) as any}
                       elapsedSeconds={executionTimer.activeTimer?.weekIndex === primaryTask.weekIndex && executionTimer.activeTimer?.taskIndex === primaryTask.taskIndex ? executionTimer.elapsedSeconds : 0}
+                      pausedTimeSeconds={primaryTask.task.time_spent_seconds || 0}
                     />
                   </SwipeableTaskWrapper>
                 )}
@@ -853,6 +855,7 @@ const Today = () => {
                             onStartTask={() => handleStartTaskClick(item.weekIndex, item.taskIndex, item.task.title, item.task.estimated_hours)}
                             executionStatus={(executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? 'doing' : getExecutionState(item.task)) as any}
                             elapsedSeconds={executionTimer.activeTimer?.weekIndex === item.weekIndex && executionTimer.activeTimer?.taskIndex === item.taskIndex ? executionTimer.elapsedSeconds : 0}
+                            pausedTimeSeconds={item.task.time_spent_seconds || 0}
                           />
                         </SwipeableTaskWrapper>
                       </motion.div>)}
