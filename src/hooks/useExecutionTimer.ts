@@ -1,9 +1,8 @@
-// Hook for managing task execution timer state — optimistic UI for pause/resume
+// Hook for managing task execution timer state
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { isTaskInLockedWeek } from '@/lib/weekLockStatus';
-import { toast } from '@/hooks/use-toast';
 import {
   ActiveTimerState,
   getLocalActiveTimer,
@@ -15,8 +14,6 @@ import {
   pauseTask,
   calculateTotalTimeSpent,
   areAllTasksCompleted,
-  updateTaskExecution,
-  applyTaskUpdatesLocally,
 } from '@/lib/executionTimer';
 
 interface UseExecutionTimerOptions {
@@ -53,7 +50,6 @@ export function useExecutionTimer({
   const [isPausing, setIsPausing] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalOpRef = useRef(false);
-  const isMutatingRef = useRef(false);
 
   // Initialize timer state from local storage and plan data
   useEffect(() => {
@@ -127,100 +123,48 @@ export function useExecutionTimer({
     };
   }, [activeTimer?.started_at]);
 
-  // Helper to release mutation lock after debounce
-  const releaseMutationLock = useCallback(() => {
-    setTimeout(() => {
-      isMutatingRef.current = false;
-    }, 300);
-  }, []);
-
-  // Start a task timer (optimistic for resume)
+  // Start a task timer
   const startTaskTimer = useCallback(
     async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
       if (!user?.id || !planData) return false;
-      if (isMutatingRef.current) return false;
-      isMutatingRef.current = true;
 
       // Guard against starting tasks in locked weeks
       if (isTaskInLockedWeek(planData, weekIndex)) {
         console.warn('Cannot start task in locked week');
-        isMutatingRef.current = false;
         return false;
       }
 
-      // Snapshot for rollback
-      const snapshotTimer = activeTimer;
-      const snapshotElapsed = elapsedSeconds;
-      const snapshotPlan = planData;
-
       setIsStarting(true);
       try {
-        const now = new Date().toISOString();
-        const task = planData.weeks?.[weekIndex]?.tasks?.[taskIndex];
-        const accumulated = task?.time_spent_seconds || 0;
-
-        // --- OPTIMISTIC: update UI immediately ---
-        // If another task is active, pause it locally first
-        let optimisticPlan = planData;
-        if (activeTimer) {
-          const prevElapsed = calculateElapsedSeconds(activeTimer.started_at);
-          const prevTask = planData.weeks?.[activeTimer.weekIndex]?.tasks?.[activeTimer.taskIndex];
-          const prevTimeSpent = (prevTask?.time_spent_seconds || 0) + prevElapsed;
-          optimisticPlan = applyTaskUpdatesLocally(
-            optimisticPlan,
-            activeTimer.weekIndex,
-            activeTimer.taskIndex,
-            { execution_state: 'paused', execution_started_at: null, time_spent_seconds: prevTimeSpent }
-          );
-        }
-
-        // Set new task to doing
-        optimisticPlan = applyTaskUpdatesLocally(
-          optimisticPlan,
-          weekIndex,
-          taskIndex,
-          { execution_state: 'doing', execution_started_at: now }
-        );
-
-        const newTimer: ActiveTimerState = {
-          weekIndex,
-          taskIndex,
-          taskTitle,
-          started_at: now,
-          elapsed_seconds: accumulated,
-          accumulated_seconds: accumulated,
-        };
-
-        setActiveTimer(newTimer);
-        setElapsedSeconds(accumulated);
-        isLocalOpRef.current = true;
-        onPlanUpdate(optimisticPlan);
-        setLocalActiveTimer(newTimer);
-
-        // --- ASYNC: persist to DB ---
-        const result = await startTask(user.id, snapshotPlan, weekIndex, taskIndex);
-
-        if (!result.success) {
-          // Rollback
+        const result = await startTask(user.id, planData, weekIndex, taskIndex);
+        
+        if (result.success) {
           isLocalOpRef.current = true;
-          onPlanUpdate(snapshotPlan);
-          setActiveTimer(snapshotTimer);
-          setElapsedSeconds(snapshotElapsed);
-          setLocalActiveTimer(snapshotTimer);
-          toast({ title: "Couldn't start task", description: "Please try again.", variant: "destructive" });
-          return false;
+          onPlanUpdate(result.updatedPlan);
+          const task = result.updatedPlan.weeks[weekIndex]?.tasks?.[taskIndex];
+          if (task?.execution_started_at) {
+            const accumulated = task.time_spent_seconds || 0;
+            setActiveTimer({
+              weekIndex,
+              taskIndex,
+              taskTitle,
+              started_at: task.execution_started_at,
+              elapsed_seconds: accumulated,
+              accumulated_seconds: accumulated,
+            });
+            setElapsedSeconds(accumulated);
+          }
         }
-
-        return true;
+        
+        return result.success;
       } finally {
         setIsStarting(false);
-        releaseMutationLock();
       }
     },
-    [user?.id, planData, activeTimer, elapsedSeconds, onPlanUpdate, releaseMutationLock]
+    [user?.id, planData, onPlanUpdate]
   );
 
-  // Complete the active task (kept non-optimistic — has confirmation dialog)
+  // Complete the active task
   const completeTaskTimer = useCallback(async (): Promise<{ success: boolean; timeSpent: number }> => {
     if (!user?.id || !planData || !activeTimer) {
       return { success: false, timeSpent: 0 };
@@ -248,75 +192,31 @@ export function useExecutionTimer({
     }
   }, [user?.id, planData, activeTimer, onPlanUpdate]);
 
-  // Pause the active task (OPTIMISTIC)
+  // Pause the active task
   const pauseTaskTimer = useCallback(async (): Promise<boolean> => {
     if (!user?.id || !planData || !activeTimer) return false;
-    if (isMutatingRef.current) return false;
-    isMutatingRef.current = true;
-
-    // Snapshot for rollback
-    const snapshotTimer = { ...activeTimer };
-    const snapshotPlan = planData;
 
     setIsPausing(true);
     try {
-      const { weekIndex, taskIndex } = activeTimer;
-      const task = planData.weeks?.[weekIndex]?.tasks?.[taskIndex];
-      const additionalTime = activeTimer.started_at
-        ? calculateElapsedSeconds(activeTimer.started_at)
-        : 0;
-      const finalTimeSpent = (task?.time_spent_seconds || 0) + additionalTime;
-
-      // --- OPTIMISTIC: update UI immediately ---
-      // Stop the interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-
-      setActiveTimer(null);
-      setElapsedSeconds(0);
-
-      const optimisticPlan = applyTaskUpdatesLocally(
-        planData,
-        weekIndex,
-        taskIndex,
-        { execution_state: 'paused', execution_started_at: null, time_spent_seconds: finalTimeSpent }
-      );
-
-      isLocalOpRef.current = true;
-      onPlanUpdate(optimisticPlan);
-      setLocalActiveTimer(null);
-
-      // --- ASYNC: persist to DB ---
-      const result = await updateTaskExecution(
+      const result = await pauseTask(
         user.id,
         planData,
-        weekIndex,
-        taskIndex,
-        {
-          execution_state: 'paused',
-          execution_started_at: null,
-          time_spent_seconds: finalTimeSpent,
-        }
+        activeTimer.weekIndex,
+        activeTimer.taskIndex
       );
-
-      if (!result.success) {
-        // Rollback — restore timer and plan
+      
+      if (result.success) {
         isLocalOpRef.current = true;
-        onPlanUpdate(snapshotPlan);
-        setActiveTimer(snapshotTimer);
-        setLocalActiveTimer(snapshotTimer);
-        toast({ title: "Couldn't save pause", description: "Timer resumed.", variant: "destructive" });
-        return false;
+        onPlanUpdate(result.updatedPlan);
+        setActiveTimer(null);
+        setElapsedSeconds(0);
       }
-
-      return true;
+      
+      return result.success;
     } finally {
       setIsPausing(false);
-      releaseMutationLock();
     }
-  }, [user?.id, planData, activeTimer, onPlanUpdate, releaseMutationLock]);
+  }, [user?.id, planData, activeTimer, onPlanUpdate]);
 
   // Check if a specific task is the active one
   const isTaskActive = useCallback(
@@ -334,6 +234,7 @@ export function useExecutionTimer({
       const task = planData?.weeks?.[weekIndex]?.tasks?.[taskIndex];
       if (!task) return 'idle';
 
+      // Import is at top level; use inline to avoid circular deps
       const state = task.execution_state;
       if (state === 'doing') return 'doing';
       if (state === 'done') return 'done';
