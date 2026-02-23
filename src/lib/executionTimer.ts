@@ -156,6 +156,30 @@ export function findActiveTask(planData: any): {
   return null;
 }
 
+// Find the most recently paused task (status = 'paused')
+export function findPausedTask(planData: any): {
+  weekIndex: number;
+  taskIndex: number;
+  task: any;
+} | null {
+  if (!planData?.weeks) return null;
+
+  for (let weekIndex = 0; weekIndex < planData.weeks.length; weekIndex++) {
+    const week = planData.weeks[weekIndex];
+    if (!week?.tasks) continue;
+
+    for (let taskIndex = 0; taskIndex < week.tasks.length; taskIndex++) {
+      const task = week.tasks[taskIndex];
+      const state = normalizeExecutionState(task);
+      if (state === 'paused') {
+        return { weekIndex, taskIndex, task };
+      }
+    }
+  }
+
+  return null;
+}
+
 // Calculate total time spent across all tasks
 export function calculateTotalTimeSpent(planData: any): number {
   if (!planData?.weeks) return 0;

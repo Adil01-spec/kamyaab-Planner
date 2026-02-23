@@ -10,6 +10,7 @@ import {
   setLocalActiveTimer,
   calculateElapsedSeconds,
   findActiveTask,
+  findPausedTask,
   completeTask,
   calculateTotalTimeSpent,
   areAllTasksCompleted,
@@ -17,6 +18,14 @@ import {
   shallowClonePlanWithMultiTaskUpdate,
   persistPlanToDb,
 } from '@/lib/executionTimer';
+
+export interface TimerContext {
+  status: 'running' | 'paused';
+  taskTitle: string;
+  weekIndex: number;
+  taskIndex: number;
+  pausedTimeSeconds: number;
+}
 
 interface UseExecutionTimerOptions {
   planData: any;
@@ -32,9 +41,11 @@ interface UseExecutionTimerReturn {
   isPausing: boolean;
   totalTimeSpent: number;
   allTasksCompleted: boolean;
+  timerContext: TimerContext | null;
   startTaskTimer: (weekIndex: number, taskIndex: number, taskTitle: string) => Promise<boolean>;
   completeTaskTimer: () => Promise<{ success: boolean; timeSpent: number }>;
   pauseTaskTimer: () => Promise<boolean>;
+  dismissTimer: () => void;
   isTaskActive: (weekIndex: number, taskIndex: number) => boolean;
   getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'paused' | 'done';
 }
@@ -50,6 +61,7 @@ export function useExecutionTimer({
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
+  const [timerContext, setTimerContext] = useState<TimerContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalOpRef = useRef(false);
   const isMutatingRef = useRef(false);
@@ -81,6 +93,15 @@ export function useExecutionTimer({
       setActiveTimer(timerState);
       setElapsedSeconds(accumulated + liveElapsed);
       setLocalActiveTimer(timerState);
+
+      // Derive timerContext: running
+      setTimerContext({
+        status: 'running',
+        taskTitle: activeTask.task.title,
+        weekIndex: activeTask.weekIndex,
+        taskIndex: activeTask.taskIndex,
+        pausedTimeSeconds: 0,
+      });
     } else {
       // Check local storage as fallback
       const localTimer = getLocalActiveTimer();
@@ -92,6 +113,14 @@ export function useExecutionTimer({
           const elapsed = calculateElapsedSeconds(localTimer.started_at);
           setActiveTimer({ ...localTimer, elapsed_seconds: elapsed });
           setElapsedSeconds(elapsed);
+
+          setTimerContext({
+            status: 'running',
+            taskTitle: localTimer.taskTitle,
+            weekIndex: localTimer.weekIndex,
+            taskIndex: localTimer.taskIndex,
+            pausedTimeSeconds: 0,
+          });
         } else {
           // Clear stale local timer
           setLocalActiveTimer(null);
@@ -101,6 +130,21 @@ export function useExecutionTimer({
       } else {
         setActiveTimer(null);
         setElapsedSeconds(0);
+      }
+
+      // Derive timerContext: check for paused task
+      const pausedTask = findPausedTask(planData);
+      if (pausedTask) {
+        setTimerContext({
+          status: 'paused',
+          taskTitle: pausedTask.task.title,
+          weekIndex: pausedTask.weekIndex,
+          taskIndex: pausedTask.taskIndex,
+          pausedTimeSeconds: pausedTask.task.time_spent_seconds || 0,
+        });
+      } else if (!activeTask) {
+        // No running and no paused — only clear if we didn't set running above
+        setTimerContext(null);
       }
     }
   }, [planData]);
@@ -126,6 +170,11 @@ export function useExecutionTimer({
     };
   }, [activeTimer?.started_at]);
 
+  // Dismiss the timer banner manually (when paused)
+  const dismissTimer = useCallback(() => {
+    setTimerContext(null);
+  }, []);
+
   // Optimistic Start/Resume a task timer
   const startTaskTimer = useCallback(
     async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
@@ -145,6 +194,7 @@ export function useExecutionTimer({
       const prevActiveTimer = activeTimer;
       const prevElapsedSeconds = elapsedSeconds;
       const prevLocalStorage = getLocalActiveTimer();
+      const prevTimerContext = timerContext;
 
       try {
         const now = new Date().toISOString();
@@ -198,6 +248,15 @@ export function useExecutionTimer({
         onPlanUpdate(optimisticPlan);
         setLocalActiveTimer(newTimer);
 
+        // Set timerContext to running
+        setTimerContext({
+          status: 'running',
+          taskTitle,
+          weekIndex,
+          taskIndex,
+          pausedTimeSeconds: 0,
+        });
+
         // Background DB write
         const result = await persistPlanToDb(user.id, optimisticPlan);
         if (!result.success) {
@@ -205,6 +264,7 @@ export function useExecutionTimer({
           setActiveTimer(prevActiveTimer);
           setElapsedSeconds(prevElapsedSeconds);
           setLocalActiveTimer(prevLocalStorage);
+          setTimerContext(prevTimerContext);
           isLocalOpRef.current = true;
           onPlanUpdate(prevPlan);
           toast.error('Failed to start task. Timer restored.');
@@ -216,24 +276,30 @@ export function useExecutionTimer({
         isMutatingRef.current = false;
       }
     },
-    [user?.id, planData, activeTimer, elapsedSeconds, onPlanUpdate]
+    [user?.id, planData, activeTimer, elapsedSeconds, timerContext, onPlanUpdate]
   );
 
   // Complete the active task (stays await-based — dialog masks latency)
   const completeTaskTimer = useCallback(async (): Promise<{ success: boolean; timeSpent: number }> => {
     if (!user?.id || !planData || !activeTimer) {
-      return { success: false, timeSpent: 0 };
+      // Also allow completing from paused state via timerContext
+      if (!user?.id || !planData || !timerContext) {
+        return { success: false, timeSpent: 0 };
+      }
     }
     if (isMutatingRef.current) return { success: false, timeSpent: 0 };
     isMutatingRef.current = true;
 
+    const targetWeekIndex = activeTimer?.weekIndex ?? timerContext!.weekIndex;
+    const targetTaskIndex = activeTimer?.taskIndex ?? timerContext!.taskIndex;
+
     setIsCompleting(true);
     try {
       const result = await completeTask(
-        user.id,
+        user!.id,
         planData,
-        activeTimer.weekIndex,
-        activeTimer.taskIndex
+        targetWeekIndex,
+        targetTaskIndex
       );
       
       if (result.success) {
@@ -241,6 +307,7 @@ export function useExecutionTimer({
         onPlanUpdate(result.updatedPlan);
         setActiveTimer(null);
         setElapsedSeconds(0);
+        setTimerContext(null);
       }
       
       return { success: result.success, timeSpent: result.timeSpent };
@@ -248,7 +315,7 @@ export function useExecutionTimer({
       setIsCompleting(false);
       isMutatingRef.current = false;
     }
-  }, [user?.id, planData, activeTimer, onPlanUpdate]);
+  }, [user?.id, planData, activeTimer, timerContext, onPlanUpdate]);
 
   // Optimistic Pause the active task
   const pauseTaskTimer = useCallback(async (): Promise<boolean> => {
@@ -262,6 +329,7 @@ export function useExecutionTimer({
     const prevActiveTimer = activeTimer;
     const prevElapsedSeconds = elapsedSeconds;
     const prevLocalStorage = getLocalActiveTimer();
+    const prevTimerContext = timerContext;
 
     try {
       const additionalTime = calculateElapsedSeconds(activeTimer.started_at);
@@ -290,6 +358,15 @@ export function useExecutionTimer({
       onPlanUpdate(optimisticPlan);
       setLocalActiveTimer(null);
 
+      // Keep timerContext as paused (DO NOT null it out)
+      setTimerContext({
+        status: 'paused',
+        taskTitle: activeTimer.taskTitle,
+        weekIndex: activeTimer.weekIndex,
+        taskIndex: activeTimer.taskIndex,
+        pausedTimeSeconds: newTimeSpent,
+      });
+
       // Background DB write
       const result = await persistPlanToDb(user.id, optimisticPlan);
       if (!result.success) {
@@ -297,6 +374,7 @@ export function useExecutionTimer({
         setActiveTimer(prevActiveTimer);
         setElapsedSeconds(prevElapsedSeconds);
         setLocalActiveTimer(prevLocalStorage);
+        setTimerContext(prevTimerContext);
         isLocalOpRef.current = true;
         onPlanUpdate(prevPlan);
         toast.error('Pause failed. Timer restored.');
@@ -307,7 +385,7 @@ export function useExecutionTimer({
     } finally {
       isMutatingRef.current = false;
     }
-  }, [user?.id, planData, activeTimer, elapsedSeconds, onPlanUpdate]);
+  }, [user?.id, planData, activeTimer, elapsedSeconds, timerContext, onPlanUpdate]);
 
   // Check if a specific task is the active one
   const isTaskActive = useCallback(
@@ -353,9 +431,11 @@ export function useExecutionTimer({
     isPausing,
     totalTimeSpent,
     allTasksCompleted,
+    timerContext,
     startTaskTimer,
     completeTaskTimer,
     pauseTaskTimer,
+    dismissTimer,
     isTaskActive,
     getTaskStatus,
   };

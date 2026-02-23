@@ -10,7 +10,7 @@ import { WeeklyCalendarView } from '@/components/WeeklyCalendarView';
 import { DeletePlanDialog } from '@/components/DeletePlanDialog';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
-import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
+import { FloatingTimerPill } from '@/components/FloatingTimerPill';
 import { StartTaskModal } from '@/components/StartTaskModal';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
@@ -18,6 +18,7 @@ import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { useCrossWeekTaskMove } from '@/hooks/useCrossWeekTaskMove';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
+import { AnimatePresence } from 'framer-motion';
 import {
   DndContext,
   DragOverlay,
@@ -1533,20 +1534,18 @@ const Plan = () => {
         isStarting={executionTimer.isStarting}
       />
       
-      {/* Active Timer Banner - Compact version for Plan page */}
-      {executionTimer.activeTimer && (
-        <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
-          <ActiveTimerBanner
-            taskTitle={executionTimer.activeTimer.taskTitle}
+      {/* Active Timer Pill - Compact version for Plan page */}
+      <AnimatePresence>
+        {executionTimer.timerContext && (
+          <FloatingTimerPill
+            taskTitle={executionTimer.timerContext.taskTitle}
+            timerStatus={executionTimer.timerContext.status}
             elapsedSeconds={executionTimer.elapsedSeconds}
-            onComplete={handleTimerComplete}
-            onPause={executionTimer.pauseTaskTimer}
-            isCompleting={executionTimer.isCompleting}
-            isPausing={executionTimer.isPausing}
-            variant="compact"
+            pausedTimeSeconds={executionTimer.timerContext.pausedTimeSeconds}
+            onRestore={() => navigate('/today')}
           />
-        </div>
-      )}
+        )}
+      </AnimatePresence>
       
       {/* Dev Panel */}
       <div className="max-w-4xl mx-auto px-4">
