@@ -21,6 +21,7 @@ import { CloseDayButton } from '@/components/CloseDayButton';
 import { useDayClosure } from '@/hooks/useDayClosure';
 import { MissedTaskNotice } from '@/components/MissedTaskNotice';
 import { ActiveTimerBanner } from '@/components/ActiveTimerBanner';
+import { FloatingTimerPill } from '@/components/FloatingTimerPill';
 import { StartTaskModal } from '@/components/StartTaskModal';
 import { PlanCompletionModal } from '@/components/PlanCompletionModal';
 import { StreakBadge } from '@/components/StreakBadge';
@@ -464,21 +465,27 @@ const Today = () => {
     }
   }, [pendingStartTask, executionTimer]);
 
+  // Minimize state for timer banner
+  const [isTimerMinimized, setIsTimerMinimized] = useState(false);
+
   const handleTimerComplete = useCallback(async () => {
+    // Capture context before completing (activeTimer may be null if paused)
+    const ctx = executionTimer.timerContext;
     const result = await executionTimer.completeTaskTimer();
 
     if (result.success) {
       hasCompletedTaskInSession.current = true;
       completionFeedbackTokenRef.current = Date.now();
       hapticSuccess(); // Haptic feedback on completion
+      setIsTimerMinimized(false);
     }
 
-    if (result.success && executionTimer.activeTimer) {
+    if (result.success && ctx) {
       // Show effort feedback
       setEffortFeedbackTask({
-        title: executionTimer.activeTimer.taskTitle,
-        weekIndex: executionTimer.activeTimer.weekIndex,
-        taskIndex: executionTimer.activeTimer.taskIndex,
+        title: ctx.taskTitle,
+        weekIndex: ctx.weekIndex,
+        taskIndex: ctx.taskIndex,
       });
     }
   }, [executionTimer]);
@@ -928,20 +935,50 @@ const Today = () => {
 
       <BottomNav />
       
-      {/* Active Timer Banner - Fixed at bottom when task is active */}
-      {executionTimer.activeTimer && (
-        <div className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-lg mx-auto">
-          <ActiveTimerBanner
-            taskTitle={executionTimer.activeTimer.taskTitle}
+      {/* Active Timer Banner - Fixed at bottom when task is active or paused */}
+      <AnimatePresence mode="wait">
+        {executionTimer.timerContext && !isTimerMinimized && (
+          <motion.div
+            key="timer-banner"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-20 sm:bottom-4 left-4 right-4 z-50 max-w-lg mx-auto"
+          >
+            <ActiveTimerBanner
+              taskTitle={executionTimer.timerContext.taskTitle}
+              elapsedSeconds={executionTimer.elapsedSeconds}
+              timerStatus={executionTimer.timerContext.status}
+              pausedTimeSeconds={executionTimer.timerContext.pausedTimeSeconds}
+              onComplete={handleTimerComplete}
+              onPause={executionTimer.pauseTaskTimer}
+              onResume={() => {
+                const ctx = executionTimer.timerContext;
+                if (ctx) {
+                  executionTimer.startTaskTimer(ctx.weekIndex, ctx.taskIndex, ctx.taskTitle);
+                }
+              }}
+              onMinimize={() => setIsTimerMinimized(true)}
+              isCompleting={executionTimer.isCompleting}
+              isPausing={executionTimer.isPausing}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Floating Timer Pill - when minimized */}
+      <AnimatePresence>
+        {executionTimer.timerContext && isTimerMinimized && (
+          <FloatingTimerPill
+            taskTitle={executionTimer.timerContext.taskTitle}
+            timerStatus={executionTimer.timerContext.status}
             elapsedSeconds={executionTimer.elapsedSeconds}
-            onComplete={handleTimerComplete}
-            onPause={executionTimer.pauseTaskTimer}
-            isCompleting={executionTimer.isCompleting}
-            isPausing={executionTimer.isPausing}
-            variant="prominent"
+            pausedTimeSeconds={executionTimer.timerContext.pausedTimeSeconds}
+            onRestore={() => setIsTimerMinimized(false)}
           />
-        </div>
-      )}
+        )}
+      </AnimatePresence>
       
       {/* Start Task Modal */}
       <StartTaskModal
