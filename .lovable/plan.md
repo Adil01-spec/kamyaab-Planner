@@ -1,155 +1,172 @@
 
 
-# Refactor: Clean Execution State Machine
+# Optimistic Pause/Resume UX Refactor
 
-## Summary
+## Problem
+`pauseTaskTimer()` and `startTaskTimer()` (resume) currently `await` the database write before updating React state. This causes a visible 2-3 second delay between clicking Pause/Resume and the UI responding.
 
-Replace the ambiguous 3-state model (`pending` / `doing` / `done`) with an explicit 4-state model (`idle` / `doing` / `paused` / `done`), remove the redundant `execution_status` field, and propagate changes consistently across all 14 affected files.
+## Solution Overview
+Split each operation into two phases: an immediate synchronous UI update (optimistic), followed by an async background database write with rollback on failure.
 
-## Current Problems
+---
 
-1. **No "paused" state** -- pausing a task sets `execution_state` to `'pending'`, making it indistinguishable from a task that was never started. This loses context (the user has already worked on it).
-2. **Redundant `execution_status` field** -- written alongside `execution_state` but never read for decisions. Creates confusion and maintenance burden.
-3. **Type definitions scattered** -- `'pending' | 'doing' | 'done'` is repeated in 14+ files with no shared type.
+## Architecture Changes
 
-## New State Machine
+### 1. New helper: `shallowClonePlanWithTaskUpdate`
+
+Replace `JSON.parse(JSON.stringify(planData))` in `updateTaskExecution` with a structured shallow clone utility that only creates new references along the modified path:
 
 ```text
-         Start           Pause           Resume
-  idle --------> doing --------> paused --------> doing
-                   |                                 |
-                   | Complete                        | Complete
-                   v                                 v
-                 done                              done
-
-  States persisted in plan_json per task:
-    execution_state: 'idle' | 'doing' | 'paused' | 'done'
+planData (original ref kept)
+  -> { ...planData, weeks: [...planData.weeks] }
+     -> weeks[weekIndex] = { ...week, tasks: [...week.tasks] }
+        -> tasks[taskIndex] = { ...task, ...updates }
 ```
 
-## Migration Strategy for Existing Data
+This preserves object identity for unchanged weeks/tasks, avoids stripping types, and is faster.
 
-Existing tasks in the database have `execution_state` values of `'pending'`, `'doing'`, or `'done'` (or no value at all). The migration is handled in-code, not via a database migration, because `plan_json` is a JSONB blob:
+### 2. New helper: `persistPlanToDb`
 
-- `'pending'` with `time_spent_seconds > 0` maps to `'paused'` (user had started and stopped)
-- `'pending'` with `time_spent_seconds === 0` (or missing) maps to `'idle'` (never started)
-- `'doing'` stays `'doing'`
-- `'done'` stays `'done'`
-- Missing/undefined maps to `'idle'` (legacy tasks without execution tracking)
+Extract the Supabase write into a standalone fire-and-forget function:
 
-This normalization function runs at read-time wherever `execution_state` is consumed, so no batch DB update is needed.
+```typescript
+async function persistPlanToDb(userId: string, plan: any): Promise<{ success: boolean; error?: string }>
+```
+
+This is called **after** optimistic state has been applied.
+
+### 3. `isMutatingRef` guard
+
+Add a `useRef<boolean>(false)` to `useExecutionTimer` to prevent overlapping pause/resume/start/complete operations. Each operation checks and sets this ref before proceeding, and clears it when complete (including on error). This eliminates double-click and race condition risks.
+
+### 4. Button debounce (300ms)
+
+Each Pause/Resume/Start button disables itself for 300ms after click, implemented via a local `useState` + `setTimeout` in the card components.
+
+---
+
+## Detailed Flow: Optimistic Pause
+
+When the user clicks Pause:
+
+**Immediate (synchronous, before any await):**
+1. Check `isMutatingRef` -- if true, return early.
+2. Set `isMutatingRef = true`.
+3. Capture snapshot: `{ prevPlan, prevActiveTimer, prevElapsedSeconds, prevLocalStorage }`.
+4. Calculate `additionalTime = calculateElapsedSeconds(activeTimer.started_at)`.
+5. Build optimistic plan using shallow clone: set target task's `execution_state = 'paused'`, `execution_started_at = null`, `time_spent_seconds += additionalTime`.
+6. Clear interval (`intervalRef`).
+7. Set `activeTimer = null` (stops ticking).
+8. Set `elapsedSeconds = 0` (live ticker resets; paused display reads `task.time_spent_seconds` directly).
+9. Set `isLocalOpRef = true`.
+10. Call `onPlanUpdate(optimisticPlan)` -- UI instantly shows Resume button.
+11. Clear localStorage timer (`setLocalActiveTimer(null)`).
+
+**Background (async):**
+12. `await persistPlanToDb(userId, optimisticPlan)`.
+13. If success: set `isMutatingRef = false`. Done.
+14. If failure:
+    - Restore `activeTimer` from snapshot.
+    - Restore `elapsedSeconds` from snapshot.
+    - Restore localStorage timer from snapshot.
+    - Set `isLocalOpRef = true`.
+    - Call `onPlanUpdate(prevPlan)` to revert UI.
+    - Show toast: "Pause failed. Timer restored."
+    - Set `isMutatingRef = false`.
+
+---
+
+## Detailed Flow: Optimistic Resume (Start from Paused)
+
+When the user clicks Resume on a paused task:
+
+**Immediate (synchronous):**
+1. Check `isMutatingRef` -- if true, return early.
+2. Set `isMutatingRef = true`.
+3. Capture snapshot.
+4. Check if another task has `execution_state === 'doing'` in current plan -- if so, auto-pause it in the optimistic plan (set its `execution_state = 'paused'`, accumulate its time, clear its `execution_started_at`).
+5. `const now = new Date().toISOString()`.
+6. Build optimistic plan: target task gets `execution_state = 'doing'`, `execution_started_at = now`.
+7. Set `activeTimer = { weekIndex, taskIndex, taskTitle, started_at: now, accumulated_seconds: task.time_spent_seconds, elapsed_seconds: task.time_spent_seconds }`.
+8. Set `elapsedSeconds = task.time_spent_seconds` (interval will start ticking from here).
+9. Set `isLocalOpRef = true`.
+10. Call `onPlanUpdate(optimisticPlan)`.
+11. Update localStorage timer.
+
+**Background (async):**
+12. `await persistPlanToDb(userId, optimisticPlan)`.
+13. On failure: revert from snapshot, show toast, clear `isMutatingRef`.
+14. On success: clear `isMutatingRef`.
+
+---
+
+## Detailed Flow: Optimistic Start (Fresh idle task)
+
+Same as Resume but the task has no accumulated `time_spent_seconds`. Auto-pause logic for any currently `doing` task is identical.
+
+---
+
+## Paused Display in UI
+
+When `execution_state === 'paused'`, task cards show:
+- A `Pause` icon next to the time display.
+- Text: `"Paused at {formatTimerDisplay(task.time_spent_seconds)}"` -- read directly from task data, not from `elapsedSeconds`.
+- `elapsedSeconds` is only used for **live ticking** while `doing`. It is `0` when paused.
+- Resume button styled as primary action.
+- Slight opacity reduction on the timer display (e.g., `opacity-70`) for subtle differentiation.
+- Smooth `AnimatePresence` transitions between states (already in place).
+
+---
 
 ## Files Modified
 
-### 1. `src/lib/executionTimer.ts` (core engine)
+### `src/lib/executionTimer.ts`
+- Add `shallowClonePlanWithTaskUpdate(planData, weekIndex, taskIndex, updates)` helper.
+- Add `persistPlanToDb(userId, plan)` helper.
+- `updateTaskExecution` -- replace `JSON.parse(JSON.stringify())` with shallow clone helper.
+- No changes to `pauseTask`, `startTask`, `completeTask` signatures (they remain for non-optimistic callers like Plan.tsx if needed, but the hook will bypass them).
 
-- Change `TaskExecutionStatus` type from `'idle' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Add a `normalizeExecutionState()` function that maps legacy `'pending'` values (as described above)
-- Update `updateTaskExecution()` type signature: replace `'pending'` with `'idle' | 'doing' | 'paused' | 'done'`
-- Remove all `execution_status` writes from `startTask()`, `pauseTask()`, and `completeTask()`
-- `pauseTask()`: set `execution_state` to `'paused'` (not `'pending'`)
-- `startTask()` when pausing another task: set that task's `execution_state` to `'paused'` (not `'pending'`)
-- `getTaskExecutionState()`: use `normalizeExecutionState()` and include `'paused'` mapping
-- `findActiveTask()`: no change needed (only looks for `'doing'`)
-- `areAllTasksCompleted()`: use `normalizeExecutionState()` -- `'paused'` is not complete
+### `src/hooks/useExecutionTimer.ts`
+- Add `isMutatingRef = useRef(false)`.
+- Rewrite `pauseTaskTimer` as optimistic (synchronous UI + async DB).
+- Rewrite `startTaskTimer` as optimistic (synchronous UI + async DB, with auto-pause of any `doing` task).
+- Add rollback logic with toast on failure.
+- Import `toast` from `sonner`.
+- `completeTaskTimer` can remain await-based (completion is a terminal action where a small delay is acceptable, and the confirmation dialog already provides perceived responsiveness).
 
-### 2. `src/hooks/useExecutionTimer.ts` (React hook)
+### `src/components/ActiveTimerBanner.tsx`
+- Add paused state display: when `executionStatus === 'paused'`, show pause icon + "Paused at X:XX" + Resume button.
+- Add `executionStatus` and `pausedTimeSeconds` props.
+- 300ms button debounce on Pause/Resume/Done buttons.
 
-- Update `getTaskStatus` return type from `'idle' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Use `normalizeExecutionState()` in `getTaskStatus`
-- Return `'paused'` when `execution_state === 'paused'`
-- Remove the comment "pending maps to idle"
+### `src/components/PrimaryTaskCard.tsx`
+- Add paused time display: `"Paused at {time}"` reading from task's `time_spent_seconds`.
+- 300ms debounce on Start/Resume button.
 
-### 3. `src/lib/todayTaskSelector.ts` (task selection)
+### `src/components/SecondaryTaskCard.tsx`
+- Same paused time display.
+- 300ms debounce on Start/Resume button.
 
-- Add `execution_state` to the `Task` interface
-- Update `getCurrentWeekIndex()`: a task with `execution_state === 'paused'` is still incomplete (correct, no change needed since it checks `!t.completed`)
-- No functional change needed here since it filters on `!task.completed` which remains correct
+### `src/components/TodayTaskCard.tsx`
+- Same paused time display.
+- 300ms debounce on Start/Resume button.
 
-### 4. `src/lib/planProgress.ts` (progress calculation)
+### `src/pages/Today.tsx`
+- Pass `executionStatus` to `ActiveTimerBanner` for paused state rendering.
+- No other changes needed (it already delegates to the hook).
 
-- Update `Task` interface type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Update `isTaskDone()`: replace `task.execution_state === 'pending'` with checks for `'idle'` and `'paused'`
-- Use `normalizeExecutionState()` for legacy compatibility
+### `src/pages/Plan.tsx`
+- No changes needed (Plan.tsx uses the same hook; it benefits automatically).
 
-### 5. `src/lib/weekLockStatus.ts` (week locking)
-
-- Update `Week.tasks` type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- No logic change needed (checks `!== 'done' && !t.completed`)
-
-### 6. `src/pages/Plan.tsx` (plan view)
-
-- Update `Task` interface type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Update `getTaskExecutionState()` local function: return `'paused'` for paused tasks, `'idle'` instead of `'pending'`
-- Update `handleToggleCompletion()`: use `'idle'` instead of `'pending'` when un-completing a task
-- Remove `execution_status` writes in error revert logic
-
-### 7. `src/pages/Today.tsx` (today view)
-
-- Update `ExecutionState` type to `'idle' | 'doing' | 'paused' | 'done'`
-- Update `getExecutionState()`: map legacy `'pending'` using normalization, return `'paused'` for paused tasks, `'idle'` instead of `'pending'` for default
-- Update error revert: use `'idle'` instead of `'pending'`, remove `execution_status` write
-
-### 8. `src/components/TaskItem.tsx` (plan task card)
-
-- Update `executionState` prop type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Default value changes from `'pending'` to `'idle'`
-- Update `derivedState` logic: `'paused'` is not done, not active
-- Add visual indicator for paused state (e.g., a "Resume" button or paused icon)
-
-### 9. `src/components/DraggableTaskItem.tsx` (draggable wrapper)
-
-- Update `executionState` prop type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-
-### 10. `src/components/TodayTaskCard.tsx`, `PrimaryTaskCard.tsx`, `SecondaryTaskCard.tsx` (today cards)
-
-- Update `executionStatus` prop type from `'idle' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- Add visual handling for `'paused'` state (show "Resume" instead of "Start", or a paused indicator)
-
-### 11. `src/hooks/useCrossWeekTaskMove.ts`, `src/hooks/useTaskMutations.ts`
-
-- Update `Task` interface type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-- In `useTaskMutations.ts`: new tasks get `execution_state: 'idle'` instead of `'pending'`
-
-### 12. `src/lib/personalOperatingStyle.ts`
-
-- Update task type from `'pending' | 'doing' | 'done'` to `'idle' | 'doing' | 'paused' | 'done'`
-
-## The Normalization Function (key piece)
-
-```typescript
-// In src/lib/executionTimer.ts
-export function normalizeExecutionState(
-  task: { execution_state?: string; completed?: boolean; time_spent_seconds?: number }
-): TaskExecutionStatus {
-  const state = task.execution_state;
-  if (state === 'doing') return 'doing';
-  if (state === 'done') return 'done';
-  if (state === 'paused') return 'paused';
-  if (state === 'idle') return 'idle';
-  // Legacy migration: 'pending' or missing
-  if (state === 'pending') {
-    return (task.time_spent_seconds ?? 0) > 0 ? 'paused' : 'idle';
-  }
-  // No execution_state at all (legacy tasks)
-  return task.completed ? 'done' : 'idle';
-}
-```
+---
 
 ## What Does NOT Change
 
-- The `completed` boolean field -- kept for backward compatibility and used as a secondary signal
-- The `time_spent_seconds`, `execution_started_at`, `completed_at` fields -- unchanged
-- The `isLocalOpRef` guard in `useExecutionTimer.ts` -- still needed
-- The `ActiveTimerState` interface -- unchanged
-- localStorage timer management -- unchanged
-- The database schema -- no migration needed (JSONB blob)
-
-## Order of Implementation
-
-1. Add `normalizeExecutionState()` to `executionTimer.ts` and update types
-2. Update `pauseTask()`, `startTask()`, `completeTask()` to use new states and stop writing `execution_status`
-3. Update `useExecutionTimer.ts` hook
-4. Update all type interfaces across components and lib files
-5. Update UI components to handle `'paused'` state
-6. Update `Plan.tsx` and `Today.tsx` page logic
+- `normalizeExecutionState()` -- untouched.
+- `isLocalOpRef` guard -- kept and used.
+- `execution_state` 4-state model -- preserved.
+- `completeTask` -- stays await-based (confirmation dialog masks latency).
+- localStorage timer management pattern -- preserved.
+- No full plan refetch triggered.
+- No `execution_status` reintroduction.
 
