@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +32,8 @@ import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { toast } from '@/hooks/use-toast';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { Footer } from '@/components/Footer';
+import { FloatingTimerPill } from '@/components/FloatingTimerPill';
+import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { 
   ArrowLeft, Home, Target, ChevronDown, Lightbulb, AlertTriangle,
   Loader2, Calendar, FileText, BarChart3
@@ -112,6 +115,13 @@ const Review = () => {
   const { settings: desktopSettings } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
+
+  // Execution timer for floating pill
+  const executionTimer = useExecutionTimer({
+    planData: plan,
+    planId,
+    onPlanUpdate: (updatedPlan) => setPlan(updatedPlan),
+  });
 
   // Fetch plan data
   useEffect(() => {
@@ -536,6 +546,19 @@ const Review = () => {
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Floating Timer Pill */}
+      <AnimatePresence>
+        {executionTimer.timerContext && (
+          <FloatingTimerPill
+            taskTitle={executionTimer.timerContext.taskTitle}
+            timerStatus={executionTimer.timerContext.status}
+            elapsedSeconds={executionTimer.elapsedSeconds}
+            pausedTimeSeconds={executionTimer.timerContext.pausedTimeSeconds}
+            onRestore={() => navigate('/today')}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
