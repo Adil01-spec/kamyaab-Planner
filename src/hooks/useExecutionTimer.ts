@@ -39,12 +39,14 @@ interface UseExecutionTimerReturn {
   isStarting: boolean;
   isCompleting: boolean;
   isPausing: boolean;
+  isResetting: boolean;
   totalTimeSpent: number;
   allTasksCompleted: boolean;
   timerContext: TimerContext | null;
   startTaskTimer: (weekIndex: number, taskIndex: number, taskTitle: string) => Promise<boolean>;
   completeTaskTimer: () => Promise<{ success: boolean; timeSpent: number }>;
   pauseTaskTimer: () => Promise<boolean>;
+  resetTaskTimer: () => Promise<boolean>;
   dismissTimer: () => void;
   isTaskActive: (weekIndex: number, taskIndex: number) => boolean;
   getTaskStatus: (weekIndex: number, taskIndex: number) => 'idle' | 'doing' | 'paused' | 'done';
@@ -61,6 +63,7 @@ export function useExecutionTimer({
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [timerContext, setTimerContext] = useState<TimerContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalOpRef = useRef(false);
@@ -387,6 +390,70 @@ export function useExecutionTimer({
     }
   }, [user?.id, planData, activeTimer, elapsedSeconds, timerContext, onPlanUpdate]);
 
+  // Optimistic Reset — erase tracked time and return task to initial state
+  const resetTaskTimer = useCallback(async (): Promise<boolean> => {
+    if (!user?.id || !planData || !timerContext) return false;
+    if (isMutatingRef.current) return false;
+
+    isMutatingRef.current = true;
+
+    // Snapshot for rollback
+    const prevPlan = planData;
+    const prevActiveTimer = activeTimer;
+    const prevElapsedSeconds = elapsedSeconds;
+    const prevLocalStorage = getLocalActiveTimer();
+    const prevTimerContext = timerContext;
+
+    const { weekIndex, taskIndex } = timerContext;
+
+    setIsResetting(true);
+    try {
+      // First: stop interval to prevent extra ticks
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+
+      // Optimistic UI update
+      setActiveTimer(null);
+      setElapsedSeconds(0);
+      setTimerContext(null);
+      setLocalActiveTimer(null);
+
+      const optimisticPlan = shallowClonePlanWithTaskUpdate(
+        planData,
+        weekIndex,
+        taskIndex,
+        {
+          execution_state: 'pending',
+          execution_started_at: null,
+          time_spent_seconds: 0,
+        }
+      );
+      isLocalOpRef.current = true;
+      onPlanUpdate(optimisticPlan);
+
+      // Background DB write
+      const result = await persistPlanToDb(user.id, optimisticPlan);
+      if (!result.success) {
+        // Rollback
+        setActiveTimer(prevActiveTimer);
+        setElapsedSeconds(prevElapsedSeconds);
+        setLocalActiveTimer(prevLocalStorage);
+        setTimerContext(prevTimerContext);
+        isLocalOpRef.current = true;
+        onPlanUpdate(prevPlan);
+        toast.error('Reset failed. Timer restored.');
+        return false;
+      }
+
+      return true;
+    } finally {
+      setIsResetting(false);
+      isMutatingRef.current = false;
+    }
+  }, [user?.id, planData, activeTimer, elapsedSeconds, timerContext, onPlanUpdate]);
+
   // Check if a specific task is the active one
   const isTaskActive = useCallback(
     (weekIndex: number, taskIndex: number): boolean => {
@@ -429,12 +496,14 @@ export function useExecutionTimer({
     isStarting,
     isCompleting,
     isPausing,
+    isResetting,
     totalTimeSpent,
     allTasksCompleted,
     timerContext,
     startTaskTimer,
     completeTaskTimer,
     pauseTaskTimer,
+    resetTaskTimer,
     dismissTimer,
     isTaskActive,
     getTaskStatus,

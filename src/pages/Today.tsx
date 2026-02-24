@@ -960,8 +960,10 @@ const Today = () => {
                 }
               }}
               onMinimize={() => setIsTimerMinimized(true)}
+              onReset={executionTimer.resetTaskTimer}
               isCompleting={executionTimer.isCompleting}
               isPausing={executionTimer.isPausing}
+              isResetting={executionTimer.isResetting}
             />
           </motion.div>
         )}

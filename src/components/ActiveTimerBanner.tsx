@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Clock, CheckCircle, Pause, Play, ChevronDown } from 'lucide-react';
+import { Clock, CheckCircle, Pause, Play, ChevronDown, RotateCcw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatTimerDisplay } from '@/lib/executionTimer';
@@ -17,8 +17,10 @@ interface ActiveTimerBannerProps {
   onPause: () => void;
   onResume: () => void;
   onMinimize: () => void;
+  onReset: () => void;
   isCompleting?: boolean;
   isPausing?: boolean;
+  isResetting?: boolean;
   className?: string;
 }
 
@@ -31,11 +33,14 @@ export function ActiveTimerBanner({
   onPause,
   onResume,
   onMinimize,
+  onReset,
   isCompleting = false,
   isPausing = false,
+  isResetting = false,
   className
 }: ActiveTimerBannerProps) {
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   const [debounced, setDebounced] = useState(false);
 
   const withDebounce = useCallback((fn: () => void) => {
@@ -51,6 +56,10 @@ export function ActiveTimerBanner({
   const handleConfirmComplete = () => {
     setShowCompleteDialog(false);
     onComplete();
+  };
+  const handleConfirmReset = () => {
+    setShowResetDialog(false);
+    onReset();
   };
 
   const isPaused = timerStatus === 'paused';
@@ -152,6 +161,15 @@ export function ActiveTimerBanner({
                 <CheckCircle className="w-5 h-5 mr-2" />
                 Done
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowResetDialog(true)}
+                disabled={isResetting || debounced}
+                className="h-12 w-12 shrink-0 border-destructive/30 hover:bg-destructive/5 text-destructive"
+                title="Reset timer"
+              >
+                {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <RotateCcw className="w-5 h-5" />}
+              </Button>
             </motion.div>
           ) : (
             <motion.div
@@ -178,6 +196,15 @@ export function ActiveTimerBanner({
               >
                 <CheckCircle className="w-5 h-5 mr-2" />
                 Done
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowResetDialog(true)}
+                disabled={isResetting || debounced}
+                className="h-12 w-12 shrink-0 border-destructive/30 hover:bg-destructive/5 text-destructive"
+                title="Reset timer"
+              >
+                {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <RotateCcw className="w-5 h-5" />}
               </Button>
             </motion.div>
           )}
@@ -207,6 +234,27 @@ export function ActiveTimerBanner({
           <Button onClick={handleConfirmComplete} disabled={isCompleting} className="gradient-kaamyab">
             <CheckCircle className="w-4 h-4 mr-2" />
             Yes, completed
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Reset confirmation dialog */}
+    <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reset this session?</DialogTitle>
+          <DialogDescription>
+            This will erase <span className="font-mono font-medium">{timerDisplay}</span> of tracked time.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setShowResetDialog(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmReset} disabled={isResetting}>
+            {isResetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+            Reset
           </Button>
         </DialogFooter>
       </DialogContent>
