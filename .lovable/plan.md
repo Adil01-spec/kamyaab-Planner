@@ -1,218 +1,159 @@
 
-# Plan Completion Experience + Intelligent Context Memory
+
+# Architectural Upgrades for Plan Completion System
 
 ## Overview
-A comprehensive completion system that detects when all tasks are done, presents a mature completion screen, calculates advanced analytics, archives with context memory, and feeds that memory into future plan generation.
+Six targeted changes to strengthen the completion system: rolling memory array, deterministic completion speed, measurable consistency formula, directive AI context injection, hard timer stop on completion, and memory revocation support.
 
 ---
 
-## Architecture Approach
+## Change 1: Rolling `plan_memory` Array (max 5 entries)
 
-The system follows existing patterns: plan state lives in `plan_json` (JSONB), execution profile lives in `profiles` table (via `personalExecutionProfile.ts`), and plan history goes to `plan_history` table. We add a new `plan_memory` JSONB column to `profiles` for consent-based context storage, and a `completed_at` field to `plan_json`.
+### Current
+`plan_memory` is a single `PlanMemory` object, overwritten each time.
 
-Completion detection uses `task.completed === true` (not `execution_state`) as specified. The Plan page gets a conditional render: if `completed_at` exists in `plan_json`, show the completion screen instead of the checklist.
+### New
+`plan_memory` becomes `PlanMemory[]` — an array of up to 5 entries (rolling window, newest appended, oldest dropped).
+
+**Files changed:**
+- `src/lib/planCompletion.ts`:
+  - `PlanMemory` interface stays the same.
+  - `savePlanMemory()` becomes: fetch existing `plan_memory` from profiles, parse as array, append new entry, keep only last 5 via `.slice(-5)`, then update.
+- `src/components/PlanCompletionScreen.tsx`:
+  - `handleConsent` calls the updated `savePlanMemory`.
+- `supabase/functions/generate-plan/index.ts`:
+  - Parse `plan_memory` as array. Build context block from ALL entries (trending data, not just last plan).
+
+**No DB migration needed** — `plan_memory` is already `jsonb`, which supports arrays.
 
 ---
 
-## Changes
+## Change 2: Deterministic `completion_speed` Logic
 
-### PART 1 -- Database Migration
+### Current
+Uses 0.8x / 1.2x thresholds against `total_weeks * 7`, which is fuzzy.
 
-Add `plan_memory` column to `profiles` table:
+### New
+In `buildPlanMemory()`:
+- If plan has `total_weeks` (defined duration):
+  - `planned_duration = total_weeks * 7`
+  - `total_days_taken < planned_duration` -> `'faster'`
+  - `total_days_taken === planned_duration` -> `'on_time'`
+  - `total_days_taken > planned_duration` -> `'slower'`
+- If no `total_weeks` or `is_open_ended === true`:
+  - Omit `completion_speed` from memory entry entirely.
 
-```sql
-ALTER TABLE public.profiles
-ADD COLUMN plan_memory jsonb DEFAULT NULL;
+**Files changed:**
+- `src/lib/planCompletion.ts`: Update `PlanMemory` interface to make `completion_speed` optional. Rewrite logic in `buildPlanMemory()` with clear code comments documenting the formula.
+
+---
+
+## Change 3: Measurable Execution Consistency Formula
+
+### Current
+`consistency = (tasksWithTime / totalTasks) * 100` — measures task coverage, not daily consistency.
+
+### New Formula:
+```text
+consistency = (active_execution_days / total_days_taken) * 100
+```
+Where `active_execution_days` = number of unique calendar days that have tasks with `time_spent_seconds > 0`. Approximated by counting tasks with `completed_at` or `execution_started_at` on distinct dates.
+
+Since we don't track per-day logs, we approximate using a simpler but still meaningful metric:
+- Collect all `completed_at` timestamps across tasks.
+- Extract unique dates from them.
+- `active_execution_days` = count of unique dates.
+- `consistency = Math.round((active_execution_days / total_days_taken) * 100)`, clamped to 0-100.
+
+**Files changed:**
+- `src/lib/planCompletion.ts`: Rewrite consistency calculation in `buildPlanMemory()` with documented formula. Add helper to extract unique active dates from task timestamps.
+
+---
+
+## Change 4: Directive AI Context Injection
+
+### Current
+The historical context block says "Use this context to..." — advisory tone.
+
+### New
+Replace with directive rules that the model MUST follow:
+
+```text
+HISTORICAL EXECUTION DATA (from {N} previous completed plans):
+[Per-entry summary with key metrics]
+
+MANDATORY PLANNING ADJUSTMENTS:
+- You MUST adjust plan difficulty based on historical execution data.
+- If average_daily_time < 1 hour: Do NOT generate heavy multi-hour daily workloads. Cap at 1-2 tasks per day.
+- If consistency < 60%: Build lighter daily commitments with buffer days built into the schedule.
+- If completion_speed was "slower" in most recent entry: Reduce task density by 15-25%.
+- If average_daily_time > 3 hours: User has high capacity. You may increase task depth.
 ```
 
-No new tables needed. `completed_at` is stored inside `plan_json` (not a separate column).
+**Files changed:**
+- `supabase/functions/generate-plan/index.ts`: Rewrite the `historicalContextBlock` builder to iterate over the array and produce directive rules.
 
-### PART 2 -- Completion Detection (`src/lib/planCompletion.ts` -- NEW)
+---
 
-New utility file with:
+## Change 5: Hard Timer Stop on Completion
 
-- `isPlanCompleted(planData)`: returns `true` if `planData.completed_at` is set.
-- `checkAllTasksCompleted(planData)`: returns `true` if every `task.completed === true` across all weeks.
-- `calculateCompletionAnalytics(planData, planCreatedAt)`: computes:
-  - Total hours tracked (sum of `time_spent_seconds`)
-  - Average daily execution time (total time / active days)
-  - Longest session (max `time_spent_seconds` across tasks)
-  - Most worked-on task (highest `time_spent_seconds`)
-  - Total days active (days between `planCreatedAt` and `completed_at`)
-  - Total tasks
-  - Completion rate (should be 100%)
-- `buildPlanMemory(planData, planCreatedAt, planId)`: builds the `plan_memory` object with structured metrics only (no raw task descriptions).
+When `completed_at` is set on the plan:
 
-### PART 3 -- Completion Trigger (in `src/pages/Plan.tsx`)
+**5a. `src/hooks/useExecutionTimer.ts`:**
+- `startTaskTimer`: Add guard at the top — if `planData?.completed_at` exists, return `false` immediately. This prevents ghost sessions.
 
-Modify `toggleTask` callback:
-- After marking a task complete, call `checkAllTasksCompleted()`.
-- If all done and `plan.completed_at` is not set:
-  1. Set `completed_at = new Date().toISOString()` on `plan_json`.
-  2. Persist to DB.
-  3. Trigger subtle confetti (1-1.5 seconds, not the current 4-second grand celebration).
-  4. Show consent modal.
-  5. Existing `triggerPatternUpdate` still runs (it already handles profile updates).
+**5b. Completion trigger in `src/pages/Plan.tsx` (inside `toggleTask`):**
+- After setting `completed_at`, immediately call the timer cleanup:
+  - Clear `intervalRef` (via the execution timer hook).
+  - Clear `localStorage` active timer.
+  - Clear `timerContext`.
+  - The existing `setTimerContext(null)` in the hook already handles FloatingTimerPill unmount.
 
-Also hook into `completeTaskTimer` flow (Today page) -- after timer completion, check if all tasks are now done and trigger the same flow.
+**5c. Completion trigger in `src/pages/Today.tsx`:**
+- Same cleanup after setting `completed_at` on plan.
 
-### PART 4 -- Plan Completion Screen (`src/components/PlanCompletionScreen.tsx` -- NEW)
+**5d. `src/hooks/useExecutionTimer.ts` initialization effect:**
+- Add early return if `planData?.completed_at` exists — skip all timer initialization, set everything to null.
 
-Full-page component shown when `plan.completed_at` exists, replacing the checklist on `/plan`:
+---
 
-- Trophy icon (subtle, not animated)
-- "Plan Completed" title
-- Completion date (formatted)
-- Total time invested (from `calculateTotalTimeSpent`)
-- Total days taken (diff between `planCreatedAt` and `completed_at`)
-- Completion rate: 100%
-- Total tasks completed count
+## Change 6: Memory Revocation Backend Function
 
-Buttons:
-- **View Detailed Summary** -- scrolls to / opens the analytics section
-- **Duplicate This Plan** -- navigates to `/plan/reset` with duplication context (future implementation placeholder)
-- **Archive Plan** -- calls `archiveCurrentPlan()` then deletes the active plan, redirecting to `/plan/reset`
-- **Create New Plan** -- same as archive + redirect
+Add `clearExecutionMemory()` to `src/lib/planCompletion.ts`:
 
-Read-only: no checkboxes, no timer controls.
-
-### PART 5 -- Detailed Analytics Summary (`src/components/PlanCompletionSummary.tsx` -- NEW)
-
-Shown via "View Detailed Summary" button (dialog or inline expand):
-
-- Total hours tracked
-- Average daily execution time
-- Longest session (task name + duration)
-- Most worked-on task (task name + duration)
-- Total execution sessions (approximate: count of tasks with `time_spent_seconds > 0`)
-- Total days active
-
-Clean card-based layout. No gamification. Uses data from `calculateCompletionAnalytics()`.
-
-### PART 6 -- Consent Modal (`src/components/PlanMemoryConsentModal.tsx` -- NEW)
-
-Dialog shown after completion detection:
-
-- Title: "Use this experience to improve your next plan?"
-- Description: "We can analyze your execution patterns to generate a smarter, more realistic plan next time."
-- **Yes, use my progress** -- calls `savePlanMemory()` to store structured metrics in `profiles.plan_memory`
-- **No, don't use this** -- dismisses modal, does NOT store memory
-
-`savePlanMemory(userId, memory)`:
 ```typescript
-await supabase.from('profiles').update({ plan_memory: memory }).eq('id', userId);
-```
-
-Memory structure stored:
-```typescript
-{
-  plan_id: string,
-  total_time_spent: number,
-  total_days_taken: number,
-  average_daily_time: number,
-  most_worked_task: string, // title only
-  completion_speed: 'faster' | 'on_time' | 'slower',
-  execution_consistency_score: number, // 0-100
-  completed_at: string
+/** Clear all stored execution memory (consent revocation). */
+export async function clearExecutionMemory(userId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ plan_memory: null })
+    .eq('id', userId);
+  return !error;
 }
 ```
 
-### PART 7 -- Review Page Upgrade (`src/pages/Review.tsx`)
-
-Modify the Plan Overview card at the top:
-- If `plan.completed_at` exists:
-  - Show "Completed" badge (green, next to plan type badge)
-  - Show total hours invested below the progress bar
-  - Show completion date
-  - Visually distinct: subtle green border or background tint
-
-The plan history section already sorts by `completed_at` descending (existing `usePlanHistory` does this).
-
-### PART 8 -- Plan Page Lock After Completion (`src/pages/Plan.tsx`)
-
-When `plan.completed_at` is set:
-- Render `PlanCompletionScreen` instead of the weekly breakdown
-- Keep header, milestones (read-only), and motivation sections
-- Hide: Add Task buttons, DnD, calendar sync, extend plan button
-- Timer hook still initializes (for FloatingTimerPill on other pages) but no new timers can start
-- `toggleTask` becomes no-op when plan is completed
-
-### PART 9 -- AI Plan Generation with Memory Context (`supabase/functions/generate-plan/index.ts`)
-
-Before building the user prompt:
-1. Fetch `plan_memory` from `profiles` table (already fetching profile data).
-2. If `plan_memory` is not null, append a context block to the user prompt:
-
-```text
-HISTORICAL EXECUTION CONTEXT (from user's previous completed plan):
-- Completed previous plan in {total_days_taken} days
-- Averaged {average_daily_time_hours}h per day of active execution
-- Spent most time on: "{most_worked_task}"
-- Execution consistency score: {execution_consistency_score}%
-- Completion speed: {completion_speed}
-
-Use this context to:
-- Adjust task time estimates to match proven capacity
-- Set realistic daily workload expectations
-- Distribute difficulty based on observed patterns
-```
-
-3. If `plan_memory` is null, generate without historical context (unchanged behavior).
-
-### PART 10 -- Data Safety
-
-- `plan_memory` stores only structured metrics, no raw task descriptions (except the most-worked task title).
-- Memory is only written with explicit user consent.
-- Revoke consent placeholder: add a comment/TODO in settings for future "Clear execution memory" option.
-- No auto-enable of memory storage.
-
----
-
-## What Does NOT Change
-
-- Execution timer logic (4-state machine, optimistic pause/resume, reset)
-- FloatingTimerPill behavior
-- Plan editing flow for active (non-completed) plans
-- `personalExecutionProfile.ts` (existing pattern update still runs independently)
-- `archiveCurrentPlan()` logic (still called during plan reset)
-- Task card components
-- `useExecutionTimer` hook internals
+No UI yet — this is a backend-ready placeholder. A TODO comment will be added in settings files for future "Clear execution memory" button.
 
 ---
 
 ## Implementation Order
 
-1. Database migration: add `plan_memory` column to `profiles`
-2. Create `src/lib/planCompletion.ts` (detection + analytics + memory builder)
-3. Create `src/components/PlanMemoryConsentModal.tsx`
-4. Create `src/components/PlanCompletionSummary.tsx`
-5. Create `src/components/PlanCompletionScreen.tsx`
-6. Update `src/pages/Plan.tsx` (completion detection in `toggleTask`, conditional render, lock)
-7. Update `src/pages/Today.tsx` (completion detection after timer complete)
-8. Update `src/pages/Review.tsx` (completed badge, hours, date)
-9. Update `supabase/functions/generate-plan/index.ts` (fetch + inject memory context)
-10. Deploy edge function
+1. Update `PlanMemory` interface and `buildPlanMemory()` (changes 2, 3)
+2. Update `savePlanMemory()` to rolling array append (change 1)
+3. Add `clearExecutionMemory()` (change 6)
+4. Add timer guards and hard stop on completion (change 5)
+5. Rewrite AI context injection (change 4)
+6. Deploy edge function
 
 ---
 
-## Technical Details
+## What Does NOT Change
 
-### Completion detection location
+- Database schema (plan_memory is already jsonb, supports arrays)
+- Execution timer 4-state machine
+- Optimistic pause/resume/reset flows
+- FloatingTimerPill component
+- PlanCompletionScreen layout
+- PlanMemoryConsentModal UX
+- Task card components
 
-Two entry points where a task can become the "final" completed task:
-1. `toggleTask()` in `Plan.tsx` (manual checkbox)
-2. `completeTaskTimer()` callback chain in `Today.tsx` (timer-based completion)
-
-Both will check `checkAllTasksCompleted()` after the update, then set `completed_at` on the plan.
-
-### Confetti for completion
-
-Replace the current 4-second grand celebration with a subtle 1.5-second burst (single center burst, ~80 particles, no side bursts). This fires once when `completed_at` is first set.
-
-### Plan lock mechanism
-
-Simple conditional: `const isPlanCompleted = !!plan?.completed_at;`
-- Checkboxes: `disabled={isPlanCompleted}`
-- Start task buttons: hidden when completed
-- Add task / split task: hidden when completed
-- DnD: sensors disabled when completed
