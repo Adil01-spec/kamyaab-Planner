@@ -687,6 +687,10 @@ const Plan = () => {
 
       if (allDone && !hasCompletedPlan.current) {
         hasCompletedPlan.current = true;
+
+        // Hard stop: force-clear any active timer to prevent ghost sessions
+        executionTimer.dismissTimer();
+
         // Subtle confetti (not the old grand celebration)
         confetti({
           particleCount: 80,

@@ -487,24 +487,64 @@ STRATEGIC CONTEXT:
 
     // ============================================
     // HISTORICAL EXECUTION CONTEXT (Plan Memory)
+    // Rolling array of up to 5 PlanMemory entries.
     // ============================================
     let historicalContextBlock = '';
-    const planMemory = userProfile?.plan_memory;
-    if (planMemory && typeof planMemory === 'object') {
-      const mem = planMemory as any;
-      const avgHours = mem.average_daily_time ? (mem.average_daily_time / 60).toFixed(1) : 'unknown';
-      historicalContextBlock = `
-HISTORICAL EXECUTION CONTEXT (from user's previous completed plan):
-- Completed previous plan in ${mem.total_days_taken || 'unknown'} days
-- Averaged ${avgHours}h per day of active execution
-- Spent most time on: "${mem.most_worked_task || 'unknown'}"
-- Execution consistency score: ${mem.execution_consistency_score || 'unknown'}%
-- Completion speed: ${mem.completion_speed || 'unknown'}
+    const rawPlanMemory = userProfile?.plan_memory;
 
-Use this context to:
-- Adjust task time estimates to match proven capacity
-- Set realistic daily workload expectations
-- Distribute difficulty based on observed patterns
+    // Normalize to array (handle legacy single-object format)
+    let memoryEntries: any[] = [];
+    if (rawPlanMemory) {
+      if (Array.isArray(rawPlanMemory)) {
+        memoryEntries = rawPlanMemory;
+      } else if (typeof rawPlanMemory === 'object') {
+        memoryEntries = [rawPlanMemory];
+      }
+    }
+
+    if (memoryEntries.length > 0) {
+      // Build per-entry summaries
+      const entrySummaries = memoryEntries.map((mem: any, i: number) => {
+        const avgHours = mem.average_daily_time ? (mem.average_daily_time / 60).toFixed(1) : '?';
+        const speedLine = mem.completion_speed ? `  Completion speed: ${mem.completion_speed}` : '';
+        return `  Plan ${i + 1}: ${mem.total_days_taken || '?'} days, avg ${avgHours}h/day, consistency ${mem.execution_consistency_score ?? '?'}%, most worked: "${mem.most_worked_task || '?'}"${speedLine}`;
+      }).join('\n');
+
+      // Compute aggregate metrics for directive rules
+      const latestEntry = memoryEntries[memoryEntries.length - 1];
+      const avgDailyMinutes = latestEntry.average_daily_time || 0;
+      const avgDailyHours = avgDailyMinutes / 60;
+      const latestConsistency = latestEntry.execution_consistency_score ?? 100;
+      const latestSpeed = latestEntry.completion_speed;
+
+      let directiveRules = '';
+
+      // Rule 1: low daily capacity
+      if (avgDailyHours < 1) {
+        directiveRules += '\n- User averages LESS than 1 hour/day. You MUST NOT generate heavy multi-hour daily workloads. Cap at 1-2 tasks per day.';
+      }
+
+      // Rule 2: low consistency
+      if (latestConsistency < 60) {
+        directiveRules += '\n- User consistency is BELOW 60%. You MUST build lighter daily commitments with buffer days built into the schedule.';
+      }
+
+      // Rule 3: slower completion
+      if (latestSpeed === 'slower') {
+        directiveRules += '\n- User completed their most recent plan SLOWER than planned. You MUST reduce task density by 15-25%.';
+      }
+
+      // Rule 4: high capacity
+      if (avgDailyHours > 3) {
+        directiveRules += '\n- User has HIGH capacity (>3h/day). You may increase task depth and complexity.';
+      }
+
+      historicalContextBlock = `
+HISTORICAL EXECUTION DATA (from ${memoryEntries.length} previous completed plan${memoryEntries.length > 1 ? 's' : ''}):
+${entrySummaries}
+
+MANDATORY PLANNING ADJUSTMENTS:
+You MUST adjust plan difficulty based on historical execution data.${directiveRules}
 `;
     }
 

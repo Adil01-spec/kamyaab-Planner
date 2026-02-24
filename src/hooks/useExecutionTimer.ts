@@ -73,6 +73,19 @@ export function useExecutionTimer({
   useEffect(() => {
     if (!planData) return;
 
+    // Hard stop: if plan is completed, clear everything and bail
+    if (planData.completed_at) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setActiveTimer(null);
+      setElapsedSeconds(0);
+      setTimerContext(null);
+      setLocalActiveTimer(null);
+      return;
+    }
+
     // Skip re-initialization if this planData change was triggered by a local operation
     if (isLocalOpRef.current) {
       isLocalOpRef.current = false;
@@ -183,6 +196,9 @@ export function useExecutionTimer({
     async (weekIndex: number, taskIndex: number, taskTitle: string): Promise<boolean> => {
       if (!user?.id || !planData) return false;
       if (isMutatingRef.current) return false;
+
+      // Hard stop: prevent starting tasks on completed plans
+      if (planData.completed_at) return false;
 
       // Guard against starting tasks in locked weeks
       if (isTaskInLockedWeek(planData, weekIndex)) {
