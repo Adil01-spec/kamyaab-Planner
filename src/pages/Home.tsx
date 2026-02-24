@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings, updateMobileSettingsCache } from '@/hooks/useMobileSettings';
@@ -547,6 +547,9 @@ const Home = () => {
                 <DropdownMenuTrigger asChild>
                   <button className="h-9 w-9 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80">
                     <Avatar className="h-9 w-9 border border-border/40">
+                      {profile?.avatarUrl ? (
+                        <AvatarImage src={profile.avatarUrl} alt="Avatar" />
+                      ) : null}
                       <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
                         {userInitials}
                       </AvatarFallback>
