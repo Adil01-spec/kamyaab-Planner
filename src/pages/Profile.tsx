@@ -1,19 +1,22 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
 import { Footer } from '@/components/Footer';
+import { EditProfileModal } from '@/components/EditProfileModal';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar } from 'lucide-react';
+import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
   const subscription = useSubscription();
+  const [editOpen, setEditOpen] = useState(false);
 
   const userInitials = profile?.fullName
     ? profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -75,8 +78,19 @@ const Profile = () => {
                 </div>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 text-sm"
+              onClick={() => setEditOpen(true)}
+            >
+              <Pencil className="w-3.5 h-3.5 mr-2" />
+              Edit Profile
+            </Button>
           </CardContent>
         </Card>
+
+        <EditProfileModal open={editOpen} onOpenChange={setEditOpen} />
 
         {/* Current Plan */}
         <Card className="border-border/30 bg-card/80 backdrop-blur-sm">
