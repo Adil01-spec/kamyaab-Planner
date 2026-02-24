@@ -17,6 +17,7 @@ interface UserProfile {
   subscription_provider: string | null;
   grace_ends_at: string | null;
   email_verified_at: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -34,6 +35,7 @@ interface MappedProfile {
   subscriptionProvider: string | null;
   graceEndsAt: string | null;
   emailVerifiedAt: string | null;
+  avatarUrl: string | null;
 }
 
 // Profile data that can be saved (subscription fields managed separately)
@@ -90,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     subscriptionProvider: dbProfile.subscription_provider || null,
     graceEndsAt: dbProfile.grace_ends_at || null,
     emailVerifiedAt: dbProfile.email_verified_at || null,
+    avatarUrl: dbProfile.avatar_url || null,
   });
 
   // Determine if user signed in via OAuth (Google/Apple)

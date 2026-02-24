@@ -5,7 +5,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
 import { Footer } from '@/components/Footer';
 import { EditProfileModal } from '@/components/EditProfileModal';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +49,9 @@ const Profile = () => {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4 mb-5">
               <Avatar className="h-16 w-16 border-2 border-primary/20">
+                {profile?.avatarUrl ? (
+                  <AvatarImage src={profile.avatarUrl} alt="Avatar" />
+                ) : null}
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
                   {userInitials}
                 </AvatarFallback>

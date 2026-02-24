@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Loader2, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EditProfileModalProps {
@@ -14,36 +15,81 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) {
-  const { profile, saveProfile } = useAuth();
+  const { user, profile, saveProfile, refreshProfile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({
-    fullName: '',
-    profession: '',
-    projectTitle: '',
-    projectDescription: '',
-    projectDeadline: '',
-  });
+  const userInitials = profile?.fullName
+    ? profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
 
   useEffect(() => {
     if (open && profile) {
-      setForm({
-        fullName: profile.fullName || '',
-        profession: profile.profession || '',
-        projectTitle: profile.projectTitle || '',
-        projectDescription: profile.projectDescription || '',
-        projectDeadline: profile.projectDeadline || '',
-      });
+      setFullName(profile.fullName || '');
+      setAvatarPreview(profile.avatarUrl || null);
     }
   }, [open, profile]);
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be under 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `${user.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Save avatar_url to profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarPreview(avatarUrl);
+      await refreshProfile();
+      toast.success('Avatar updated');
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      toast.error('Failed to upload avatar');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
-    const trimmedName = form.fullName.trim();
-    if (!trimmedName) {
+    const trimmed = fullName.trim();
+    if (!trimmed) {
       toast.error('Name is required');
       return;
     }
-    if (trimmedName.length > 100) {
+    if (trimmed.length > 100) {
       toast.error('Name must be less than 100 characters');
       return;
     }
@@ -51,12 +97,12 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
     setSaving(true);
     try {
       await saveProfile({
-        fullName: trimmedName,
-        profession: form.profession.trim().slice(0, 100),
+        fullName: trimmed,
+        profession: profile?.profession || '',
         professionDetails: profile?.professionDetails || {},
-        projectTitle: form.projectTitle.trim().slice(0, 200),
-        projectDescription: form.projectDescription.trim().slice(0, 1000),
-        projectDeadline: form.projectDeadline,
+        projectTitle: profile?.projectTitle || '',
+        projectDescription: profile?.projectDescription || '',
+        projectDeadline: profile?.projectDeadline || '',
       });
       toast.success('Profile updated');
       onOpenChange(false);
@@ -69,68 +115,58 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-card border-border/30">
+      <DialogContent className="sm:max-w-sm bg-card border-border/30">
         <DialogHeader>
           <DialogTitle className="text-lg">Edit Profile</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="space-y-5 pt-2">
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative group">
+              <Avatar className="h-20 w-20 border-2 border-primary/20">
+                {avatarPreview ? (
+                  <AvatarImage src={avatarPreview} alt="Avatar" />
+                ) : null}
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xl">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-foreground" />
+                ) : (
+                  <Camera className="w-5 h-5 text-foreground" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Click to change photo</p>
+          </div>
+
+          {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="edit-name" className="text-sm text-foreground/80">Full Name</Label>
             <Input
               id="edit-name"
-              value={form.fullName}
-              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
               maxLength={100}
               className="bg-background/50"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="edit-profession" className="text-sm text-foreground/80">Profession</Label>
-            <Input
-              id="edit-profession"
-              value={form.profession}
-              onChange={e => setForm(f => ({ ...f, profession: e.target.value }))}
-              maxLength={100}
-              className="bg-background/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-project-title" className="text-sm text-foreground/80">Project Title</Label>
-            <Input
-              id="edit-project-title"
-              value={form.projectTitle}
-              onChange={e => setForm(f => ({ ...f, projectTitle: e.target.value }))}
-              maxLength={200}
-              className="bg-background/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-project-desc" className="text-sm text-foreground/80">Project Description</Label>
-            <Textarea
-              id="edit-project-desc"
-              value={form.projectDescription}
-              onChange={e => setForm(f => ({ ...f, projectDescription: e.target.value }))}
-              maxLength={1000}
-              rows={3}
-              className="bg-background/50 resize-none"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-deadline" className="text-sm text-foreground/80">Project Deadline</Label>
-            <Input
-              id="edit-deadline"
-              type="date"
-              value={form.projectDeadline}
-              onChange={e => setForm(f => ({ ...f, projectDeadline: e.target.value }))}
-              className="bg-background/50"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-1">
             <Button
               variant="outline"
               className="flex-1"
@@ -142,7 +178,7 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
             <Button
               className="flex-1"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || uploading}
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save
