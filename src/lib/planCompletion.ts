@@ -21,7 +21,22 @@ export interface PlanMemory {
   total_days_taken: number;
   average_daily_time: number;
   most_worked_task: string;
-  completion_speed: 'faster' | 'on_time' | 'slower';
+  /**
+   * Deterministic completion speed:
+   * - If plan has total_weeks (defined duration):
+   *   planned_duration = total_weeks * 7
+   *   total_days_taken < planned_duration → 'faster'
+   *   total_days_taken === planned_duration → 'on_time'
+   *   total_days_taken > planned_duration → 'slower'
+   * - If no total_weeks or is_open_ended → field is omitted entirely.
+   */
+  completion_speed?: 'faster' | 'on_time' | 'slower';
+  /**
+   * Execution consistency formula:
+   * consistency = Math.round((active_execution_days / total_days_taken) * 100)
+   * where active_execution_days = number of unique calendar dates with completed tasks.
+   * Clamped to 0-100.
+   */
   execution_consistency_score: number;
   completed_at: string;
 }
@@ -96,6 +111,30 @@ export function calculateCompletionAnalytics(
   };
 }
 
+/**
+ * Extract unique active execution dates from task timestamps.
+ * Counts unique calendar dates where a task was completed (completed_at).
+ */
+function countActiveExecutionDays(planData: any): number {
+  const uniqueDates = new Set<string>();
+
+  for (const week of planData.weeks || []) {
+    for (const task of week.tasks || []) {
+      // Use completed_at as primary signal for active day
+      if (task.completed_at) {
+        try {
+          const dateStr = new Date(task.completed_at).toISOString().slice(0, 10);
+          uniqueDates.add(dateStr);
+        } catch {
+          // Skip invalid dates
+        }
+      }
+    }
+  }
+
+  return uniqueDates.size;
+}
+
 /** Build structured plan memory for AI context (no raw descriptions) */
 export function buildPlanMemory(
   planData: any,
@@ -105,47 +144,101 @@ export function buildPlanMemory(
   const analytics = calculateCompletionAnalytics(planData, planCreatedAt);
   const completedAt = planData.completed_at || new Date().toISOString();
   const totalDays = analytics.totalDaysActive;
-  const expectedDays = (planData.total_weeks || 4) * 7;
 
-  // Determine completion speed
-  let completionSpeed: 'faster' | 'on_time' | 'slower';
-  if (totalDays < expectedDays * 0.8) {
-    completionSpeed = 'faster';
-  } else if (totalDays <= expectedDays * 1.2) {
-    completionSpeed = 'on_time';
-  } else {
-    completionSpeed = 'slower';
+  // -------------------------------------------------------
+  // Deterministic completion_speed logic:
+  // Only set if plan has a defined duration (total_weeks and not open-ended).
+  // planned_duration = total_weeks * 7
+  // total_days_taken < planned_duration → 'faster'
+  // total_days_taken === planned_duration → 'on_time'
+  // total_days_taken > planned_duration → 'slower'
+  // If no total_weeks or is_open_ended → omit entirely.
+  // -------------------------------------------------------
+  let completionSpeed: 'faster' | 'on_time' | 'slower' | undefined;
+  const totalWeeks = planData.total_weeks;
+  const isOpenEnded = planData.is_open_ended === true;
+
+  if (totalWeeks && !isOpenEnded) {
+    const plannedDuration = totalWeeks * 7;
+    if (totalDays < plannedDuration) {
+      completionSpeed = 'faster';
+    } else if (totalDays === plannedDuration) {
+      completionSpeed = 'on_time';
+    } else {
+      completionSpeed = 'slower';
+    }
   }
+  // If no total_weeks or open-ended, completionSpeed stays undefined (omitted)
 
-  // Calculate execution consistency (0-100)
-  // Based on how many tasks had meaningful time tracked
-  const tasksWithTime = analytics.totalExecutionSessions;
-  const totalTasks = analytics.totalTasks;
-  const consistencyScore = totalTasks > 0
-    ? Math.round((tasksWithTime / totalTasks) * 100)
+  // -------------------------------------------------------
+  // Execution consistency formula:
+  // consistency = (active_execution_days / total_days_taken) * 100
+  // active_execution_days = unique calendar dates with completed tasks
+  // Clamped to 0-100.
+  // -------------------------------------------------------
+  const activeExecutionDays = countActiveExecutionDays(planData);
+  const consistencyScore = totalDays > 0
+    ? Math.min(100, Math.round((activeExecutionDays / totalDays) * 100))
     : 0;
 
-  return {
+  const memory: PlanMemory = {
     plan_id: planId,
     total_time_spent: analytics.totalTimeSpentSeconds,
     total_days_taken: totalDays,
     average_daily_time: Math.round(analytics.averageDailyExecutionMinutes),
     most_worked_task: analytics.mostWorkedTask?.taskTitle || 'Unknown',
-    completion_speed: completionSpeed,
     execution_consistency_score: consistencyScore,
     completed_at: completedAt,
   };
+
+  // Only include completion_speed if it was computed
+  if (completionSpeed !== undefined) {
+    memory.completion_speed = completionSpeed;
+  }
+
+  return memory;
 }
 
-/** Save plan memory to user profile (consent-based) */
+/**
+ * Save plan memory to user profile as a rolling array (max 5 entries).
+ * Fetches existing plan_memory, appends new entry, keeps last 5.
+ * Consent-based — only called when user explicitly agrees.
+ */
 export async function savePlanMemory(
   userId: string,
   memory: PlanMemory
 ): Promise<boolean> {
   try {
+    // Fetch existing plan_memory array
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('plan_memory')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching plan memory:', fetchError);
+      return false;
+    }
+
+    // Parse existing as array, default to empty
+    let existingMemory: PlanMemory[] = [];
+    if (profile?.plan_memory) {
+      if (Array.isArray(profile.plan_memory)) {
+        existingMemory = profile.plan_memory as unknown as PlanMemory[];
+      } else if (typeof profile.plan_memory === 'object') {
+        // Migrate single legacy object to array
+        existingMemory = [profile.plan_memory as unknown as PlanMemory];
+      }
+    }
+
+    // Append new entry and keep only last 5 (rolling window)
+    existingMemory.push(memory);
+    const rollingMemory = existingMemory.slice(-5);
+
     const { error } = await supabase
       .from('profiles')
-      .update({ plan_memory: memory as any })
+      .update({ plan_memory: rollingMemory as any })
       .eq('id', userId);
 
     if (error) {
@@ -155,6 +248,29 @@ export async function savePlanMemory(
     return true;
   } catch (err) {
     console.error('Error saving plan memory:', err);
+    return false;
+  }
+}
+
+/**
+ * Clear all stored execution memory (consent revocation).
+ * Sets plan_memory to null. Can be called from settings UI (future).
+ * TODO: Wire into settings page with "Clear execution memory" button.
+ */
+export async function clearExecutionMemory(userId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ plan_memory: null })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error clearing execution memory:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error clearing execution memory:', err);
     return false;
   }
 }

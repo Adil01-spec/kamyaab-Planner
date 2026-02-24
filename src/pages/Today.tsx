@@ -360,6 +360,9 @@ const Today = () => {
       if (executionTimer.allTasksCompleted && !planCompletionShownRef.current && planData && planId) {
         planCompletionShownRef.current = true;
 
+        // Hard stop: force-clear any active timer to prevent ghost sessions
+        executionTimer.dismissTimer();
+
         // Set completed_at on plan if not already set
         if (!(planData as any).completed_at) {
           const completedPlan = { ...planData, completed_at: new Date().toISOString() } as any;
