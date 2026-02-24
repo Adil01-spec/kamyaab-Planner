@@ -250,6 +250,7 @@ export type Database = {
           grace_ends_at: string | null
           id: string
           last_plan_completed_at: string | null
+          plan_memory: Json | null
           profession: string | null
           profession_details: Json | null
           project_deadline: string | null
@@ -273,6 +274,7 @@ export type Database = {
           grace_ends_at?: string | null
           id: string
           last_plan_completed_at?: string | null
+          plan_memory?: Json | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null
@@ -296,6 +298,7 @@ export type Database = {
           grace_ends_at?: string | null
           id?: string
           last_plan_completed_at?: string | null
+          plan_memory?: Json | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null
