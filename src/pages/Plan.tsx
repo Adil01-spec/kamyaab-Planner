@@ -14,6 +14,8 @@ import { FloatingTimerPill } from '@/components/FloatingTimerPill';
 import { StartTaskModal } from '@/components/StartTaskModal';
 import { calculatePlanProgress } from '@/lib/planProgress';
 import { playCelebrationSound, playGrandCelebrationSound } from '@/lib/celebrationSound';
+import { isPlanCompleted, checkAllTasksCompleted } from '@/lib/planCompletion';
+import { PlanCompletionScreen } from '@/components/PlanCompletionScreen';
 import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { useCrossWeekTaskMove } from '@/hooks/useCrossWeekTaskMove';
 import { cn } from '@/lib/utils';
@@ -197,6 +199,7 @@ const Plan = () => {
   } | null>(null);
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
   
   // Settings for dynamic background
   const { settings: mobileSettings, isMobile } = useMobileSettings();
@@ -645,6 +648,9 @@ const Plan = () => {
   const toggleTask = useCallback(async (weekIndex: number, taskIndex: number) => {
     if (!plan || !user) return;
 
+    // Block toggling if plan is already completed
+    if (isPlanCompleted(plan)) return;
+
     const updatedPlan = { ...plan };
     const task = updatedPlan.weeks[weekIndex].tasks[taskIndex] as any;
     const wasCompleted = task.execution_state === 'done' || task.completed;
@@ -663,6 +669,15 @@ const Plan = () => {
     setSaving(true);
 
     try {
+      // Check if all tasks are now completed (plan-wide, using task.completed)
+      const allDone = !wasCompleted && checkAllTasksCompleted(updatedPlan);
+
+      if (allDone && !hasCompletedPlan.current) {
+        // Set completed_at on plan before persisting
+        (updatedPlan as any).completed_at = new Date().toISOString();
+        setPlan({ ...updatedPlan });
+      }
+
       const { error } = await supabase
         .from('plans')
         .update({ plan_json: updatedPlan as unknown as Json })
@@ -670,19 +685,17 @@ const Plan = () => {
 
       if (error) throw error;
 
-      // Check if the entire plan is now completed (using execution_state)
-      const allTasksCompleted = updatedPlan.weeks.every(w => 
-        w.tasks.every(t => (t as any).execution_state === 'done' || t.completed)
-      );
-
-      if (allTasksCompleted && !wasCompleted && !hasCompletedPlan.current) {
+      if (allDone && !hasCompletedPlan.current) {
         hasCompletedPlan.current = true;
-        triggerGrandCelebration();
-        toast({
-          title: "🏆 Plan Complete!",
-          description: "Incredible! You've completed your entire plan. You're unstoppable!",
+        // Subtle confetti (not the old grand celebration)
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { x: 0.5, y: 0.4 },
+          colors: ['#22c55e', '#10b981', '#fbbf24', '#06b6d4'],
         });
-        
+        // Show consent modal
+        setShowConsentModal(true);
         // Trigger personal pattern update
         triggerPatternUpdate(updatedPlan);
       } else {
@@ -713,7 +726,7 @@ const Plan = () => {
     } finally {
       setSaving(false);
     }
-  }, [plan, user, triggerCelebration, triggerGrandCelebration]);
+  }, [plan, user, triggerCelebration]);
 
   // Update identity statement
   const updateIdentityStatement = useCallback(async (statement: string) => {
@@ -1016,6 +1029,19 @@ const Plan = () => {
               </Button>
             </CardContent>
           </Card>
+        ) : isPlanCompleted(plan) ? (
+          /* Plan Completed State */
+          <PlanCompletionScreen
+            plan={plan}
+            planId={planId!}
+            planCreatedAt={planCreatedAt!}
+            userId={user!.id}
+            projectTitle={profile?.projectTitle || 'Your Plan'}
+            projectDescription={profile?.projectDescription}
+            onPlanDeleted={() => setPlan(null)}
+            showConsentModal={showConsentModal}
+            onConsentModalChange={setShowConsentModal}
+          />
         ) : (
           /* Plan Display */
           <div className="space-y-6">

@@ -38,6 +38,7 @@ import {
   ArrowLeft, Home, Target, ChevronDown, Lightbulb, AlertTriangle,
   Loader2, Calendar, FileText, BarChart3
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RealityCritique {
   feasibility: {
@@ -271,7 +272,10 @@ const Review = () => {
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6 relative z-10">
         
         {/* 1. Plan Overview - Always open */}
-        <Card className="glass-card animate-fade-in">
+        <Card className={cn(
+          "glass-card animate-fade-in",
+          (plan as any).completed_at && "border-primary/30"
+        )}>
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -279,6 +283,11 @@ const Review = () => {
                 <p className="text-muted-foreground text-sm">{plan.overview}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {(plan as any).completed_at && (
+                  <Badge className="bg-primary/15 text-primary border-primary/30">
+                    ✓ Completed
+                  </Badge>
+                )}
                 {plan.is_strategic_plan ? (
                   <Badge className="bg-primary/10 text-primary border-primary/20">Strategic Plan</Badge>
                 ) : (
@@ -300,12 +309,19 @@ const Review = () => {
             </div>
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>{progress.completed} of {progress.total} tasks completed</span>
-              {planCreatedAt && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  Created {new Date(planCreatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {(plan as any).completed_at && (
+                  <span className="text-primary text-xs font-medium">
+                    Completed {new Date((plan as any).completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                )}
+                {planCreatedAt && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Created {new Date(planCreatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

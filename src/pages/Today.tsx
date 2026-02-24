@@ -31,6 +31,7 @@ import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { DevPanel } from '@/components/DevPanel';
 import { SwipeableTaskWrapper } from '@/components/SwipeableTaskWrapper';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
+import { checkAllTasksCompleted } from '@/lib/planCompletion';
 import { formatTaskDuration } from '@/lib/taskDuration';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
@@ -355,9 +356,17 @@ const Today = () => {
         setTimeout(() => setShowDayClosure(true), 2000);
       }
 
-      // Plan completion modal is global; also gate it to post-completion only
-      if (executionTimer.allTasksCompleted && !planCompletionShownRef.current) {
+      // Plan completion: set completed_at if all tasks done
+      if (executionTimer.allTasksCompleted && !planCompletionShownRef.current && planData && planId) {
         planCompletionShownRef.current = true;
+
+        // Set completed_at on plan if not already set
+        if (!(planData as any).completed_at) {
+          const completedPlan = { ...planData, completed_at: new Date().toISOString() } as any;
+          setPlanData(completedPlan);
+          supabase.from('plans').update({ plan_json: completedPlan as any }).eq('id', planId);
+        }
+
         setShowPlanCompletion(true);
       }
     } else if (doneCount > 0) {

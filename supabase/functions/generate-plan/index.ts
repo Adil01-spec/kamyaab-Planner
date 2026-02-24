@@ -172,7 +172,7 @@ serve(async (req) => {
     // Fetch user's strategic access fields (including strategic_trial_used for hard gating)
     const { data: userProfile } = await adminClient
       .from('profiles')
-      .select('strategic_calls_lifetime, strategic_last_call_at, subscription_tier, subscription_state, strategic_trial_used')
+      .select('strategic_calls_lifetime, strategic_last_call_at, subscription_tier, subscription_state, strategic_trial_used, plan_memory')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -486,6 +486,29 @@ STRATEGIC CONTEXT:
     const strategicContextBlock = isStrategicMode ? buildStrategicContextBlock() : legacyStrategicContext;
 
     // ============================================
+    // HISTORICAL EXECUTION CONTEXT (Plan Memory)
+    // ============================================
+    let historicalContextBlock = '';
+    const planMemory = userProfile?.plan_memory;
+    if (planMemory && typeof planMemory === 'object') {
+      const mem = planMemory as any;
+      const avgHours = mem.average_daily_time ? (mem.average_daily_time / 60).toFixed(1) : 'unknown';
+      historicalContextBlock = `
+HISTORICAL EXECUTION CONTEXT (from user's previous completed plan):
+- Completed previous plan in ${mem.total_days_taken || 'unknown'} days
+- Averaged ${avgHours}h per day of active execution
+- Spent most time on: "${mem.most_worked_task || 'unknown'}"
+- Execution consistency score: ${mem.execution_consistency_score || 'unknown'}%
+- Completion speed: ${mem.completion_speed || 'unknown'}
+
+Use this context to:
+- Adjust task time estimates to match proven capacity
+- Set realistic daily workload expectations
+- Distribute difficulty based on observed patterns
+`;
+    }
+
+    // ============================================
     // BUILD USER PROMPT
     // ============================================
     let userPrompt: string;
@@ -504,6 +527,7 @@ PROJECT:
 - Description: ${profile.projectDescription}
 ${deadlineContext}
 ${strategicContextBlock}
+${historicalContextBlock}
 
 Generate a JSON response with this EXACT structure for STRATEGIC PLANNING:
 
@@ -581,6 +605,7 @@ PROJECT:
 - Description: ${profile.projectDescription}
 ${deadlineContext}
 ${strategicContextBlock}
+${historicalContextBlock}
 Generate a JSON response with this EXACT structure. Every task MUST have the nested explanation object:
 
 {
