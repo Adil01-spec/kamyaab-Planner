@@ -17,6 +17,12 @@ const PRESET_AVATARS = [
   '/avatars/avatar-4.png',
   '/avatars/avatar-5.png',
   '/avatars/avatar-6.png',
+  '/avatars/avatar-7.png',
+  '/avatars/avatar-8.png',
+  '/avatars/avatar-9.png',
+  '/avatars/avatar-10.png',
+  '/avatars/avatar-11.png',
+  '/avatars/avatar-12.png',
 ];
 
 interface EditProfileModalProps {
