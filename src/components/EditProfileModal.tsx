@@ -6,8 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Camera } from 'lucide-react';
+import { Loader2, Camera, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+const PRESET_AVATARS = [
+  '/avatars/avatar-1.png',
+  '/avatars/avatar-2.png',
+  '/avatars/avatar-3.png',
+  '/avatars/avatar-4.png',
+  '/avatars/avatar-5.png',
+  '/avatars/avatar-6.png',
+];
 
 interface EditProfileModalProps {
   open: boolean;
@@ -33,11 +43,33 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
     }
   }, [open, profile]);
 
+  const saveAvatarUrl = async (url: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url })
+      .eq('id', user.id);
+    if (error) throw error;
+    setAvatarPreview(url);
+    await refreshProfile();
+  };
+
+  const handlePresetSelect = async (presetUrl: string) => {
+    setUploading(true);
+    try {
+      await saveAvatarUrl(presetUrl);
+      toast.success('Avatar updated');
+    } catch {
+      toast.error('Failed to set avatar');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file');
       return;
@@ -55,7 +87,6 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
-
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
@@ -63,18 +94,8 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
         .getPublicUrl(filePath);
 
       const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-      // Save avatar_url to profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: avatarUrl })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      setAvatarPreview(avatarUrl);
-      await refreshProfile();
-      toast.success('Avatar updated');
+      await saveAvatarUrl(avatarUrl);
+      toast.success('Avatar uploaded');
     } catch (err) {
       console.error('Avatar upload error:', err);
       toast.error('Failed to upload avatar');
@@ -120,7 +141,7 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
           <DialogTitle className="text-lg">Edit Profile</DialogTitle>
         </DialogHeader>
         <div className="space-y-5 pt-2">
-          {/* Avatar Upload */}
+          {/* Current Avatar */}
           <div className="flex flex-col items-center gap-3">
             <div className="relative group">
               <Avatar className="h-20 w-20 border-2 border-primary/20">
@@ -151,7 +172,37 @@ export function EditProfileModal({ open, onOpenChange }: EditProfileModalProps) 
                 onChange={handleAvatarChange}
               />
             </div>
-            <p className="text-xs text-muted-foreground">Click to change photo</p>
+          </div>
+
+          {/* Preset Avatars */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center">Or choose an avatar</p>
+            <div className="flex justify-center gap-2 flex-wrap">
+              {PRESET_AVATARS.map((src) => (
+                <button
+                  key={src}
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => handlePresetSelect(src)}
+                  className={cn(
+                    "rounded-full transition-all hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    avatarPreview === src && "ring-2 ring-primary ring-offset-2 ring-offset-card"
+                  )}
+                >
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={src} alt="Preset avatar" />
+                  </Avatar>
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-full h-10 w-10 flex items-center justify-center border-2 border-dashed border-border/50 hover:border-primary/50 transition-colors"
+              >
+                <Upload className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </div>
 
           {/* Name */}
