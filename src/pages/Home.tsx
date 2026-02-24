@@ -554,10 +554,13 @@ const Home = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-44 bg-card/95 backdrop-blur-xl border-border/30" align="end">
-                  <div className="px-2.5 py-2">
+                  <DropdownMenuItem
+                    onClick={() => navigate('/profile')}
+                    className="cursor-pointer px-2.5 py-2 flex flex-col items-start gap-0"
+                  >
                     <p className="text-sm font-medium text-foreground/90">{profile?.fullName || 'User'}</p>
-                    <p className="text-xs text-muted-foreground/70 truncate">{user?.email}</p>
-                  </div>
+                    <p className="text-xs text-muted-foreground/70 truncate w-full">View Profile</p>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border/30" />
                   {isMobile && (
                     <>
