@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 interface ScrollRevealOptions {
   threshold?: number;
@@ -9,20 +9,21 @@ export function useScrollReveal<T extends HTMLElement = HTMLDivElement>(
   options: ScrollRevealOptions = {}
 ) {
   const { threshold = 0.15, rootMargin = '0px' } = options;
-  const elementRef = useRef<T | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const setRef = useCallback((node: T | null) => {
-    elementRef.current = node;
-  }, []);
+    // Cleanup previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
 
-  useEffect(() => {
-    const el = elementRef.current;
-    if (!el) return;
+    if (!node) return;
 
     // Respect prefers-reduced-motion
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) {
-      el.classList.add('scroll-revealed');
+      node.classList.add('scroll-revealed');
       return;
     }
 
@@ -36,8 +37,8 @@ export function useScrollReveal<T extends HTMLElement = HTMLDivElement>(
       { threshold, rootMargin }
     );
 
-    observer.observe(el);
-    return () => observer.disconnect();
+    observer.observe(node);
+    observerRef.current = observer;
   }, [threshold, rootMargin]);
 
   return setRef;
