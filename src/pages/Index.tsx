@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import heroMockup from '@/assets/hero-mockup.png';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Rocket, Target, Timer, Brain, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
@@ -166,6 +167,16 @@ const Index = () => {
                 >
                   See How It Works
                 </Button>
+              </div>
+            </div>
+            <div className="mt-14 md:mt-20 max-w-5xl mx-auto animate-fade-in" style={{ animationDelay: '0.3s', animationFillMode: 'backwards' }}>
+              <div className="rounded-xl overflow-hidden shadow-2xl border border-border/30 ring-1 ring-primary/10">
+                <img
+                  src={heroMockup}
+                  alt="Kaamyab app dashboard showing weekly plan with milestones, task progress, and consistency score"
+                  className="w-full h-auto"
+                  loading="eager"
+                />
               </div>
             </div>
           </div>
