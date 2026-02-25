@@ -44,6 +44,7 @@ import { formatTotalTime } from '@/lib/executionTimer';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { hapticSuccess, hapticSelection } from '@/lib/hapticFeedback';
 import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -550,6 +551,20 @@ const Today = () => {
               <Calendar className="w-4 h-4 mr-1.5" />
               <ChevronRight className="w-4 h-4" />
             </Button>
+            {/* User Avatar */}
+            <button
+              onClick={() => navigate('/home')}
+              className="h-8 w-8 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80"
+            >
+              <Avatar className="h-8 w-8 border border-border/40">
+                {profile?.avatarUrl ? (
+                  <AvatarImage src={profile.avatarUrl} alt="Avatar" />
+                ) : null}
+                <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
+                  {profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
           </div>
         </div>
       </header>

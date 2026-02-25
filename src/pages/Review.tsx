@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -258,10 +259,17 @@ const Review = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/home')}
-                className="text-muted-foreground"
+                className="text-muted-foreground flex items-center gap-2"
               >
-                <Home className="w-4 h-4 mr-1" />
-                Home
+                <Avatar className="h-7 w-7 border border-border/40">
+                  {profile?.avatarUrl ? (
+                    <AvatarImage src={profile.avatarUrl} alt="Avatar" />
+                  ) : null}
+                  <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-[10px]">
+                    {profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:inline">Home</span>
               </Button>
             </div>
           </div>
