@@ -1,9 +1,68 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Rocket, Target, Route, RefreshCw, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
+import { Loader2, Rocket, Target, Timer, Brain, AlertTriangle, Map, TrendingUp, Briefcase, Code, GraduationCap, Palette, ArrowRight, CheckCircle, X, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
+import { LandingHeader } from '@/components/LandingHeader';
+import { ConsistencyScoreRing } from '@/components/ConsistencyScoreRing';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const comparisonData = [
+  { feature: 'AI-generated structured plans', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Describe your goal — AI builds a week-by-week execution plan instantly.' },
+  { feature: 'Milestone-driven execution', kaamyab: true, todo: false, notion: 'partial' as const, habit: false, detail: 'Tasks are sequenced into milestones, not dumped into a flat list.' },
+  { feature: 'Adaptive refinement', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Plans restructure based on your actual execution pace.' },
+  { feature: 'Execution tracking & insights', kaamyab: true, todo: 'partial' as const, notion: false, habit: 'partial' as const, detail: 'Every task is timed with a 4-state system: idle, doing, paused, done.' },
+  { feature: 'Strategic risk assessment', kaamyab: true, todo: false, notion: false, habit: false, detail: 'AI surfaces risks and assumptions before you start executing.' },
+  { feature: 'Week-by-week pacing', kaamyab: true, todo: false, notion: 'partial' as const, habit: true, detail: 'Realistic weekly workload distribution, not arbitrary deadlines.' },
+  { feature: 'Adaptive behavioral memory', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Learns your patterns over time and adjusts future plans accordingly.' },
+];
+
+type CellValue = boolean | 'partial';
+
+const CellIcon = ({ val, isKaamyab }: { val: CellValue; isKaamyab?: boolean }) => {
+  if (val === true) return <CheckCircle className={`w-5 h-5 mx-auto ${isKaamyab ? 'text-primary' : 'text-primary'}`} />;
+  if (val === 'partial') return <Minus className="w-5 h-5 text-muted-foreground mx-auto" />;
+  return <X className="w-5 h-5 text-muted-foreground/40 mx-auto" />;
+};
+
+const ComparisonRow = ({ row }: { row: typeof comparisonData[0] }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <>
+      <tr
+        className="border-b border-border/50 cursor-default"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <td className="py-3 px-4 text-foreground">{row.feature}</td>
+        <td className="text-center py-3 px-4">
+          <div className={`transition-all duration-300 ${hovered ? 'drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]' : ''}`}>
+            <CellIcon val={row.kaamyab} isKaamyab />
+          </div>
+        </td>
+        <td className="text-center py-3 px-4"><CellIcon val={row.todo} /></td>
+        <td className="text-center py-3 px-4"><CellIcon val={row.notion} /></td>
+        <td className="text-center py-3 px-4"><CellIcon val={row.habit} /></td>
+      </tr>
+      <AnimatePresence>
+        {hovered && (
+          <motion.tr
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <td colSpan={5} className="px-4 pb-3 pt-0">
+              <p className="text-xs text-muted-foreground italic">{row.detail}</p>
+            </td>
+          </motion.tr>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
 
 const Index = () => {
   const { user, profile, loading } = useAuth();
@@ -11,7 +70,7 @@ const Index = () => {
 
   useEffect(() => {
     if (!loading) {
-      if (!user) return; // Show landing page
+      if (!user) return;
       if (!profile) {
         navigate('/onboarding', { replace: true });
       } else {
@@ -20,7 +79,6 @@ const Index = () => {
     }
   }, [user, profile, loading, navigate]);
 
-  // Show loader while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
@@ -33,15 +91,12 @@ const Index = () => {
     );
   }
 
-  // Authenticated users are redirected above
   if (user) return null;
-
-  const scrollToHowItWorks = () => {
-    document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <LandingHeader />
+
       <main>
         {/* Hero Section */}
         <section className="relative overflow-hidden gradient-subtle">
@@ -55,13 +110,19 @@ const Index = () => {
                 Turn Goals Into Structured Action Plans
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
-                Define your objective. Kaamyab generates a milestone-driven plan with adaptive strategy — so you execute with clarity, not chaos.
+                Define your objective. Kaamyab generates a milestone-driven plan with{' '}
+                <strong className="text-foreground">deterministic execution speed</strong>, so you proceed with clarity, not chaos.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button asChild size="lg" className="text-base px-8">
                   <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
                 </Button>
-                <Button variant="outline" size="lg" className="text-base px-8" onClick={scrollToHowItWorks}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="text-base px-8"
+                  onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                >
                   See How It Works
                 </Button>
               </div>
@@ -80,36 +141,55 @@ const Index = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                { icon: AlertTriangle, title: 'No Structure', desc: 'Goals without milestones become overwhelming. You don\'t know what to do first, second, or next.' },
-                { icon: Map, title: 'No Roadmap', desc: 'Without a sequence of steps, effort scatters. You work hard but never move forward.' },
-                { icon: TrendingUp, title: 'Inconsistent Action', desc: 'Motivation fades. Without an adaptive plan that adjusts to reality, progress stalls.' },
+                {
+                  icon: AlertTriangle,
+                  title: 'No Structure',
+                  desc: 'Goals without milestones become overwhelming. You don\'t know what to do first, second, or next.',
+                  contrast: 'Kaamyab replaces guesswork with deterministic task sequencing — each step is computed, not assumed.',
+                },
+                {
+                  icon: Map,
+                  title: 'No Roadmap',
+                  desc: 'Without a sequence of steps, effort scatters. You work hard but never move forward.',
+                  contrast: 'Kaamyab\'s adaptive behavioral memory learns your pace and restructures your path automatically.',
+                },
+                {
+                  icon: TrendingUp,
+                  title: 'Inconsistent Action',
+                  desc: 'Motivation fades. Without an adaptive plan that adjusts to reality, progress stalls.',
+                  contrast: 'Kaamyab tracks execution state (idle, doing, paused, done) — not feelings — to maintain momentum.',
+                },
               ].map((item) => (
                 <article key={item.title} className="glass-card rounded-xl p-8 text-center">
                   <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mx-auto mb-5">
                     <item.icon className="w-6 h-6 text-destructive" />
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+                  <p className="text-muted-foreground text-sm leading-relaxed mb-4">{item.desc}</p>
+                  <p className="text-sm leading-relaxed text-primary font-medium">{item.contrast}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
-        {/* How It Works */}
+        {/* How It Works — Generate / Execute / Adapt */}
         <section id="how-it-works" className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Works</h2>
-              <p className="text-muted-foreground text-lg">Three steps from idea to execution.</p>
+              <p className="text-muted-foreground text-lg">Three phases from idea to execution.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Connecting line on desktop */}
+              <div className="hidden md:block absolute top-[4.5rem] left-[16.6%] right-[16.6%] h-px bg-border z-0" />
+
               {[
-                { icon: Target, step: '01', title: 'Define Your Goal', desc: 'Tell Kaamyab what you want to achieve, your timeline, and context. No templates — your goal, your plan.' },
-                { icon: Route, step: '02', title: 'Get a Structured Plan', desc: 'AI generates a week-by-week execution plan with prioritized tasks, milestones, and realistic pacing.' },
-                { icon: RefreshCw, step: '03', title: 'Adaptive Refinement', desc: 'As you execute, Kaamyab tracks progress and surfaces insights to keep your plan aligned with reality.' },
+                { icon: Target, step: '01', title: 'Generate', desc: 'Describe your objective. AI builds a structured, milestone-driven execution plan with week-by-week pacing.' },
+                { icon: Timer, step: '02', title: 'Execute', desc: 'Track tasks with a 4-state timer (idle, doing, paused, done). Every action is measured, not just listed.' },
+                { icon: Brain, step: '03', title: 'Adapt', desc: 'Behavioral memory learns your patterns. Plans adjust to reality — not the other way around.' },
               ].map((item) => (
-                <article key={item.step} className="glass-card rounded-xl p-8 text-center interactive-card">
+                <article key={item.step} className="glass-card rounded-xl p-8 text-center interactive-card relative z-10">
                   <div className="text-xs font-bold text-primary mb-3 tracking-widest">STEP {item.step}</div>
                   <div className="w-14 h-14 rounded-2xl gradient-kaamyab flex items-center justify-center mx-auto mb-5">
                     <item.icon className="w-7 h-7 text-primary-foreground" />
@@ -137,8 +217,11 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Consistency Score */}
+        <ConsistencyScoreRing />
+
         {/* Use Cases */}
-        <section className="py-20 gradient-subtle">
+        <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What Can You Plan?</h2>
@@ -165,7 +248,7 @@ const Index = () => {
         </section>
 
         {/* Comparison Section */}
-        <section className="py-20 bg-background">
+        <section className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
@@ -183,24 +266,8 @@ const Index = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { feature: 'AI-generated structured plans', kaamyab: true, todo: false, notion: false, habit: false },
-                    { feature: 'Milestone-driven execution', kaamyab: true, todo: false, notion: 'partial', habit: false },
-                    { feature: 'Adaptive refinement', kaamyab: true, todo: false, notion: false, habit: false },
-                    { feature: 'Execution tracking & insights', kaamyab: true, todo: 'partial', notion: false, habit: 'partial' },
-                    { feature: 'Strategic risk assessment', kaamyab: true, todo: false, notion: false, habit: false },
-                    { feature: 'Week-by-week pacing', kaamyab: true, todo: false, notion: 'partial', habit: true },
-                  ].map((row) => (
-                    <tr key={row.feature} className="border-b border-border/50">
-                      <td className="py-3 px-4 text-foreground">{row.feature}</td>
-                      {[row.kaamyab, row.todo, row.notion, row.habit].map((val, i) => (
-                        <td key={i} className="text-center py-3 px-4">
-                          {val === true ? <CheckCircle className="w-5 h-5 text-primary mx-auto" /> :
-                           val === 'partial' ? <Minus className="w-5 h-5 text-muted-foreground mx-auto" /> :
-                           <X className="w-5 h-5 text-muted-foreground/40 mx-auto" />}
-                        </td>
-                      ))}
-                    </tr>
+                  {comparisonData.map((row) => (
+                    <ComparisonRow key={row.feature} row={row} />
                   ))}
                 </tbody>
               </table>
@@ -209,7 +276,7 @@ const Index = () => {
         </section>
 
         {/* Final CTA */}
-        <section className="py-20 gradient-subtle">
+        <section className="py-20 bg-background">
           <div className="container max-w-3xl mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Stop Planning in Your Head. Start Executing with Structure.
