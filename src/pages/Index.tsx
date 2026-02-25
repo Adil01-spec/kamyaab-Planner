@@ -65,6 +65,34 @@ const ComparisonRow = ({ row }: { row: typeof comparisonData[0] }) => {
   );
 };
 
+const ComparisonCard = ({ row }: { row: typeof comparisonData[0] }) => {
+  const competitors = [
+    { label: 'Todo Apps', val: row.todo },
+    { label: 'Notion', val: row.notion },
+    { label: 'Habit Trackers', val: row.habit },
+  ];
+  return (
+    <article className="scroll-reveal-child glass-card rounded-xl p-5">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h3 className="text-sm font-semibold text-foreground leading-snug">{row.feature}</h3>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs font-medium text-primary">Kaamyab</span>
+          <CellIcon val={row.kaamyab} isKaamyab />
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{row.detail}</p>
+      <div className="flex items-center gap-4 pt-2 border-t border-border/50">
+        {competitors.map((c) => (
+          <div key={c.label} className="flex items-center gap-1.5">
+            <CellIcon val={c.val} />
+            <span className="text-xs text-muted-foreground">{c.label}</span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+};
+
 const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
@@ -267,7 +295,8 @@ const Index = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
             </div>
-            <div ref={comparisonTableRef} className="scroll-reveal overflow-x-auto">
+            {/* Desktop table */}
+            <div ref={comparisonTableRef} className="scroll-reveal hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
@@ -284,6 +313,12 @@ const Index = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Mobile stacked cards */}
+            <div className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 gap-4 md:hidden">
+              {comparisonData.map((row) => (
+                <ComparisonCard key={row.feature} row={row} />
+              ))}
             </div>
           </div>
         </section>
