@@ -437,6 +437,48 @@
   }
 }
 
+/* Scroll reveal - GPU-accelerated */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.scroll-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  will-change: auto;
+}
+
+/* Staggered children variant */
+.scroll-reveal-stagger > .scroll-reveal-child {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(1) { transition-delay: 0ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(2) { transition-delay: 100ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(3) { transition-delay: 200ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(4) { transition-delay: 300ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(5) { transition-delay: 400ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .scroll-reveal-stagger > .scroll-reveal-child {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

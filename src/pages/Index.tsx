@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { LandingHeader } from '@/components/LandingHeader';
 import { ConsistencyScoreRing } from '@/components/ConsistencyScoreRing';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const comparisonData = [
@@ -67,6 +68,18 @@ const ComparisonRow = ({ row }: { row: typeof comparisonData[0] }) => {
 const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Scroll reveal refs
+  const problemHeadingRef = useScrollReveal();
+  const problemCardsRef = useScrollReveal();
+  const stepsHeadingRef = useScrollReveal();
+  const stepsCardsRef = useScrollReveal();
+  const strategicRef = useScrollReveal();
+  const useCasesHeadingRef = useScrollReveal();
+  const useCasesCardsRef = useScrollReveal();
+  const comparisonHeadingRef = useScrollReveal();
+  const comparisonTableRef = useScrollReveal();
+  const ctaRef = useScrollReveal();
 
   useEffect(() => {
     if (!loading) {
@@ -133,13 +146,13 @@ const Index = () => {
         {/* Problem Section */}
         <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-14">
+            <div ref={problemHeadingRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Goals Fail</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Ambition alone doesn't create results. Without a system, goals stay wishes.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div ref={problemCardsRef} className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
                 {
                   icon: AlertTriangle,
@@ -160,7 +173,7 @@ const Index = () => {
                   contrast: 'Kaamyab tracks execution state (idle, doing, paused, done) — not feelings — to maintain momentum.',
                 },
               ].map((item) => (
-                <article key={item.title} className="glass-card rounded-xl p-8 text-center">
+                <article key={item.title} className="scroll-reveal-child glass-card rounded-xl p-8 text-center">
                   <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mx-auto mb-5">
                     <item.icon className="w-6 h-6 text-destructive" />
                   </div>
@@ -176,11 +189,11 @@ const Index = () => {
         {/* How It Works — Generate / Execute / Adapt */}
         <section id="how-it-works" className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-14">
+            <div ref={stepsHeadingRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Works</h2>
               <p className="text-muted-foreground text-lg">Three phases from idea to execution.</p>
             </div>
-            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div ref={stepsCardsRef} className="scroll-reveal scroll-reveal-stagger relative grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Connecting line on desktop */}
               <div className="hidden md:block absolute top-[4.5rem] left-[16.6%] right-[16.6%] h-px bg-border z-0" />
 
@@ -189,7 +202,7 @@ const Index = () => {
                 { icon: Timer, step: '02', title: 'Execute', desc: 'Track tasks with a 4-state timer (idle, doing, paused, done). Every action is measured, not just listed.' },
                 { icon: Brain, step: '03', title: 'Adapt', desc: 'Behavioral memory learns your patterns. Plans adjust to reality — not the other way around.' },
               ].map((item) => (
-                <article key={item.step} className="glass-card rounded-xl p-8 text-center interactive-card relative z-10">
+                <article key={item.step} className="scroll-reveal-child glass-card rounded-xl p-8 text-center interactive-card relative z-10">
                   <div className="text-xs font-bold text-primary mb-3 tracking-widest">STEP {item.step}</div>
                   <div className="w-14 h-14 rounded-2xl gradient-kaamyab flex items-center justify-center mx-auto mb-5">
                     <item.icon className="w-7 h-7 text-primary-foreground" />
@@ -205,7 +218,7 @@ const Index = () => {
         {/* Strategic Planning Highlight */}
         <section className="py-20 bg-background">
           <div className="container max-w-4xl mx-auto px-4">
-            <article className="glass-card rounded-2xl p-8 md:p-12">
+            <article ref={strategicRef} className="scroll-reveal glass-card rounded-2xl p-8 md:p-12">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Strategic Planning, Not Just Task Lists</h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
                 Kaamyab doesn&apos;t just break goals into tasks. It builds a high-level roadmap with risk assumptions, milestone architecture, and execution sequencing. You understand not just <em>what</em> to do, but <em>why</em> each step matters and how it connects to the bigger picture.
@@ -223,11 +236,11 @@ const Index = () => {
         {/* Use Cases */}
         <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-14">
+            <div ref={useCasesHeadingRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What Can You Plan?</h2>
               <p className="text-muted-foreground text-lg">From professional milestones to personal growth — structured execution for any goal.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div ref={useCasesCardsRef} className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { icon: Briefcase, title: 'Build a Startup Roadmap', desc: 'Break your launch into phased milestones — from MVP to market entry.' },
                 { icon: Code, title: 'Learn Coding in 90 Days', desc: 'Structured learning path with weekly skill targets and project checkpoints.' },
@@ -235,7 +248,7 @@ const Index = () => {
                 { icon: TrendingUp, title: 'Launch a Freelance Career', desc: 'Portfolio building, client acquisition, and income milestones — step by step.' },
                 { icon: Palette, title: 'Personal Skill Development', desc: 'Creative, athletic, or professional — structured practice with adaptive pacing.' },
               ].map((item) => (
-                <article key={item.title} className="glass-card rounded-xl p-6 glass-card-hover">
+                <article key={item.title} className="scroll-reveal-child glass-card rounded-xl p-6 glass-card-hover">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                     <item.icon className="w-5 h-5 text-primary" />
                   </div>
@@ -250,11 +263,11 @@ const Index = () => {
         {/* Comparison Section */}
         <section className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
-            <div className="text-center mb-14">
+            <div ref={comparisonHeadingRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Kaamyab Compares</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
             </div>
-            <div className="overflow-x-auto">
+            <div ref={comparisonTableRef} className="scroll-reveal overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
@@ -277,7 +290,7 @@ const Index = () => {
 
         {/* Final CTA */}
         <section className="py-20 bg-background">
-          <div className="container max-w-3xl mx-auto px-4 text-center">
+          <div ref={ctaRef} className="scroll-reveal container max-w-3xl mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Stop Planning in Your Head. Start Executing with Structure.
             </h2>
