@@ -108,6 +108,7 @@ const Index = () => {
   const useCasesCardsRef = useScrollReveal();
   const comparisonHeadingRef = useScrollReveal();
   const comparisonTableRef = useScrollReveal();
+  const comparisonMobileRef = useScrollReveal();
   const ctaRef = useScrollReveal();
 
   useEffect(() => {
@@ -337,7 +338,7 @@ const Index = () => {
               </table>
             </div>
             {/* Mobile stacked cards */}
-            <div className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 gap-4 md:hidden">
+            <div ref={comparisonMobileRef} className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 gap-4 md:hidden">
               {comparisonData.map((row) => (
                 <ComparisonCard key={row.feature} row={row} />
               ))}
