@@ -169,16 +169,27 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-            <div className="mt-14 md:mt-20 max-w-5xl mx-auto animate-fade-in" style={{ animationDelay: '0.3s', animationFillMode: 'backwards' }}>
-              <div className="rounded-xl overflow-hidden shadow-2xl border border-border/30 ring-1 ring-primary/10">
+            <motion.div
+              className="mt-14 md:mt-20 max-w-5xl mx-auto"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <motion.div
+                className="rounded-xl overflow-hidden shadow-2xl border border-border/30 ring-1 ring-primary/10"
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                whileHover={{ scale: 1.015, rotateX: 2, rotateY: -1 }}
+                style={{ perspective: 1000, transformStyle: 'preserve-3d' }}
+              >
                 <img
                   src={heroMockup}
-                  alt="Kaamyab app dashboard showing weekly plan with milestones, task progress, and consistency score"
+                  alt="Kaamyab app homepage showing today's focus tasks, progress ring, and quick actions"
                   className="w-full h-auto"
                   loading="eager"
                 />
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
         </section>
 
