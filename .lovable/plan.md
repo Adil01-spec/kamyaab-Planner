@@ -1,95 +1,141 @@
 
 
-# Landing Page Refactor: Strategic Positioning and Visual Hierarchy
+# Scroll Animations for Landing Page
 
 ## Overview
 
-Refactor the Kaamyab landing page (`src/pages/Index.tsx`) to implement a sticky navigation header, updated copy emphasizing deterministic execution and adaptive behavioral memory, a refined 3-step visual hierarchy (Generate / Execute / Adapt), micro-interactions on the comparison table, and a dynamic Consistency Score visualization.
+Add performant scroll-triggered fade-in animations to all landing page sections using a CSS-first approach with a lightweight `useScrollReveal` hook. Elements will use `IntersectionObserver` to toggle a CSS class, keeping JavaScript minimal and leveraging GPU-accelerated CSS transitions.
+
+---
+
+## Approach: CSS + IntersectionObserver (no framer-motion overhead)
+
+Rather than wrapping every section in `motion.div` (which adds React re-renders per element), we use a single reusable hook that applies a CSS class on intersection. This is the most performant pattern for scroll reveal:
+
+1. Elements start with `opacity: 0; transform: translateY(24px)`
+2. When they enter the viewport, a `.revealed` class is added
+3. CSS transitions handle the animation on the GPU
 
 ---
 
 ## Changes
 
-### 1. Sticky Header Navigation
+### 1. New Hook: `src/hooks/useScrollReveal.ts`
 
-Add a new sticky header component at the top of the landing page with:
-- Kaamyab logo/wordmark (left)
-- Navigation links: "Features" (scrolls to How It Works), "Pricing" (links to /pricing)
-- "Start Free" CTA button (right)
-- Glassmorphic blur background (`glass` utility) with `sticky top-0 z-50`
-- Show/hide shadow on scroll for polish
+A lightweight hook that returns a `ref` callback. Uses `IntersectionObserver` with `threshold: 0.15` and `once: true` semantics (unobserves after reveal). Accepts optional config for delay and direction.
 
-**File:** `src/pages/Index.tsx` (inline, or extract to `src/components/LandingHeader.tsx`)
+```text
+useScrollReveal({ threshold?, rootMargin? }) => ref
+```
 
-### 2. Hero Section Copy Update
+- Creates one observer per hook instance
+- Adds `.scroll-revealed` class on intersection
+- Disconnects observer after element is revealed (fire-once)
+- Respects `prefers-reduced-motion` -- skips animation and shows elements immediately
 
-Update the sub-headline from:
-> "...adaptive strategy -- so you execute with clarity, not chaos."
+### 2. CSS Additions: `src/index.css`
 
-To:
-> "Define your objective. Kaamyab generates a milestone-driven plan with **deterministic execution speed**, so you proceed with clarity, not chaos."
+Add scroll reveal base styles and the revealed state:
 
-Use a `<strong>` tag for "deterministic execution speed" for emphasis.
+```css
+/* Scroll reveal - GPU-accelerated */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  will-change: opacity, transform;
+}
 
-### 3. "Why Most Goals Fail" Section -- Copy Enhancement
+.scroll-reveal.scroll-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
 
-Update the three problem cards to directly contrast against Kaamyab's adaptive behavioral memory:
+/* Staggered children variant */
+.scroll-reveal-stagger > .scroll-reveal-child {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
 
-- **No Structure** -- Add contrast: "Kaamyab replaces guesswork with deterministic task sequencing -- each step is computed, not assumed."
-- **No Roadmap** -- Add contrast: "Kaamyab's adaptive behavioral memory learns your pace and restructures your path automatically."
-- **Inconsistent Action** -- Add contrast: "Kaamyab tracks execution state (idle, doing, paused, done) -- not feelings -- to maintain momentum."
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child {
+  opacity: 1;
+  transform: translateY(0);
+}
 
-### 4. "How Kaamyab Works" -- Revised 3-Step Hierarchy
+/* Stagger delays for grid children */
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(1) { transition-delay: 0ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(2) { transition-delay: 100ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(3) { transition-delay: 200ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(4) { transition-delay: 300ms; }
+.scroll-reveal-stagger.scroll-revealed > .scroll-reveal-child:nth-child(5) { transition-delay: 400ms; }
 
-Replace the current steps with product-aligned terminology:
+/* Reduced motion: show everything immediately */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .scroll-reveal-stagger > .scroll-reveal-child {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+```
 
-| Step | Old Title | New Title | New Description |
-|------|-----------|-----------|-----------------|
-| 01 | Define Your Goal | Generate | "Describe your objective. AI builds a structured, milestone-driven execution plan with week-by-week pacing." |
-| 02 | Get a Structured Plan | Execute | "Track tasks with a 4-state timer (idle, doing, paused, done). Every action is measured, not just listed." |
-| 03 | Adaptive Refinement | Adapt | "Behavioral memory learns your patterns. Plans adjust to reality -- not the other way around." |
+### 3. Landing Page Updates: `src/pages/Index.tsx`
 
-Icons updated: Target (Generate), Timer/Play (Execute), Brain/RefreshCw (Adapt).
+Apply the hook to each major section. The hook returns a ref that gets attached to the section's content container.
 
-A connecting line/arrow between the 3 cards on desktop (using CSS pseudo-elements or a thin horizontal divider) to reinforce the flow.
+Sections receiving scroll reveal:
 
-### 5. Comparison Table Micro-Interactions
+| Section | Animation Style |
+|---------|----------------|
+| "Why Most Goals Fail" heading | Single fade-up |
+| Problem cards (3 cards) | Staggered fade-up (100ms intervals) |
+| "How Kaamyab Works" heading | Single fade-up |
+| Step cards (Generate/Execute/Adapt) | Staggered fade-up |
+| Strategic Planning card | Single fade-up |
+| "What Can You Plan?" heading | Single fade-up |
+| Use case cards (5 cards) | Staggered fade-up |
+| "How Kaamyab Compares" heading | Single fade-up |
+| Comparison table | Single fade-up |
+| Final CTA | Single fade-up |
 
-Add hover-expand behavior to comparison table rows:
-- Each row expands on hover to show a brief tooltip/description of the feature
-- Use framer-motion `AnimatePresence` + `motion.tr` for smooth height animation
-- Kaamyab column cells get a subtle green glow pulse on hover
+The Hero section is excluded (it already has `animate-slide-up` on page load).
 
-Add a new comparison row: **"Adaptive behavioral memory"** (Kaamyab: checkmark, all others: X).
+The ConsistencyScoreRing already has its own IntersectionObserver -- no changes needed there.
 
-### 6. Dynamic Consistency Score Visualization
+Each section will look like:
 
-Add a new section between "Strategic Planning" and "Use Cases" showing an animated Consistency Score ring:
-- Animated circular progress ring (SVG-based) that fills to ~87% on scroll-into-view
-- Label: "Consistency Score" with subtext explaining it measures execution reliability
-- Use `IntersectionObserver` to trigger the fill animation when the section enters viewport
-- Accompanied by 2-3 small stat cards: "Tasks completed on time", "Avg. execution accuracy", "Streak days"
-- All values are illustrative/demo (not real user data -- this is a marketing page)
+```text
+const problemRef = useScrollReveal();
+const stepsRef = useScrollReveal();
+// ...
+
+<div ref={problemRef} className="scroll-reveal">
+  <h2>Why Most Goals Fail</h2>
+</div>
+<div ref={problemCardsRef} className="scroll-reveal scroll-reveal-stagger">
+  {cards.map(card => (
+    <article className="scroll-reveal-child ...">
+```
 
 ---
 
 ## Technical Details
 
-### Files Modified
-- `src/pages/Index.tsx` -- Primary refactor (header, copy, steps, new section, comparison enhancements)
+### Performance
+- CSS `will-change: opacity, transform` ensures compositor-layer promotion
+- `will-change` is only set on the base class (before reveal) -- does not persist after animation
+- One `IntersectionObserver` per section (lightweight, native browser API)
+- No framer-motion involvement for scroll animations -- zero bundle overhead
+- Fire-once pattern: observer disconnects after reveal, no ongoing observation
 
-### Files Created (optional extraction)
-- `src/components/LandingHeader.tsx` -- Sticky nav header component
-- `src/components/ConsistencyScoreRing.tsx` -- Animated SVG ring + stats for the demo visualization
+### Files Created
+- `src/hooks/useScrollReveal.ts` -- reusable IntersectionObserver hook
+
+### Files Modified
+- `src/index.css` -- scroll reveal CSS classes
+- `src/pages/Index.tsx` -- apply refs and CSS classes to sections
 
 ### Dependencies
-- `framer-motion` (already installed) -- for comparison row expand animations
-- `lucide-react` (already installed) -- icons: `Timer`, `Brain`, `Zap`, `Activity`
-- No new packages needed
-
-### Animation Approach
-- Consistency Score ring: CSS `stroke-dashoffset` transition triggered by IntersectionObserver
-- Comparison rows: framer-motion `layout` + `AnimatePresence` for smooth expand
-- Header shadow: `scroll` event listener toggling a shadow class
-- All animations respect `prefers-reduced-motion` via Tailwind's `motion-safe:` prefix
-
+- None new -- uses native `IntersectionObserver` API and CSS transitions
