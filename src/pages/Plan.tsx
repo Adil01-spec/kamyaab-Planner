@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -997,9 +998,19 @@ const Plan = () => {
               </span>
             )}
             {profile && (
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {profile.fullName.split(' ')[0]}
-              </span>
+              <button
+                onClick={() => navigate('/home')}
+                className="h-8 w-8 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 transition-opacity hover:opacity-80"
+              >
+                <Avatar className="h-8 w-8 border border-border/40">
+                  {profile.avatarUrl ? (
+                    <AvatarImage src={profile.avatarUrl} alt="Avatar" />
+                  ) : null}
+                  <AvatarFallback className="bg-muted/50 text-muted-foreground font-medium text-xs">
+                    {profile.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
             )}
             <Button variant="ghost" size="sm" onClick={handleLogout} className="touch-press min-h-[44px] px-3">
               <LogOut className="w-5 h-5 sm:mr-2" />
