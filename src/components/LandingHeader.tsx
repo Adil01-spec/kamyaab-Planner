@@ -49,11 +49,16 @@ export const LandingHeader = () => {
           </Link>
         </nav>
 
-        <Button asChild size="sm" className="text-sm px-5">
-          <Link to="/auth">
-            Start Free <ArrowRight className="w-3.5 h-3.5 ml-1" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-sm px-4">
+            <Link to="/auth">Sign In</Link>
+          </Button>
+          <Button asChild size="sm" className="text-sm px-5">
+            <Link to="/auth?mode=signup">
+              Start Free <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Link>
+          </Button>
+        </div>
       </div>
     </header>
   );
