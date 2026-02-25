@@ -171,7 +171,7 @@ const Index = () => {
               </div>
             </div>
             <motion.div
-              className="mt-14 md:mt-20 max-w-5xl mx-auto relative"
+              className="hidden md:block mt-14 md:mt-20 max-w-5xl mx-auto relative"
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
