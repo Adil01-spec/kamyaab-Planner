@@ -52,6 +52,7 @@ import { DevModeActivator } from '@/components/DevModeActivator';
 import { Footer } from '@/components/Footer';
 import { HomeDesktopCard } from '@/components/HomeDesktopCard';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
+import { DeferredProfileCard } from '@/components/DeferredProfileCard';
 
 interface Task {
   title: string;
@@ -637,6 +638,11 @@ const Home = () => {
             className="mb-6"
           />
         )}
+
+        {/* Deferred Profile Completion Card */}
+        <div className="mb-6">
+          <DeferredProfileCard />
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             DESKTOP TWO-COLUMN LAYOUT
