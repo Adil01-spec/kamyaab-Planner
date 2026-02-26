@@ -176,9 +176,9 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
             >
-              {/* Annotated callouts */}
+              {/* Milestone Tasks - points to left panel task list */}
               <motion.div
-                className="hidden md:flex absolute -left-4 top-[18%] z-20 items-center gap-2"
+                className="hidden md:flex absolute -left-4 top-[38%] z-20 items-center gap-2"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 1.2 }}
@@ -190,8 +190,9 @@ const Index = () => {
                 <div className="w-8 h-px bg-primary" />
               </motion.div>
 
+              {/* Progress Ring - points to 0/3 ring on right panel */}
               <motion.div
-                className="hidden md:flex absolute -right-4 top-[12%] z-20 items-center gap-2"
+                className="hidden md:flex absolute -right-4 top-[24%] z-20 items-center gap-2"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 1.4 }}
@@ -203,8 +204,9 @@ const Index = () => {
                 </div>
               </motion.div>
 
+              {/* Quick Actions - points to Quick Actions section on right */}
               <motion.div
-                className="hidden md:flex absolute -right-4 top-[55%] z-20 items-center gap-2"
+                className="hidden md:flex absolute -right-4 top-[68%] z-20 items-center gap-2"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 1.6 }}
@@ -216,17 +218,18 @@ const Index = () => {
                 </div>
               </motion.div>
 
+              {/* Daily Nudges - points to motivational banners at bottom-left */}
               <motion.div
-                className="hidden md:flex absolute left-[15%] -bottom-2 z-20 flex-col items-center gap-1"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                className="hidden md:flex absolute -left-4 top-[78%] z-20 items-center gap-2"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 1.8 }}
               >
-                <div className="h-6 w-px bg-primary" />
                 <div className="bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
                   <p className="text-xs font-semibold text-foreground">Daily Nudges</p>
                   <p className="text-[10px] text-muted-foreground">Smart motivational prompts</p>
                 </div>
+                <div className="w-8 h-px bg-primary" />
               </motion.div>
 
               <motion.div
