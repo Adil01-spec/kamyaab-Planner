@@ -65,7 +65,7 @@ export const LandingHeader = () => {
         <Link to="/" className="flex items-center gap-2.5 group">
           <img src={kaamyabLogo} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 dark:hidden" />
           <img src={kaamyabLogoDark} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 hidden dark:block" />
-          <span className="text-lg font-bold tracking-[0.2em] uppercase text-primary">
+          <span className="text-lg font-bold tracking-[0.2em] uppercase text-kaamyab-dark dark:text-primary">
             Kamyaab
           </span>
         </Link>
