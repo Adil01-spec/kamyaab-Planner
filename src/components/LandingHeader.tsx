@@ -61,7 +61,7 @@ export const LandingHeader = () => {
       }`}
     >
       <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-1 group">
+        <Link to="/" className="flex items-center gap-0.5 group">
           <img src={kaamyabLogo} alt="Kamyaab logo" className="w-14 h-14 rounded-xl object-contain transition-transform group-hover:scale-105" />
           <span className="text-lg font-bold tracking-[0.2em] uppercase text-primary">
             Kamyaab
