@@ -64,8 +64,8 @@ export const LandingHeader = () => {
           <div className="w-9 h-9 rounded-xl gradient-kaamyab flex items-center justify-center transition-transform group-hover:scale-105">
             <Rocket className="w-4.5 h-4.5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            Kaamyab
+          <span className="text-lg font-bold tracking-[0.2em] uppercase text-primary">
+            Kamyaab
           </span>
         </Link>
 
