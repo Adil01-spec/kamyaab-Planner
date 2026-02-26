@@ -4,7 +4,7 @@ import { ArrowRight, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AnimatePresence, motion } from 'framer-motion';
-import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
+import kaamyabLogo from '@/assets/kaamyab-logo-light.png';
 import kaamyabLogoDark from '@/assets/kaamyab-logo-dark.png';
 
 export const LandingHeader = () => {
