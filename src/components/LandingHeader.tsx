@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AnimatePresence, motion } from 'framer-motion';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
+import kaamyabLogoDark from '@/assets/kaamyab-logo-dark.jpg';
 
 export const LandingHeader = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -62,7 +63,8 @@ export const LandingHeader = () => {
     >
       <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <img src={kaamyabLogo} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105" />
+          <img src={kaamyabLogo} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 dark:hidden" />
+          <img src={kaamyabLogoDark} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 hidden dark:block" />
           <span className="text-lg font-bold tracking-[0.2em] uppercase text-primary">
             Kamyaab
           </span>
