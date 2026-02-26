@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Rocket, ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AnimatePresence, motion } from 'framer-motion';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 
 export const LandingHeader = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -61,9 +62,7 @@ export const LandingHeader = () => {
     >
       <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl gradient-kaamyab flex items-center justify-center transition-transform group-hover:scale-105">
-            <Rocket className="w-4.5 h-4.5 text-primary-foreground" />
-          </div>
+          <img src={kaamyabLogo} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105" />
           <span className="text-lg font-bold tracking-[0.2em] uppercase text-primary">
             Kamyaab
           </span>
