@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AnimatePresence, motion } from 'framer-motion';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
-import kaamyabLogoDark from '@/assets/kaamyab-logo-dark.jpg';
+import kaamyabLogoDark from '@/assets/kaamyab-logo-dark.png';
 
 export const LandingHeader = () => {
   const [scrolled, setScrolled] = useState(false);
