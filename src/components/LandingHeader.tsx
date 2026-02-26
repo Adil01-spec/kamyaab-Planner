@@ -4,7 +4,7 @@ import { ArrowRight, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AnimatePresence, motion } from 'framer-motion';
-import kaamyabLogo from '@/assets/kaamyab-logo-light.png';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import kaamyabLogoDark from '@/assets/kaamyab-logo-dark.png';
 
 export const LandingHeader = () => {
@@ -20,7 +20,7 @@ export const LandingHeader = () => {
   // Lock body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {document.body.style.overflow = '';};
   }, [mobileOpen]);
 
   const scrollToFeatures = () => {
@@ -28,44 +28,44 @@ export const LandingHeader = () => {
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const navLinks = (
-    <>
+  const navLinks =
+  <>
       <button
-        onClick={scrollToFeatures}
-        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
+      onClick={scrollToFeatures}
+      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+
         Features
       </button>
       <Link
-        to="/pricing"
-        onClick={() => setMobileOpen(false)}
-        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
+      to="/pricing"
+      onClick={() => setMobileOpen(false)}
+      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+
         Pricing
       </Link>
       <Link
-        to="/contact"
-        onClick={() => setMobileOpen(false)}
-        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
+      to="/contact"
+      onClick={() => setMobileOpen(false)}
+      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+
         Contact
       </Link>
-    </>
-  );
+    </>;
+
 
   return (
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-xl ${
-        scrolled
-          ? 'bg-background/80 shadow-[var(--shadow-soft)] border-b border-border/50'
-          : 'bg-transparent'
-      }`}
-    >
+      scrolled ?
+      'bg-background/80 shadow-[var(--shadow-soft)] border-b border-border/50' :
+      'bg-transparent'}`
+      }>
+
       <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
           <img src={kaamyabLogo} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 dark:hidden" />
           <img src={kaamyabLogoDark} alt="Kamyaab logo" className="w-9 h-9 rounded-xl object-contain transition-transform group-hover:scale-105 hidden dark:block" />
-          <span className="text-lg font-bold tracking-[0.2em] uppercase text-kaamyab-dark dark:text-primary">
+          <span className="text-lg font-bold tracking-[0.2em] uppercase text-emerald-950">
             Kamyaab
           </span>
         </Link>
@@ -96,8 +96,8 @@ export const LandingHeader = () => {
             size="icon"
             className="h-9 w-9"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
-          >
+            aria-label="Toggle menu">
+
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
         </div>
@@ -105,33 +105,33 @@ export const LandingHeader = () => {
 
       {/* Mobile menu */}
       <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="sm:hidden overflow-hidden border-t border-border/50 bg-background/95 backdrop-blur-xl"
-          >
+        {mobileOpen &&
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
+          className="sm:hidden overflow-hidden border-t border-border/50 bg-background/95 backdrop-blur-xl">
+
             <nav className="flex flex-col gap-1 px-4 py-4">
               <button
-                onClick={scrollToFeatures}
-                className="text-left py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
+              onClick={scrollToFeatures}
+              className="text-left py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+
                 Features
               </button>
               <Link
-                to="/pricing"
-                onClick={() => setMobileOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
+              to="/pricing"
+              onClick={() => setMobileOpen(false)}
+              className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+
                 Pricing
               </Link>
               <Link
-                to="/contact"
-                onClick={() => setMobileOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
+              to="/contact"
+              onClick={() => setMobileOpen(false)}
+              className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+
                 Contact
               </Link>
               <div className="border-t border-border/50 mt-2 pt-3 flex flex-col gap-2">
@@ -146,8 +146,8 @@ export const LandingHeader = () => {
               </div>
             </nav>
           </motion.div>
-        )}
+        }
       </AnimatePresence>
-    </header>
-  );
+    </header>);
+
 };
