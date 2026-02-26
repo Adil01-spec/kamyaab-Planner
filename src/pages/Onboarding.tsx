@@ -5,30 +5,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, Calendar, FileText, Bot, SkipForward, LogOut } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, LogOut, Target, Zap, CheckCircle2 } from 'lucide-react';
 import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
-import { StrategicPlanningSection } from '@/components/StrategicPlanningSection';
-import { AdaptivePlanningToggle } from '@/components/AdaptivePlanningToggle';
-import { StrategicPlanningSteps, STRATEGIC_STEPS_COUNT } from '@/components/StrategicPlanningSteps';
-import { StrategicDiscoveryFlow } from '@/components/StrategicDiscoveryFlow';
+import { UnifiedProjectStep } from '@/components/UnifiedProjectStep';
+import { UnifiedStrategicContext } from '@/components/UnifiedStrategicContext';
 import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { DevPanel } from '@/components/DevPanel';
 import { 
   professionConfig, 
   type Profession, 
-  type Question,
   getToneProfile,
   getTonedCopy,
-  shouldShowPlanningApproachSelector,
-  getFilteredQuestions,
 } from '@/lib/adaptiveOnboarding';
-
+import { useStrategicAccess, markStrategicTrialUsed } from '@/hooks/useStrategicAccess';
 
 interface OnboardingData {
   fullName: string;
@@ -39,11 +31,20 @@ interface OnboardingData {
   projectDeadline: string;
   noDeadline: boolean;
   strategicPlanning: StrategicPlanningData;
-  // New: Strategic planning mode for all users
   strategicModeChoice: 'standard' | 'strategic';
   strategicPlanContext: StrategicPlanContext;
 }
 
+/**
+ * Streamlined Onboarding Flow:
+ * Step 1: Identity + Profession (merged)
+ * Step 2: Project Context (Title + Description + Deadline) with embedded strategic toggle
+ * Step 3: Generate Plan (Standard) — done
+ * Step 3 (Strategic): Unified Strategic Context (single adaptive screen)
+ * Step 4 (Strategic): Generate Plan
+ * 
+ * Profession-specific questions are DEFERRED to post-plan via DeferredProfileCard
+ */
 const Onboarding = () => {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
@@ -59,191 +60,71 @@ const Onboarding = () => {
     strategicPlanContext: { strategic_mode: false },
   });
   const [loading, setLoading] = useState(false);
-  // Phase 8.10: Strategic Discovery state
-  const [discoveryCompleted, setDiscoveryCompleted] = useState(false);
-  const { saveProfile, logout } = useAuth();
+  const { saveProfile, logout, user } = useAuth();
   const navigate = useNavigate();
+  const { level } = useStrategicAccess();
 
   const handleLogout = async () => {
     await logout();
     navigate('/auth');
   };
 
-  // Check if user is executive profile (for existing collapsible section)
+  const isStrategic = data.strategicModeChoice === 'strategic';
   const showExecutiveStrategicPlanning = isExecutiveProfile(data.profession, data.professionDetails);
 
-  const profession = data.profession ? professionConfig[data.profession] : null;
-  
-  // Calculate filtered profession questions
-  const professionQuestions = profession?.questions.filter(q => {
-    if (!q.showIf) return true;
-    return Object.entries(q.showIf).every(([key, value]) => data.professionDetails[key] === value);
-  }) || [];
-  
-  // Calculate strategic steps count (only if strategic mode is selected)
-  const strategicStepsCount = data.strategicModeChoice === 'strategic' ? STRATEGIC_STEPS_COUNT : 0;
-  
-  // Discovery step (only for strategic mode) - Phase 8.10
-  const discoveryStep = data.strategicModeChoice === 'strategic' ? 1 : 0;
-  
-  // Total steps: 
-  // 1 (name) + 1 (profession) + 1 (strategic toggle) + discovery (if strategic) + strategicSteps + professionQuestions + 3 (project steps)
-  const totalSteps = 3 + discoveryStep + strategicStepsCount + professionQuestions.length + 3;
+  // Total steps: Standard = 3, Strategic = 4
+  const totalSteps = isStrategic ? 4 : 3;
   const progress = (step / totalSteps) * 100;
 
-  const updateProfessionDetail = (key: string, value: any) => {
-    setData(prev => ({
-      ...prev,
-      professionDetails: { ...prev.professionDetails, [key]: value },
-    }));
-  };
-
-  const toggleChip = (key: string, chip: string) => {
-    const current = data.professionDetails[key] || [];
-    const updated = current.includes(chip) 
-      ? current.filter((c: string) => c !== chip)
-      : [...current, chip];
-    updateProfessionDetail(key, updated);
-  };
-
-  const updateCustomTech = (key: string, value: string) => {
-    updateProfessionDetail(`${key}_custom`, value);
-  };
-
-  // Combine predefined and custom technologies into one array
-  const getCombinedChips = (key: string): string[] => {
-    const predefined = data.professionDetails[key] || [];
-    const customRaw = data.professionDetails[`${key}_custom`] || '';
-    
-    if (!customRaw.trim()) return predefined;
-    
-    const customItems = customRaw
-      .split(',')
-      .map((item: string) => item.trim())
-      .filter((item: string) => item.length > 0);
-    
-    // Combine and deduplicate (case-insensitive)
-    const combined = [...predefined];
-    const lowerCasePredefined = predefined.map((p: string) => p.toLowerCase());
-    
-    customItems.forEach((item: string) => {
-      if (!lowerCasePredefined.includes(item.toLowerCase())) {
-        combined.push(item);
-      }
-    });
-    
-    return combined;
-  };
-
-  // Get the current step type and index
-  const getStepInfo = () => {
-    if (step === 1) return { type: 'name', index: 0 };
-    if (step === 2) return { type: 'profession', index: 0 };
-    if (step === 3) return { type: 'strategicToggle', index: 0 };
-    
-    let currentStep = step - 3; // After toggle
-    
-    // Discovery step (if strategic mode) - Phase 8.10
-    if (data.strategicModeChoice === 'strategic' && currentStep === 1) {
-      return { type: 'discovery', index: 0 };
-    }
-    if (data.strategicModeChoice === 'strategic') {
-      currentStep -= 1; // Account for discovery step
-    }
-    
-    // Strategic steps (if enabled)
-    if (data.strategicModeChoice === 'strategic' && currentStep <= STRATEGIC_STEPS_COUNT) {
-      return { type: 'strategicStep', index: currentStep };
-    }
-    currentStep -= strategicStepsCount;
-    
-    // Profession questions
-    if (currentStep <= professionQuestions.length) {
-      return { type: 'professionQuestion', index: currentStep - 1 };
-    }
-    currentStep -= professionQuestions.length;
-    
-    // Project steps
-    return { type: 'projectStep', index: currentStep };
-  };
-
   const canProceed = () => {
-    const { type, index } = getStepInfo();
-    
-    if (type === 'name') return data.fullName.trim().length > 0;
-    if (type === 'profession') return data.profession !== '';
-    if (type === 'strategicToggle') return true; // Always can proceed (default selected)
-    if (type === 'discovery') return true; // Discovery is optional
-    if (type === 'strategicStep') return true; // All strategic steps are optional
-    
-    if (type === 'professionQuestion') {
-      const question = professionQuestions[index];
-      if (!question) return true;
-      if (question.type === 'text' && (question.label.includes('Optional') || question.key === 'aiToolsList')) return true;
-      if (question.type === 'boolean') return data.professionDetails[question.key] !== undefined;
-      if (question.type === 'chips') {
-        const predefined = data.professionDetails[question.key] || [];
-        const customRaw = data.professionDetails[`${question.key}_custom`] || '';
-        const customItems = customRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-        return predefined.length > 0 || customItems.length > 0;
-      }
-      return data.professionDetails[question.key];
-    }
-    
-    if (type === 'projectStep') {
-      if (index === 1) return data.projectTitle.trim().length > 0;
-      if (index === 2) return data.projectDescription.trim().length > 0;
-      if (index === 3) return data.noDeadline || data.projectDeadline !== '';
-    }
-    
+    if (step === 1) return data.fullName.trim().length > 0 && data.profession !== '';
+    if (step === 2) return data.projectTitle.trim().length > 0 && data.projectDescription.trim().length > 0 && (data.noDeadline || data.projectDeadline !== '');
+    if (step === 3 && isStrategic) return true; // Strategic context is optional
     return true;
   };
 
   const handleNext = () => {
-    if (canProceed()) {
-      setStep(prev => prev + 1);
-    }
+    if (canProceed()) setStep(prev => prev + 1);
   };
 
   const handleBack = () => {
     setStep(prev => Math.max(1, prev - 1));
   };
 
-  const handleSkip = () => {
-    // Skip current step and move to next
-    setStep(prev => prev + 1);
+  const handleStrategicToggle = async () => {
+    if (isStrategic) {
+      setData(prev => ({
+        ...prev,
+        strategicModeChoice: 'standard',
+        strategicPlanContext: { strategic_mode: false },
+      }));
+    } else {
+      if (level === 'none') return;
+      if (level === 'preview' && user?.id) {
+        await markStrategicTrialUsed(user.id);
+      }
+      setData(prev => ({
+        ...prev,
+        strategicModeChoice: 'strategic',
+        strategicPlanContext: { strategic_mode: true },
+      }));
+    }
   };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      // Process profession details to combine predefined and custom technologies
       const processedDetails: Record<string, any> = { 
         ...data.professionDetails, 
         noDeadline: data.noDeadline,
-        // Include executive strategic planning data if available
         ...(showExecutiveStrategicPlanning && Object.keys(data.strategicPlanning).length > 0 
           ? { strategicPlanning: data.strategicPlanning } 
           : {}),
-        // Include new strategic plan context if strategic mode was selected
-        ...(data.strategicModeChoice === 'strategic' 
+        ...(isStrategic 
           ? { plan_context: { ...data.strategicPlanContext, strategic_mode: true } } 
           : { plan_context: null }),
       };
       
-      // Combine technologies if present
-      if (processedDetails.technologies !== undefined || processedDetails.technologies_custom) {
-        processedDetails.technologies = getCombinedChips('technologies');
-        delete processedDetails.technologies_custom;
-      }
-      
-      // Combine tools if present (for freelancers)
-      if (processedDetails.tools !== undefined || processedDetails.tools_custom) {
-        processedDetails.tools = getCombinedChips('tools');
-        delete processedDetails.tools_custom;
-      }
-      
-      // Save the profile first
       await saveProfile({
         fullName: data.fullName,
         profession: data.profession,
@@ -255,7 +136,6 @@ const Onboarding = () => {
       
       toast.success('Profile saved! Generating your plan...');
       
-      // Generate the plan immediately for first-time users
       const { data: planData, error: planError } = await supabase.functions.invoke('generate-plan', {
         body: { 
           profile: {
@@ -271,7 +151,6 @@ const Onboarding = () => {
         },
       });
 
-      // Handle STRATEGIC_ACCESS_EXHAUSTED error specifically
       if (planError) {
         const errorBody = planError.message || '';
         if (errorBody.includes('STRATEGIC_ACCESS_EXHAUSTED') || planError.context?.status === 403) {
@@ -290,405 +169,155 @@ const Onboarding = () => {
       navigate('/plan');
     } catch (error: any) {
       console.error('Onboarding error:', error);
-      
-      // Check for strategic access exhausted in caught error
       if (error?.message?.includes('STRATEGIC_ACCESS_EXHAUSTED')) {
         toast.error('Strategic Planning requires a subscription. Redirecting to pricing...');
         setTimeout(() => navigate('/pricing'), 2000);
         setLoading(false);
         return;
       }
-      
       toast.error('Failed to complete setup. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderStep = () => {
-    const { type, index } = getStepInfo();
+  const isLastStep = step === totalSteps;
 
-    // Step 1: Full Name
-    if (type === 'name') {
+  const renderStep = () => {
+    // Step 1: Identity + Profession (merged)
+    if (step === 1) {
       return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
+        <div className="space-y-6 animate-fade-in">
+          <div className="text-center mb-4">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
               <User className="w-6 h-6 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold">What's your name?</h2>
-            <p className="text-muted-foreground text-sm mt-1">Let's personalize your experience</p>
+            <h2 className="text-xl font-semibold">Let's get started</h2>
+            <p className="text-muted-foreground text-sm mt-1">Tell us about yourself</p>
           </div>
-          <div>
-            <Label htmlFor="fullName">Full Name</Label>
+
+          {/* Name */}
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Your name</Label>
             <Input
               id="fullName"
               placeholder="Enter your full name"
               value={data.fullName}
               onChange={(e) => setData(prev => ({ ...prev, fullName: e.target.value }))}
-              className="mt-2 h-12"
+              className="h-12"
               autoFocus
             />
           </div>
-        </div>
-      );
-    }
 
-    // Step 2: Profession Selection
-    if (type === 'profession') {
-      const tone = data.profession ? getToneProfile(data.profession as Profession) : 'casual';
-      
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-              <Briefcase className="w-6 h-6 text-primary" />
+          {/* Profession */}
+          <div className="space-y-2">
+            <Label>I work as a...</Label>
+            <div className="grid grid-cols-1 gap-2">
+              {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config]) => {
+                const Icon = config.icon;
+                const isSelected = data.profession === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setData(prev => ({ ...prev, profession: key, professionDetails: {} }))}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                      isSelected 
+                        ? 'border-primary bg-accent shadow-soft' 
+                        : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="font-medium text-sm">{config.label}</span>
+                  </button>
+                );
+              })}
             </div>
-            <h2 className="text-xl font-semibold">{getTonedCopy('whatDoYouDo', tone)}</h2>
-            <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('customizeExperience', tone)}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            {(Object.entries(professionConfig) as [Profession, typeof professionConfig.software_engineer][]).map(([key, config]) => {
-              const Icon = config.icon;
-              const isSelected = data.profession === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setData(prev => ({ ...prev, profession: key, professionDetails: {} }))}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
-                    isSelected 
-                      ? 'border-primary bg-accent shadow-soft' 
-                      : 'border-border hover:border-primary/50 hover:bg-secondary/50'
-                  }`}
-                >
-                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <span className="font-medium">{config.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
       );
     }
 
-    // Step 3: Strategic Planning Toggle
-    if (type === 'strategicToggle') {
-      // Use intent-based labels for 'Other' profession
-      const showIntentLabels = shouldShowPlanningApproachSelector(data.profession as Profession);
-      
+    // Step 2: Unified Project Context with embedded strategic toggle
+    if (step === 2) {
+      const isStrategicDisabled = level === 'none';
+
       return (
-        <AdaptivePlanningToggle
-          value={data.strategicModeChoice}
-          onChange={(value) => setData(prev => ({ 
+        <UnifiedProjectStep
+          projectTitle={data.projectTitle}
+          projectDescription={data.projectDescription}
+          projectDeadline={data.projectDeadline}
+          noDeadline={data.noDeadline}
+          profession={data.profession}
+          onTitleChange={(v) => setData(prev => ({ ...prev, projectTitle: v }))}
+          onDescriptionChange={(v) => setData(prev => ({ ...prev, projectDescription: v }))}
+          onDeadlineChange={(v) => setData(prev => ({ ...prev, projectDeadline: v, noDeadline: false }))}
+          onNoDeadlineChange={(checked) => setData(prev => ({ 
             ...prev, 
-            strategicModeChoice: value,
-            strategicPlanContext: value === 'strategic' 
-              ? { strategic_mode: true } 
-              : { strategic_mode: false }
+            noDeadline: checked,
+            projectDeadline: checked ? '' : prev.projectDeadline 
           }))}
-          profession={data.profession as Profession}
-          showIntentLabels={showIntentLabels}
-        />
-      );
-    }
-
-    // Strategic Discovery Step (Phase 8.10) - only for strategic mode
-    if (type === 'discovery') {
-      const handleDiscoveryComplete = (profile: StrategicContextProfile | null) => {
-        setDiscoveryCompleted(true);
-        if (profile) {
-          setData(prev => ({
-            ...prev,
-            strategicPlanContext: {
-              ...prev.strategicPlanContext,
-              strategic_context_profile: profile,
-            },
-          }));
-        }
-        handleNext();
-      };
-      
-      const handleDiscoverySkip = () => {
-        setDiscoveryCompleted(true);
-        handleNext();
-      };
-      
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-semibold">Help us understand your context</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              A few quick questions to tailor your strategic plan
-            </p>
-          </div>
-          <StrategicDiscoveryFlow
-            onComplete={handleDiscoveryComplete}
-            onSkip={handleDiscoverySkip}
-          />
-        </div>
-      );
-    }
-
-    // Strategic Planning Steps (if strategic mode selected)
-    if (type === 'strategicStep') {
-      return (
-        <StrategicPlanningSteps
-          currentStep={index}
-          data={data.strategicPlanContext}
-          onChange={(context) => setData(prev => ({ ...prev, strategicPlanContext: context }))}
-        />
-      );
-    }
-
-    // Profession-specific questions
-    if (type === 'professionQuestion') {
-      const question = professionQuestions[index];
-      if (!question) return null;
-      const Icon = profession?.icon || Briefcase;
-
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-              <Icon className="w-6 h-6 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold">{question.label}</h2>
-          </div>
-
-          {question.type === 'select' && (
-            <Select
-              value={data.professionDetails[question.key] || ''}
-              onValueChange={(value) => updateProfessionDetail(question.key, value)}
-            >
-              <SelectTrigger className="h-12">
-                <SelectValue placeholder={`Select ${question.label.toLowerCase()}`} />
-              </SelectTrigger>
-              <SelectContent>
-                {question.options?.map((option) => (
-                  <SelectItem key={option} value={option}>{option}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {question.type === 'text' && (
-            <div className="space-y-2">
-              <Input
-                placeholder={question.placeholder || (question.key === 'aiToolsList' 
-                  ? "e.g., ChatGPT, Cursor, Copilot, custom agents"
-                  : `Enter ${question.label.toLowerCase()}`)}
-                value={data.professionDetails[question.key] || ''}
-                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
-                className="h-12"
-                autoFocus
-              />
-              {(question.helpText || question.key === 'aiToolsList') && (
-                <p className="text-xs text-muted-foreground">
-                  {question.helpText || 'You can list multiple tools separated by commas'}
-                </p>
-              )}
-            </div>
-          )}
-
-          {question.type === 'textarea' && (
-            <div className="space-y-2">
-              <Textarea
-                placeholder={question.placeholder || `Enter ${question.label.toLowerCase()}`}
-                value={data.professionDetails[question.key] || ''}
-                onChange={(e) => updateProfessionDetail(question.key, e.target.value)}
-                className="min-h-[120px]"
-                autoFocus
-              />
-              {question.helpText && (
-                <p className="text-xs text-muted-foreground">
-                  {question.helpText}
-                </p>
-              )}
-            </div>
-          )}
-
-          {question.type === 'boolean' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => updateProfessionDetail(question.key, 'yes')}
-                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    data.professionDetails[question.key] === 'yes'
-                      ? 'border-primary bg-accent shadow-soft'
-                      : 'border-border hover:border-primary/50 hover:bg-secondary/50'
-                  }`}
-                >
-                  <Bot className="w-5 h-5" />
-                  <span className="font-medium">Yes</span>
-                </button>
-                <button
-                  onClick={() => updateProfessionDetail(question.key, 'no')}
-                  className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    data.professionDetails[question.key] === 'no'
-                      ? 'border-primary bg-accent shadow-soft'
-                      : 'border-border hover:border-primary/50 hover:bg-secondary/50'
-                  }`}
-                >
-                  <span className="font-medium">No</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {question.type === 'chips' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {question.options?.map((option) => {
-                  const selected = (data.professionDetails[question.key] || []).includes(option);
-                  return (
-                    <button
-                      key={option}
-                      onClick={() => toggleChip(question.key, option)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        selected
-                          ? 'bg-primary text-primary-foreground shadow-soft'
-                          : 'bg-secondary text-secondary-foreground hover:bg-accent'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-              {question.key === 'technologies' && (
-                <div className="pt-2">
-                  <Label htmlFor="customTech" className="text-sm text-muted-foreground">
-                    Other technologies (optional)
-                  </Label>
-                  <Input
-                    id="customTech"
-                    placeholder="e.g. Rust, Go, WebAssembly, Three.js"
-                    value={data.professionDetails[`${question.key}_custom`] || ''}
-                    onChange={(e) => updateCustomTech(question.key, e.target.value)}
-                    className="mt-2 h-12"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    If your technology isn't listed, add it here (comma-separated)
+          strategicToggle={
+            <div className="pt-4 border-t border-border/30">
+              <button
+                onClick={handleStrategicToggle}
+                disabled={isStrategicDisabled}
+                className={`flex items-center gap-3 w-full p-3 rounded-xl border transition-all text-left ${
+                  isStrategicDisabled
+                    ? 'opacity-50 cursor-not-allowed border-border/30'
+                    : isStrategic
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border/50 hover:border-primary/30'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  isStrategic ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                }`}>
+                  <Target className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">Add strategic context</p>
+                    {isStrategic && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isStrategicDisabled 
+                      ? 'Complete a plan to unlock' 
+                      : 'Include role, scope, constraints, and AI discovery'}
                   </p>
                 </div>
-              )}
+              </button>
             </div>
-          )}
-        </div>
+          }
+        />
       );
     }
 
-    // Project questions
-    if (type === 'projectStep') {
-      const tone = data.profession ? getToneProfile(data.profession as Profession) : 'casual';
-      
-      if (index === 1) {
-        return (
-          <div className="space-y-4 animate-fade-in">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-                <FileText className="w-6 h-6 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold">Project Title</h2>
-              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectTitle', tone)}</p>
-            </div>
-            <Input
-              placeholder="e.g., Launch my e-commerce store"
-              value={data.projectTitle}
-              onChange={(e) => setData(prev => ({ ...prev, projectTitle: e.target.value }))}
-              className="h-12"
-              autoFocus
-            />
-          </div>
-        );
-      }
-
-      if (index === 2) {
-        return (
-          <div className="space-y-4 animate-fade-in">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-                <FileText className="w-6 h-6 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold">Project Description</h2>
-              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectDescription', tone)}</p>
-            </div>
-            <Textarea
-              placeholder={getTonedCopy('projectDescriptionPlaceholder', tone)}
-              value={data.projectDescription}
-              onChange={(e) => setData(prev => ({ ...prev, projectDescription: e.target.value }))}
-              className="min-h-[150px]"
-              autoFocus
-            />
-          </div>
-        );
-      }
-
-      if (index === 3) {
-        return (
-          <div className="space-y-4 animate-fade-in">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-accent mb-3">
-                <Calendar className="w-6 h-6 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold">Project Deadline</h2>
-              <p className="text-muted-foreground text-sm mt-1">{getTonedCopy('projectDeadline', tone)}</p>
-            </div>
-            <Input
-              type="date"
-              value={data.projectDeadline}
-              onChange={(e) => setData(prev => ({ ...prev, projectDeadline: e.target.value, noDeadline: false }))}
-              className="h-12"
-              min={new Date().toISOString().split('T')[0]}
-              disabled={data.noDeadline}
-            />
-            <div className="flex items-center space-x-3 pt-2">
-              <Checkbox
-                id="noDeadline"
-                checked={data.noDeadline}
-                onCheckedChange={(checked) => 
-                  setData(prev => ({ 
-                    ...prev, 
-                    noDeadline: checked === true,
-                    projectDeadline: checked === true ? '' : prev.projectDeadline 
-                  }))
-                }
-              />
-              <label
-                htmlFor="noDeadline"
-                className="text-sm text-muted-foreground cursor-pointer select-none"
-              >
-                {getTonedCopy('noDeadlineLabel', tone)}
-              </label>
-            </div>
-            {data.noDeadline && (
-              <p className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg">
-                {getTonedCopy('noDeadlineHint', tone)}
-              </p>
-            )}
-
-            {/* Strategic Planning Section for Executives (existing collapsible) */}
-            {showExecutiveStrategicPlanning && (
-              <div className="pt-4">
-                <StrategicPlanningSection
-                  data={data.strategicPlanning}
-                  onChange={(strategicPlanning) => setData(prev => ({ ...prev, strategicPlanning }))}
-                />
-              </div>
-            )}
-          </div>
-        );
-      }
+    // Step 3 (Strategic): Unified Strategic Context
+    if (step === 3 && isStrategic) {
+      return (
+        <UnifiedStrategicContext
+          data={data.strategicPlanContext}
+          onChange={(ctx) => setData(prev => ({ ...prev, strategicPlanContext: ctx }))}
+          onDiscoveryComplete={(profile) => {
+            if (profile) {
+              setData(prev => ({
+                ...prev,
+                strategicPlanContext: {
+                  ...prev.strategicPlanContext,
+                  strategic_context_profile: profile,
+                },
+              }));
+            }
+          }}
+          showDiscovery={true}
+        />
+      );
     }
 
     return null;
   };
-
-  const { type } = getStepInfo();
-  const isLastStep = step === totalSteps;
-  const isStrategicStep = type === 'strategicStep';
 
   // Full-page loading overlay during plan generation
   if (loading) {
@@ -750,19 +379,6 @@ const Onboarding = () => {
                 </Button>
               )}
               
-              {/* Skip button for strategic steps */}
-              {isStrategicStep && (
-                <Button
-                  variant="ghost"
-                  onClick={handleSkip}
-                  className="h-12 text-muted-foreground"
-                  disabled={loading}
-                >
-                  <SkipForward className="w-4 h-4 mr-1" />
-                  Skip
-                </Button>
-              )}
-              
               <Button
                 onClick={isLastStep ? handleSubmit : handleNext}
                 disabled={!canProceed() || loading}
@@ -774,7 +390,7 @@ const Onboarding = () => {
                     Generating Plan...
                   </>
                 ) : isLastStep ? (
-                  'Complete Setup'
+                  'Create My Plan'
                 ) : (
                   <>
                     Next
@@ -802,16 +418,11 @@ const Onboarding = () => {
             progress,
             loading,
             profession: data.profession,
-            professionDetails: data.professionDetails,
-            projectTitle: data.projectTitle,
-            noDeadline: data.noDeadline,
-            showExecutiveStrategicPlanning,
             strategicModeChoice: data.strategicModeChoice,
             strategicPlanContext: data.strategicPlanContext,
           }}
         />
       </div>
-
     </div>
   );
 };

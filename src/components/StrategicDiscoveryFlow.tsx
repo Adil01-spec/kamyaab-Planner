@@ -21,8 +21,8 @@ interface StrategicDiscoveryFlowProps {
   onSkip: () => void;
 }
 
-const MAX_QUESTIONS = 8;
-const DEFAULT_QUESTION_COUNT = 6;
+const MAX_QUESTIONS = 5;
+const DEFAULT_QUESTION_COUNT = 4;
 
 export function StrategicDiscoveryFlow({ onComplete, onSkip }: StrategicDiscoveryFlowProps) {
   const [flowState, setFlowState] = useState<FlowState>('field_selection');
