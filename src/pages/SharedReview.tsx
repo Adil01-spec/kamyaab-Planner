@@ -114,7 +114,7 @@ export default function SharedReview() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Rocket className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-foreground">Kaamyab</span>
+            <span className="font-bold tracking-[0.2em] uppercase text-foreground">Kamyaab</span>
           </div>
           <span className="text-xs text-muted-foreground">Shared Review</span>
         </div>

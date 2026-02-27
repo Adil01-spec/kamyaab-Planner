@@ -99,7 +99,7 @@ export function Footer({
           {/* Brand Section */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/home" className="inline-block mb-3">
-              <h3 className="text-lg font-semibold text-muted-foreground">Kaamyab</h3>
+              <h3 className="text-lg font-bold tracking-[0.2em] uppercase text-muted-foreground">Kamyaab</h3>
             </Link>
             <p className="text-sm text-muted-foreground/70 leading-relaxed">
               Plan better. Execute calmly. Reflect honestly.

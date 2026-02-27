@@ -77,7 +77,7 @@ const ComparisonCard = ({ row }: { row: typeof comparisonData[0] }) => {
       <div className="flex items-start justify-between gap-3 mb-3">
         <h3 className="text-sm font-semibold text-foreground leading-snug">{row.feature}</h3>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs font-medium text-primary">Kaamyab</span>
+          <span className="text-xs font-bold tracking-[0.15em] uppercase text-primary">Kamyaab</span>
           <CellIcon val={row.kaamyab} isKaamyab />
         </div>
       </div>
@@ -380,7 +380,7 @@ const Index = () => {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-4 px-4 font-semibold text-foreground">Feature</th>
-                    <th className="text-center py-4 px-4 font-semibold text-primary">Kaamyab</th>
+                    <th className="text-center py-4 px-4 font-bold tracking-[0.15em] uppercase text-primary">Kamyaab</th>
                     <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Todo Apps</th>
                     <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Notion Templates</th>
                     <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Habit Trackers</th>

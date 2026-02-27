@@ -103,7 +103,7 @@ export function DesktopHamburgerMenu({
         <SheetHeader className="p-5 pb-4">
           <div className="flex items-center gap-3">
             <img src={kaamyabLogo} alt="Kamyaab" className="w-10 h-10 rounded-xl object-contain" />
-            <SheetTitle className="text-lg font-semibold text-foreground">Kaamyab</SheetTitle>
+            <SheetTitle className="text-lg font-bold tracking-[0.2em] uppercase text-foreground">Kamyaab</SheetTitle>
           </div>
         </SheetHeader>
 
