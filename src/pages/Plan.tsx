@@ -564,13 +564,12 @@ const Plan = () => {
     navigate('/auth');
   };
 
-  // Inline plan regeneration — no route navigation
+  // Archive current plan and navigate to /plan/reset for regeneration
   const handleRegeneratePlan = async () => {
     if (!user || !plan) return;
     
     setIsDeleting(true);
     setShowDeleteDialog(false);
-    setIsRegenerating(true);
     
     try {
       // 1. Archive current plan
@@ -592,57 +591,17 @@ const Plan = () => {
 
       if (deleteError) throw deleteError;
 
-      // 3. Generate new plan inline via edge function
-      const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-plan', {
-        body: {
-          profile: {
-            projectTitle: profile?.projectTitle || '',
-            projectDescription: profile?.projectDescription || '',
-            projectDeadline: profile?.projectDeadline || '',
-            profession: profile?.profession || '',
-            professionDetails: profile?.professionDetails || {},
-          }
-        }
-      });
-
-      if (fnError) throw fnError;
-
-      const newPlanData = fnData?.plan || fnData;
-      if (!newPlanData) throw new Error('No plan data returned');
-
-      // 4. Save new plan to database
-      const { data: savedPlan, error: saveError } = await supabase
-        .from('plans')
-        .insert({
-          user_id: user.id,
-          plan_json: newPlanData,
-        })
-        .select('id, plan_json, created_at')
-        .single();
-
-      if (saveError) throw saveError;
-
-      // 5. Update local state in-place — no navigation
-      setPlan(savedPlan.plan_json as unknown as PlanData);
-      setPlanId(savedPlan.id);
-      setPlanCreatedAt(savedPlan.created_at);
-      celebratedWeeks.current.clear();
-      hasCompletedPlan.current = false;
-
-      toast({
-        title: "New plan generated!",
-        description: "Your fresh execution plan is ready.",
-      });
+      // 3. Navigate to /plan/reset for fresh plan creation
+      navigate('/plan/reset', { replace: true });
     } catch (error) {
-      console.error('Error regenerating plan:', error);
+      console.error('Error archiving plan:', error);
       toast({
-        title: "Generation failed",
-        description: "Could not generate a new plan. Please try again.",
+        title: "Archive failed",
+        description: "Could not archive your plan. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
-      setIsRegenerating(false);
     }
   };
 
