@@ -62,6 +62,7 @@ const Onboarding = () => {
     strategicPlanContext: { strategic_mode: false },
   });
   const [loading, setLoading] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const { saveProfile, logout, user } = useAuth();
   const navigate = useNavigate();
   const { level } = useStrategicAccess();
@@ -115,6 +116,8 @@ const Onboarding = () => {
 
   const handleSubmit = async () => {
     setLoading(true);
+    setIsGeneratingPlan(true);
+    sessionStorage.setItem('isGeneratingPlan', 'true');
     try {
       const processedDetails: Record<string, any> = { 
         ...data.professionDetails, 
@@ -157,29 +160,35 @@ const Onboarding = () => {
         const errorBody = planError.message || '';
         if (errorBody.includes('STRATEGIC_ACCESS_EXHAUSTED') || planError.context?.status === 403) {
           toast.error('Strategic Planning requires a subscription. Redirecting to pricing...');
-          setTimeout(() => navigate('/pricing'), 2000);
+          setTimeout(() => navigate('/pricing', { replace: true }), 2000);
           setLoading(false);
+          setIsGeneratingPlan(false);
           return;
         }
         console.error('Plan generation error:', planError);
         toast.error('Plan generation failed. Please try again.');
         setLoading(false);
+        setIsGeneratingPlan(false);
         return;
       }
 
       toast.success('Your plan is ready!');
-      navigate('/plan');
+      sessionStorage.removeItem('isGeneratingPlan');
+      navigate('/plan', { replace: true });
     } catch (error: any) {
       console.error('Onboarding error:', error);
       if (error?.message?.includes('STRATEGIC_ACCESS_EXHAUSTED')) {
         toast.error('Strategic Planning requires a subscription. Redirecting to pricing...');
-        setTimeout(() => navigate('/pricing'), 2000);
+        setTimeout(() => navigate('/pricing', { replace: true }), 2000);
         setLoading(false);
+        setIsGeneratingPlan(false);
         return;
       }
       toast.error('Failed to complete setup. Please try again.');
     } finally {
       setLoading(false);
+      setIsGeneratingPlan(false);
+      sessionStorage.removeItem('isGeneratingPlan');
     }
   };
 
