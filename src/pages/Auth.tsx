@@ -186,7 +186,7 @@ const Auth = () => {
       // Always use Lovable Cloud auth bridge for Apple Sign-In
       // It has the managed Apple OAuth credentials
       const { error } = await lovable.auth.signInWithOAuth('apple', {
-        redirect_uri: `${window.location.origin}/onboarding`,
+        redirect_uri: window.location.origin,
       });
       if (error) {
         toast.error(error.message || 'Apple sign-in failed. Please try again.');
