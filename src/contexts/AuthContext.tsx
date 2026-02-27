@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { requiresRedirectAuth, clearPartialSession } from '@/lib/browserDetection';
+import { clearPartialSession } from '@/lib/browserDetection';
+import { lovable } from '@/integrations/lovable';
 
 interface UserProfile {
   id: string;
@@ -211,39 +212,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = useCallback(async () => {
-    const redirectUrl = `${window.location.origin}/onboarding`;
-    
-    // Clear any partial/stale session before OAuth
-    clearPartialSession();
-    
     try {
-      // Always use redirect flow - more reliable across all browsers
-      // Especially critical for iOS Safari which blocks popups
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: false, // Ensure we do a full redirect
-          queryParams: {
-            prompt: 'select_account', // Force account selection
-          },
-        },
+      const { error } = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
       });
-      
       if (error) {
-        // Don't show raw token errors to user
-        if (error.message?.includes('token') || error.message?.includes('signature')) {
-          console.error('OAuth token error:', error);
-          clearPartialSession();
-          return { error: { message: 'Sign in failed. Please try again.' } };
-        }
-        return { error };
+        return { error: { message: error.message || 'Sign in failed. Please try again.' } };
       }
-      
       return { error: null };
     } catch (err) {
-      console.error('OAuth error:', err);
-      clearPartialSession();
       return { error: { message: 'Sign in failed. Please try again.' } };
     }
   }, []);
