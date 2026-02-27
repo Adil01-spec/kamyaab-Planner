@@ -15,6 +15,7 @@ import { UnifiedProjectStep } from '@/components/UnifiedProjectStep';
 import { UnifiedStrategicContext } from '@/components/UnifiedStrategicContext';
 import { type StrategicContextProfile } from '@/lib/strategicDiscovery';
 import { DevPanel } from '@/components/DevPanel';
+import PlanPreviewSummary from '@/components/PlanPreviewSummary';
 import { 
   professionConfig, 
   type Profession, 
@@ -313,6 +314,22 @@ const Onboarding = () => {
             }
           }}
           showDiscovery={true}
+        />
+      );
+    }
+
+    // Final step (standard or strategic): Plan Preview Summary
+    if (isLastStep) {
+      return (
+        <PlanPreviewSummary
+          fullName={data.fullName}
+          profession={data.profession}
+          projectTitle={data.projectTitle}
+          projectDescription={data.projectDescription}
+          projectDeadline={data.projectDeadline}
+          noDeadline={data.noDeadline}
+          isStrategic={isStrategic}
+          strategicPlanContext={data.strategicPlanContext}
         />
       );
     }
