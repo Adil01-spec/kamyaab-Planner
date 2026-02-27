@@ -55,7 +55,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const profileComplete = isProfileComplete(profile);
 
   // If this route should redirect when profile is complete (e.g., onboarding)
-  if (redirectIfProfile && profileComplete) {
+  // Skip redirect if plan generation is in progress (prevents flicker during onboarding submit)
+  const isGeneratingPlan = sessionStorage.getItem('isGeneratingPlan') === 'true';
+  if (redirectIfProfile && profileComplete && !isGeneratingPlan) {
     return <Navigate to={redirectIfProfile} replace />;
   }
 
