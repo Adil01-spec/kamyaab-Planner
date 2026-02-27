@@ -480,7 +480,7 @@ const PlanReset = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain" />
-              <span className="font-semibold text-foreground">Kaamyab</span>
+              <span className="font-bold tracking-[0.2em] uppercase text-foreground">Kamyaab</span>
             </div>
             <Button 
               variant="ghost" 

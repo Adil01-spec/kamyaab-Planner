@@ -541,7 +541,7 @@ const Today = () => {
             {/* Desktop Hamburger Menu */}
             <DesktopHamburgerMenu settings={desktopSettings} onToggle={toggleSetting} onUpdateSettings={updateSettings} onReset={resetToDefaults} />
             <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain lg:hidden" />
-            <span className="font-semibold text-foreground text-sm lg:hidden">Kaamyab</span>
+            <span className="font-bold tracking-[0.2em] uppercase text-foreground text-sm lg:hidden">Kamyaab</span>
           </div>
           
           <div className="flex items-center gap-2">

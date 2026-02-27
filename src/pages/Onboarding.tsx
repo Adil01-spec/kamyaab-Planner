@@ -341,7 +341,7 @@ const Onboarding = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain" />
-            <span className="font-semibold text-foreground">Kaamyab</span>
+            <span className="font-bold tracking-[0.2em] uppercase text-foreground">Kamyaab</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">Step {step} of {totalSteps}</span>
