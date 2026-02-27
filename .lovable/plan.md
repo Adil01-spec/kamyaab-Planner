@@ -1,64 +1,88 @@
 
 
-## Strategic Trial Logic: Make It Global and Consistent
+## Root Cause Analysis
 
-### Problem
-The frontend prematurely marks `strategic_trial_used = true` the moment a user **toggles** strategic mode ON — before any plan is generated. This happens in two places:
-- `Onboarding.tsx` line 107: `handleStrategicToggle` calls `markStrategicTrialUsed(user.id)`
-- `PlanReset.tsx` line 192: `handleStrategicToggle` calls `markStrategicTrialUsed(user.id)`
+### The Problem
+**Google Sign-In** uses `supabase.auth.signInWithOAuth()` directly (line 222 of `AuthContext.tsx`) instead of the Lovable Cloud auth bridge (`lovable.auth.signInWithOAuth()`). This bypasses the managed credentials and callback handling that Lovable Cloud provides.
 
-If the user toggles strategic on, then goes back or cancels, the trial is already consumed. This violates the rule that trial should only be consumed on successful plan creation.
+Additionally, `clearPartialSession()` is called **before** OAuth redirect, which wipes Supabase's PKCE code verifier from localStorage. When the user returns from Google, Supabase cannot complete the code exchange because the verifier is gone. Result: no session.
 
-The **backend** (`generate-plan` edge function) already handles this correctly — it atomically marks `strategic_trial_used = true` only after the plan is saved successfully (lines 876-902). So the frontend calls are redundant and harmful.
+**Apple Sign-In** correctly uses `lovable.auth.signInWithOAuth('apple', ...)` but its `redirect_uri` points to `/onboarding` (a ProtectedRoute), which may cause redirect loops on return.
 
-### Changes Required
+### Why It Broke
+Recent routing and onboarding changes didn't touch the Google auth flow, but the `clearPartialSession()` function strips all `sb-*` keys from localStorage -- including the PKCE `code_verifier` that Supabase stores before redirect. This was always a latent bug, but may have started manifesting after other auth flow changes.
 
-#### 1. Remove premature `markStrategicTrialUsed` calls from frontend
+---
 
-**`src/pages/Onboarding.tsx`** — In `handleStrategicToggle`, remove the `markStrategicTrialUsed(user.id)` call. The toggle should only update local UI state (`strategicModeChoice`), nothing in the database.
+## Changes Required
 
-**`src/pages/PlanReset.tsx`** — Same fix in `handleStrategicToggle`. Remove the `markStrategicTrialUsed(user.id)` call.
+### 1. Fix Google Sign-In to use Lovable Cloud bridge (`src/contexts/AuthContext.tsx`)
 
-#### 2. Create a centralized `canUseStrategicMode` helper
+Replace `supabase.auth.signInWithOAuth()` with `lovable.auth.signInWithOAuth('google', ...)` -- identical to how Apple is already handled. This ensures:
+- Managed Google OAuth credentials are used
+- Callback handling works through the Lovable Cloud bridge
+- No PKCE code verifier dependency
 
-**`src/lib/strategicAccessResolver.ts`** — Add a simple helper function:
-
-```text
-canUseStrategicMode(input: StrategicAccessInput): boolean
-  - If subscription tier is paid and active -> true
-  - If strategic_trial_used is false -> true  
-  - Otherwise -> false
+The `signInWithGoogle` function becomes:
+```typescript
+const signInWithGoogle = useCallback(async () => {
+  try {
+    const { error } = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+    });
+    if (error) {
+      return { error: { message: error.message || 'Sign in failed. Please try again.' } };
+    }
+    return { error: null };
+  } catch (err) {
+    return { error: { message: 'Sign in failed. Please try again.' } };
+  }
+}, []);
 ```
 
-This replaces scattered `level === 'none'` checks.
+Key changes:
+- Use `lovable.auth.signInWithOAuth` instead of `supabase.auth.signInWithOAuth`
+- Remove `clearPartialSession()` calls (destructive to PKCE state)
+- Set `redirect_uri` to origin root (not `/onboarding`)
+- Remove `requiresRedirectAuth` import (no longer needed)
 
-#### 3. Update both toggles to use centralized logic
+### 2. Fix Apple redirect_uri (`src/pages/Auth.tsx`)
 
-Both `Onboarding.tsx` and `PlanReset.tsx` toggle handlers should:
-- Check `canUseStrategicMode` (via the existing `useStrategicAccess` hook which already returns `level`)
-- Only set local state — never touch the database
-- Let the backend handle trial consumption
+Change Apple's `redirect_uri` from `/onboarding` to `window.location.origin`:
+```typescript
+const { error } = await lovable.auth.signInWithOAuth('apple', {
+  redirect_uri: window.location.origin,
+});
+```
 
-#### 4. Remove `markStrategicTrialUsed` export from `useStrategicAccess.ts`
+This prevents landing on a ProtectedRoute before the session is established.
 
-Since the frontend should never call this, remove the exported `markStrategicTrialUsed` function to prevent future misuse. The backend handles this exclusively.
+### 3. Remove dangerous `clearPartialSession` from OAuth flows (`src/contexts/AuthContext.tsx`)
 
-### Files Modified
-1. **`src/pages/Onboarding.tsx`** — Remove `markStrategicTrialUsed` call from toggle handler, remove import
-2. **`src/pages/PlanReset.tsx`** — Remove `markStrategicTrialUsed` call from toggle handler, remove import
-3. **`src/hooks/useStrategicAccess.ts`** — Remove `markStrategicTrialUsed` export (or mark deprecated)
-4. **`src/lib/strategicAccessResolver.ts`** — Already has `canAccessStrategicPlanning` which does exactly what's needed (no change required)
+Remove all `clearPartialSession()` calls from `signInWithGoogle`. Keep the one in `TOKEN_REFRESHED` handler (that's a legitimate use case for clearing stale state).
 
-### What Already Works (No Changes Needed)
-- **Backend** (`generate-plan/index.ts`): Already checks trial status server-side, blocks exhausted trials with 403, and atomically marks trial used only after successful save with conditional update (`eq('strategic_trial_used', false)`)
-- **`strategicAccessResolver.ts`**: Already has `canAccessStrategicPlanning()` helper
-- **`useStrategicAccess` hook**: Already returns correct `level` based on fresh DB data
-- **RLS policy** `prevent_strategic_plan_abuse`: Already blocks strategic plan inserts at DB level
+### 4. Add `lovable` import to AuthContext
 
-### Test Scenarios Covered
-- **A**: Toggle on then cancel -> no DB call, trial intact
-- **B**: Skip strategic in onboarding, use in reset -> trial available (never consumed prematurely)
-- **C/D**: Successful strategic plan from either route -> backend marks trial used
-- **E**: Generation fails -> backend never reaches trial update code
-- **F**: Refresh mid-generation -> backend only marks after successful save
+Add: `import { lovable } from '@/integrations/lovable';`
+Remove: `import { requiresRedirectAuth, clearPartialSession } from '@/lib/browserDetection';` (keep only `clearPartialSession` for the TOKEN_REFRESHED handler -- actually we still need it there, so just remove `requiresRedirectAuth`).
 
+---
+
+## Files Modified
+1. **`src/contexts/AuthContext.tsx`** -- Rewrite `signInWithGoogle` to use lovable bridge, remove destructive `clearPartialSession` calls, add lovable import
+2. **`src/pages/Auth.tsx`** -- Fix Apple `redirect_uri` to use origin instead of `/onboarding`
+
+## Post-Fix Auth Flow
+1. User clicks "Sign in with Google/Apple"
+2. Lovable Cloud bridge redirects to provider
+3. Provider redirects back to Lovable's managed callback
+4. Lovable bridge processes tokens and redirects to `redirect_uri` (origin `/`)
+5. `onAuthStateChange` fires with session
+6. `AuthRoute` on `/auth` (or landing page routing) detects user and redirects to `/onboarding` or `/today` based on profile status
+7. No flicker, no intermediate routes
+
+## Hardening
+- Single auth bridge (`lovable.auth`) for all OAuth providers
+- No localStorage manipulation before OAuth redirects
+- Redirect URIs point to non-protected routes
+- `onAuthStateChange` listener remains global in `AuthProvider`, mounted once
