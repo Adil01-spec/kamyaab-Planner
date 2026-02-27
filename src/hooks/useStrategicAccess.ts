@@ -77,22 +77,8 @@ export function useStrategicAccess() {
   };
 }
 
-/**
- * Mark strategic trial as used.
- * NOTE: This is now primarily handled server-side in the edge function.
- * This client-side function is kept for backward compatibility but 
- * the server is the source of truth.
- */
-export async function markStrategicTrialUsed(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ strategic_trial_used: true })
-    .eq('id', userId);
-
-  if (error) {
-    console.error('Error marking strategic trial as used:', error);
-  }
-}
+// markStrategicTrialUsed removed — trial is marked exclusively by the backend
+// after successful strategic plan creation. Frontend must never mutate trial state.
 
 /**
  * Increment strategic call counter.

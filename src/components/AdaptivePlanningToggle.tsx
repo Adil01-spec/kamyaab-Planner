@@ -2,8 +2,7 @@ import { motion } from 'framer-motion';
 import { Zap, Target, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTonedCopy, getToneProfile, type ToneProfile, type Profession } from '@/lib/adaptiveOnboarding';
-import { useStrategicAccess, markStrategicTrialUsed } from '@/hooks/useStrategicAccess';
-import { useAuth } from '@/contexts/AuthContext';
+import { useStrategicAccess } from '@/hooks/useStrategicAccess';
 
 interface AdaptivePlanningToggleProps {
   value: 'standard' | 'strategic';
@@ -28,7 +27,7 @@ export function AdaptivePlanningToggle({
   showIntentLabels = false,
 }: AdaptivePlanningToggleProps) {
   const tone: ToneProfile = profession ? getToneProfile(profession) : 'casual';
-  const { user } = useAuth();
+  
   const { level, reason, canRegenerate } = useStrategicAccess();
 
   // Labels adapt based on context
@@ -53,17 +52,8 @@ export function AdaptivePlanningToggle({
     : getTonedCopy('strategicPlanningDescription', tone);
 
   // Handle strategic selection with access control
-  const handleStrategicSelect = async () => {
-    if (level === 'none') {
-      // Don't allow selection if no access
-      return;
-    }
-
-    // Mark trial as used when user first selects strategic mode (preview level)
-    if (level === 'preview' && user?.id) {
-      await markStrategicTrialUsed(user.id);
-    }
-
+  const handleStrategicSelect = () => {
+    if (level === 'none') return;
     onChange('strategic');
   };
 
