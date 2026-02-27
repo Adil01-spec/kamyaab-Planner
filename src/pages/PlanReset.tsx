@@ -34,7 +34,7 @@ import {
   type Profession, 
   getToneProfile,
 } from '@/lib/adaptiveOnboarding';
-import { useStrategicAccess, markStrategicTrialUsed } from '@/hooks/useStrategicAccess';
+import { useStrategicAccess } from '@/hooks/useStrategicAccess';
 import { Target, CheckCircle2 } from 'lucide-react';
 
 const stepVariants = {
@@ -182,15 +182,12 @@ const PlanReset = () => {
     setStep(prev => prev - 1);
   };
 
-  const handleStrategicToggle = async () => {
+  const handleStrategicToggle = () => {
     if (isStrategic) {
       setIsStrategic(false);
       setStrategicPlanContext({ strategic_mode: false });
     } else {
       if (level === 'none') return;
-      if (level === 'preview' && user?.id) {
-        await markStrategicTrialUsed(user.id);
-      }
       setIsStrategic(true);
       setStrategicPlanContext({ strategic_mode: true });
     }

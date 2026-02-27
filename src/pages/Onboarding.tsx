@@ -22,7 +22,7 @@ import {
   getToneProfile,
   getTonedCopy,
 } from '@/lib/adaptiveOnboarding';
-import { useStrategicAccess, markStrategicTrialUsed } from '@/hooks/useStrategicAccess';
+import { useStrategicAccess } from '@/hooks/useStrategicAccess';
 
 interface OnboardingData {
   fullName: string;
@@ -94,7 +94,7 @@ const Onboarding = () => {
     setStep(prev => Math.max(1, prev - 1));
   };
 
-  const handleStrategicToggle = async () => {
+  const handleStrategicToggle = () => {
     if (isStrategic) {
       setData(prev => ({
         ...prev,
@@ -103,9 +103,6 @@ const Onboarding = () => {
       }));
     } else {
       if (level === 'none') return;
-      if (level === 'preview' && user?.id) {
-        await markStrategicTrialUsed(user.id);
-      }
       setData(prev => ({
         ...prev,
         strategicModeChoice: 'strategic',
