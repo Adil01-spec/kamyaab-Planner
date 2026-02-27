@@ -36,10 +36,11 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { 
-  Rocket, LogOut, Target, Calendar, CalendarPlus,
+  LogOut, Target, Calendar, CalendarPlus,
   Sparkles, ChevronRight, Plus, Loader2, Quote, CheckCircle2, Trash2, ArrowRight,
   GitBranch, List, ChevronDown, Lightbulb, AlertTriangle, Scissors
 } from 'lucide-react';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { IdentityStatementEditor } from '@/components/IdentityStatementEditor';
 import { PlanRealityCheck } from '@/components/PlanRealityCheck';
 import { ExecutionInsights, type ExecutionInsightsData } from '@/components/ExecutionInsights';
@@ -950,8 +951,8 @@ const Plan = () => {
   if (isRegenerating) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
-        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 animate-pulse-soft">
-          <Rocket className="w-8 h-8 text-primary-foreground" />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 animate-pulse-soft">
+          <img src={kaamyabLogo} alt="Kamyaab" className="w-16 h-16 rounded-2xl object-contain" />
         </div>
         <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
         <h2 className="text-xl font-semibold text-foreground mb-2">Generating your execution plan...</h2>
@@ -985,9 +986,7 @@ const Plan = () => {
               onReset={resetToDefaults}
             />
             <div className="flex items-center gap-2 sm:hidden">
-              <div className="w-9 h-9 rounded-lg gradient-kaamyab flex items-center justify-center">
-                <Rocket className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src={kaamyabLogo} alt="Kamyaab" className="w-9 h-9 rounded-lg object-contain" />
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">

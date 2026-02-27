@@ -6,9 +6,10 @@ import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { 
-  Rocket, Sparkles, Briefcase,
+  Sparkles, Briefcase,
   Loader2, ArrowRight, ArrowLeft, Home, LogOut
 } from 'lucide-react';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -478,9 +479,7 @@ const PlanReset = () => {
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
-                <Rocket className="w-4 h-4 text-primary-foreground" />
-              </div>
+              <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain" />
               <span className="font-semibold text-foreground">Kaamyab</span>
             </div>
             <Button 
