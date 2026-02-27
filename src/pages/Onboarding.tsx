@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Loader2, Rocket, User, Briefcase, LogOut, Target, Zap, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, User, Briefcase, LogOut, Target, Zap, CheckCircle2 } from 'lucide-react';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { isExecutiveProfile, StrategicPlanningData, StrategicPlanContext } from '@/lib/executiveDetection';
 import { UnifiedProjectStep } from '@/components/UnifiedProjectStep';
 import { UnifiedStrategicContext } from '@/components/UnifiedStrategicContext';
@@ -323,8 +324,8 @@ const Onboarding = () => {
   if (loading) {
     return (
       <div className="min-h-screen gradient-subtle flex flex-col items-center justify-center p-4">
-        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-6 animate-pulse-soft">
-          <Rocket className="w-8 h-8 text-primary-foreground" />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 animate-pulse-soft">
+          <img src={kaamyabLogo} alt="Kamyaab" className="w-16 h-16 rounded-2xl object-contain" />
         </div>
         <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
         <h2 className="text-xl font-semibold text-foreground mb-2">Generating your execution plan…</h2>
@@ -339,9 +340,7 @@ const Onboarding = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center">
-              <Rocket className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain" />
             <span className="font-semibold text-foreground">Kaamyab</span>
           </div>
           <div className="flex items-center gap-3">

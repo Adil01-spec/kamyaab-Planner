@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Rocket } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -31,8 +32,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
-        <div className="w-16 h-16 rounded-2xl gradient-kaamyab flex items-center justify-center mb-4 animate-pulse-soft">
-          <Rocket className="w-8 h-8 text-primary-foreground" />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 animate-pulse-soft">
+          <img src={kaamyabLogo} alt="Kamyaab" className="w-16 h-16 rounded-2xl object-contain" />
         </div>
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <p className="text-muted-foreground mt-3">Loading...</p>

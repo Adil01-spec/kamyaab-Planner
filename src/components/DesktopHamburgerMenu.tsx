@@ -13,12 +13,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DevModeActivator } from '@/components/DevModeActivator';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import {
   Menu,
   Home,
   Calendar,
   CalendarDays,
-  Rocket,
   Settings,
   MousePointer2,
   Layers,
@@ -102,9 +102,7 @@ export function DesktopHamburgerMenu({
       <SheetContent side="left" className="w-[320px] bg-card/95 backdrop-blur-xl border-border/30 p-0">
         <SheetHeader className="p-5 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-kaamyab flex items-center justify-center">
-              <Rocket className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img src={kaamyabLogo} alt="Kamyaab" className="w-10 h-10 rounded-xl object-contain" />
             <SheetTitle className="text-lg font-semibold text-foreground">Kaamyab</SheetTitle>
           </div>
         </SheetHeader>

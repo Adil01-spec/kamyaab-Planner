@@ -43,7 +43,8 @@ import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { formatTotalTime } from '@/lib/executionTimer';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { hapticSuccess, hapticSelection } from '@/lib/hapticFeedback';
-import { Loader2, Calendar, Rocket, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
+import { Loader2, Calendar, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { Json } from '@/integrations/supabase/types';
@@ -539,9 +540,7 @@ const Today = () => {
           <div className="flex items-center gap-2">
             {/* Desktop Hamburger Menu */}
             <DesktopHamburgerMenu settings={desktopSettings} onToggle={toggleSetting} onUpdateSettings={updateSettings} onReset={resetToDefaults} />
-            <div className="w-8 h-8 rounded-lg gradient-kaamyab flex items-center justify-center lg:hidden">
-              <Rocket className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img src={kaamyabLogo} alt="Kamyaab" className="w-8 h-8 rounded-lg object-contain lg:hidden" />
             <span className="font-semibold text-foreground text-sm lg:hidden">Kaamyab</span>
           </div>
           
