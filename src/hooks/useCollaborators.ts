@@ -22,6 +22,7 @@ export interface PendingInvite {
   id: string;
   email: string;
   role: CollaboratorRole;
+  token: string;
   createdAt: string;
   expiresAt: string;
 }
@@ -37,6 +38,7 @@ interface UseCollaboratorsResult {
   removeCollaborator: (id: string) => Promise<boolean>;
   removePendingInvite: (id: string) => Promise<boolean>;
   updateRole: (id: string, role: CollaboratorRole) => Promise<boolean>;
+  resendInvite: (invite: PendingInvite) => Promise<boolean>;
   refetch: () => Promise<void>;
 }
 
@@ -101,6 +103,7 @@ export function useCollaborators(planId: string | null): UseCollaboratorsResult 
         id: row.id,
         email: row.collaborator_email,
         role: row.role as CollaboratorRole,
+        token: row.token,
         createdAt: row.created_at,
         expiresAt: row.expires_at,
       }));
@@ -243,6 +246,41 @@ export function useCollaborators(planId: string | null): UseCollaboratorsResult 
     }
   }, [user, fetchAll]);
 
+  // Resend access key email for a pending invite
+  const resendInvite = useCallback(async (invite: PendingInvite): Promise<boolean> => {
+    if (!planId || !user) return false;
+    try {
+      // Reset attempts and lockout
+      await supabase
+        .from('plan_invites')
+        .update({ access_key_attempts: 0, locked_until: null })
+        .eq('id', invite.id)
+        .eq('owner_id', user.id);
+
+      const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone';
+
+      const { error: fnError } = await supabase.functions.invoke('send-collaboration-invite', {
+        body: {
+          collaboratorEmail: invite.email,
+          ownerName,
+          planId,
+          token: invite.token,
+          role: invite.role,
+          appUrl: window.location.origin,
+        },
+      });
+
+      if (fnError) throw fnError;
+
+      toast({ title: 'Invitation resent', description: `A new access key was sent to ${invite.email}.` });
+      return true;
+    } catch (err) {
+      console.error('Error resending invite:', err);
+      toast({ title: 'Failed to resend', description: 'Could not resend invitation. Please try again.', variant: 'destructive' });
+      return false;
+    }
+  }, [planId, user]);
+
   // Update role (accepted collaborators only)
   const updateRole = useCallback(async (id: string, role: CollaboratorRole): Promise<boolean> => {
     if (!user) return false;
@@ -274,6 +312,7 @@ export function useCollaborators(planId: string | null): UseCollaboratorsResult 
     removeCollaborator,
     removePendingInvite,
     updateRole,
+    resendInvite,
     refetch: fetchAll,
   };
 }

@@ -25,7 +25,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, UserPlus, X, Eye, MessageSquare, Check, Clock } from 'lucide-react';
+import { Loader2, UserPlus, X, Eye, MessageSquare, Check, Clock, RotateCw } from 'lucide-react';
 import { useCollaborators } from '@/hooks/useCollaborators';
 import { useSubscription } from '@/hooks/useSubscription';
 import { 
@@ -53,12 +53,14 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
     removeCollaborator,
     removePendingInvite,
     updateRole,
+    resendInvite,
   } = useCollaborators(planId);
 
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<CollaboratorRole>('viewer');
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const handleInvite = async () => {
     if (!email.trim()) return;
@@ -250,6 +252,24 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
                     <Clock className="w-3 h-3" />
                     Pending
                   </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    onClick={async () => {
+                      setResendingId(invite.id);
+                      await resendInvite(invite);
+                      setResendingId(null);
+                    }}
+                    disabled={resendingId === invite.id}
+                    title="Resend access key"
+                  >
+                    {resendingId === invite.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="w-4 h-4" />
+                    )}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
