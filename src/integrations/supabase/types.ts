@@ -22,6 +22,7 @@ export type Database = {
           external_event_id: string | null
           id: string
           plan_id: string | null
+          reminder_due_at: string | null
           reminder_minutes: number | null
           reminder_sent: boolean
           source: string
@@ -37,6 +38,7 @@ export type Database = {
           external_event_id?: string | null
           id?: string
           plan_id?: string | null
+          reminder_due_at?: string | null
           reminder_minutes?: number | null
           reminder_sent?: boolean
           source?: string
@@ -52,6 +54,7 @@ export type Database = {
           external_event_id?: string | null
           id?: string
           plan_id?: string | null
+          reminder_due_at?: string | null
           reminder_minutes?: number | null
           reminder_sent?: boolean
           source?: string

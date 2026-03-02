@@ -1,0 +1,1 @@
+ALTER TABLE public.calendar_events ADD COLUMN reminder_due_at timestamptz DEFAULT NULL;
