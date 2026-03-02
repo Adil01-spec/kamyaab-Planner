@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_time: string | null
+          external_event_id: string | null
+          id: string
+          plan_id: string | null
+          reminder_minutes: number | null
+          reminder_sent: boolean
+          source: string
+          start_time: string
+          task_ref: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          external_event_id?: string | null
+          id?: string
+          plan_id?: string | null
+          reminder_minutes?: number | null
+          reminder_sent?: boolean
+          source?: string
+          start_time: string
+          task_ref?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          external_event_id?: string | null
+          id?: string
+          plan_id?: string | null
+          reminder_minutes?: number | null
+          reminder_sent?: boolean
+          source?: string
+          start_time?: string
+          task_ref?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_verifications: {
         Row: {
           code_hash: string
@@ -105,7 +161,9 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          is_soft_author: boolean
           plan_id: string
+          soft_author_email: string | null
           target_ref: string | null
           target_type: string
         }
@@ -117,7 +175,9 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_soft_author?: boolean
           plan_id: string
+          soft_author_email?: string | null
           target_ref?: string | null
           target_type: string
         }
@@ -129,7 +189,9 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_soft_author?: boolean
           plan_id?: string
+          soft_author_email?: string | null
           target_ref?: string | null
           target_type?: string
         }

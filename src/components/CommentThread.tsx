@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { type PlanComment, formatCommentTime, getInitials } from '@/lib/collaboration';
+import { CommentAttribution } from '@/components/review/CommentAttribution';
 
 interface CommentThreadProps {
   title: string;
@@ -120,7 +121,11 @@ export function CommentThread({
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium">{comment.authorName}</span>
+                <CommentAttribution
+                  authorName={comment.authorName}
+                  isSoftAuthor={comment.isSoftAuthor}
+                  softAuthorEmail={comment.softAuthorEmail}
+                />
                 <span className="text-xs text-muted-foreground">
                   {formatCommentTime(comment.createdAt)}
                   {comment.editedAt && ' (edited)'}

@@ -93,6 +93,8 @@ export function usePlanComments(planId: string | null): UsePlanCommentsResult {
         createdAt: row.created_at,
         editedAt: row.edited_at,
         deletedAt: row.deleted_at,
+        isSoftAuthor: (row as any).is_soft_author || false,
+        softAuthorEmail: (row as any).soft_author_email || null,
       }));
 
       setComments(mapped);

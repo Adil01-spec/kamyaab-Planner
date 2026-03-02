@@ -82,8 +82,10 @@ serve(async (req: Request) => {
         target_type,
         target_ref: target_ref || null,
         content: content.trim(),
+        is_soft_author: true,
+        soft_author_email: session.email,
       })
-      .select("id, author_name, content, target_type, target_ref, created_at")
+      .select("id, author_name, content, target_type, target_ref, created_at, is_soft_author, soft_author_email")
       .single();
 
     if (insertErr) {

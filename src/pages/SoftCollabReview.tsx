@@ -15,6 +15,7 @@ import SoftFeedbackSummary from '@/components/SoftFeedbackSummary';
 import SoftSuggestionForm from '@/components/SoftSuggestionForm';
 import SoftActivityTimeline from '@/components/SoftActivityTimeline';
 import SoftUpgradeBanner from '@/components/SoftUpgradeBanner';
+import { CommentAttribution } from '@/components/review/CommentAttribution';
 
 interface PlanComment {
   id: string;
@@ -23,6 +24,8 @@ interface PlanComment {
   target_type: string;
   target_ref: string | null;
   created_at: string;
+  is_soft_author?: boolean;
+  soft_author_email?: string | null;
 }
 
 interface PlanTask {
@@ -424,7 +427,11 @@ const SoftCollabReview = () => {
             {comments.map((comment) => (
               <div key={comment.id} className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{comment.author_name}</span>
+                  <CommentAttribution
+                    authorName={comment.author_name}
+                    isSoftAuthor={comment.is_soft_author}
+                    softAuthorEmail={comment.soft_author_email}
+                  />
                   {comment.target_ref && (
                     <Badge variant="outline" className="text-[10px]">{comment.target_ref}</Badge>
                   )}
