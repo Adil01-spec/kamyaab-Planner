@@ -24,13 +24,6 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
 
   // If user is logged in, redirect based on profile and verification status
   if (user) {
-    // Check for pending invite token — override normal redirect
-    const pendingToken = localStorage.getItem('pending_invite_token');
-    if (pendingToken) {
-      localStorage.removeItem('pending_invite_token');
-      return <Navigate to={`/invite/${pendingToken}`} replace />;
-    }
-
     // Email/password users without verification go to verify-email
     if (!isOAuthUser && !isEmailVerified) {
       return <Navigate to="/verify-email" replace />;

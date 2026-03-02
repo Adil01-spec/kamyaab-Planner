@@ -54,13 +54,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   const profileComplete = isProfileComplete(profile);
 
-  // Check for pending invite token — override normal redirect
-  const pendingToken = localStorage.getItem('pending_invite_token');
-  if (pendingToken && profileComplete) {
-    localStorage.removeItem('pending_invite_token');
-    return <Navigate to={`/invite/${pendingToken}`} replace />;
-  }
-
   // If this route should redirect when profile is complete (e.g., onboarding)
   // Skip redirect if plan generation is in progress (prevents flicker during onboarding submit)
   const isGeneratingPlan = sessionStorage.getItem('isGeneratingPlan') === 'true';

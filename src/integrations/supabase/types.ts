@@ -215,10 +215,13 @@ export type Database = {
       plan_invites: {
         Row: {
           accepted_at: string | null
+          access_key_attempts: number
+          access_key_hash: string | null
           collaborator_email: string
           created_at: string | null
           expires_at: string
           id: string
+          locked_until: string | null
           owner_id: string
           plan_id: string
           role: Database["public"]["Enums"]["collaborator_role"]
@@ -226,10 +229,13 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          access_key_attempts?: number
+          access_key_hash?: string | null
           collaborator_email: string
           created_at?: string | null
           expires_at: string
           id?: string
+          locked_until?: string | null
           owner_id: string
           plan_id: string
           role?: Database["public"]["Enums"]["collaborator_role"]
@@ -237,10 +243,13 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          access_key_attempts?: number
+          access_key_hash?: string | null
           collaborator_email?: string
           created_at?: string | null
           expires_at?: string
           id?: string
+          locked_until?: string | null
           owner_id?: string
           plan_id?: string
           role?: Database["public"]["Enums"]["collaborator_role"]
@@ -445,6 +454,54 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soft_collab_sessions: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invite_id: string
+          plan_id: string
+          role: Database["public"]["Enums"]["collaborator_role"]
+          session_token: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invite_id: string
+          plan_id: string
+          role: Database["public"]["Enums"]["collaborator_role"]
+          session_token: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_id?: string
+          plan_id?: string
+          role?: Database["public"]["Enums"]["collaborator_role"]
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soft_collab_sessions_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "plan_invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soft_collab_sessions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
             referencedColumns: ["id"]
           },
         ]

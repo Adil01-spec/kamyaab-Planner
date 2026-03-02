@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, UserPlus, Eye, MessageSquare, AlertCircle, Clock } from 'lucide-react';
+import { useSoftCollabSession } from '@/hooks/useSoftCollabSession';
+import { Loader2, Eye, MessageSquare, AlertCircle, Clock, KeyRound, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -20,13 +22,17 @@ interface InviteData {
 const InviteAccept = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { saveSession } = useSoftCollabSession();
 
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [accepting, setAccepting] = useState(false);
-  const [acceptError, setAcceptError] = useState<string | null>(null);
+
+  const [email, setEmail] = useState('');
+  const [accessKey, setAccessKey] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
 
   // Validate invite on mount
   useEffect(() => {
@@ -48,6 +54,7 @@ const InviteAccept = () => {
         }
 
         setInviteData(data as InviteData);
+        setEmail(data.collaborator_email || '');
       } catch {
         setError('Unable to validate invitation.');
       } finally {
@@ -58,56 +65,47 @@ const InviteAccept = () => {
     validate();
   }, [token]);
 
-  const handleAccept = async () => {
-    if (!token) return;
-    setAccepting(true);
-    setAcceptError(null);
+  const handleVerify = async () => {
+    if (!token || !email.trim() || !accessKey) return;
+    setVerifying(true);
+    setVerifyError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('accept-invite', {
-        body: { token },
+      const { data, error: fnError } = await supabase.functions.invoke('verify-soft-invite', {
+        body: { token, email: email.trim(), access_key: accessKey },
       });
 
       if (fnError) {
-        throw new Error('Failed to accept invite');
-      }
-
-      if (data?.error === 'email_mismatch') {
-        setAcceptError(
-          `This invitation was sent to ${data.expected_email}. Please log in with that email address.`
-        );
-        return;
+        throw new Error('Verification failed');
       }
 
       if (data?.error) {
-        setAcceptError(data.error);
+        setVerifyError(data.error);
+        if (data.attempts_remaining !== undefined) {
+          setAttemptsRemaining(data.attempts_remaining);
+        }
         return;
       }
 
-      // Clear any pending token
-      localStorage.removeItem('pending_invite_token');
+      // Success — save soft session and redirect
+      saveSession({
+        sessionToken: data.session_token,
+        planId: data.plan_id,
+        role: data.role,
+      });
 
-      // Redirect to review page
-      navigate('/review', { replace: true });
+      navigate(`/plan/${data.plan_id}/review`, { replace: true });
     } catch {
-      setAcceptError('Something went wrong. Please try again.');
+      setVerifyError('Something went wrong. Please try again.');
     } finally {
-      setAccepting(false);
+      setVerifying(false);
     }
-  };
-
-  const handleGoToAuth = (mode: 'login' | 'signup') => {
-    // Store token so post-auth redirect works
-    if (token) {
-      localStorage.setItem('pending_invite_token', token);
-    }
-    navigate(`/auth?mode=${mode === 'signup' ? 'signup' : ''}&invite=${token}`);
   };
 
   // Full-page loading
-  if (loading || authLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
         <img src={kaamyabLogo} alt="Kamyaab" className="w-14 h-14 rounded-2xl object-contain mb-4" />
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <p className="text-muted-foreground mt-3 text-sm">Validating invitation…</p>
@@ -118,7 +116,7 @@ const InviteAccept = () => {
   // Error state
   if (error || !inviteData) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <Card className="max-w-md w-full">
           <CardContent className="flex flex-col items-center py-10 gap-4">
             <AlertCircle className="w-12 h-12 text-destructive" />
@@ -126,9 +124,6 @@ const InviteAccept = () => {
             <p className="text-sm text-muted-foreground text-center">
               {error || 'This invitation has expired or is no longer valid.'}
             </p>
-            <Link to="/">
-              <Button variant="outline" className="mt-2">Go to Home</Button>
-            </Link>
           </CardContent>
         </Card>
       </div>
@@ -139,7 +134,7 @@ const InviteAccept = () => {
   const RoleIcon = inviteData.role === 'commenter' ? MessageSquare : Eye;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center pb-2">
           <img src={kaamyabLogo} alt="Kamyaab" className="w-12 h-12 rounded-xl object-contain mx-auto mb-3" />
@@ -171,41 +166,79 @@ const InviteAccept = () => {
             </div>
           </div>
 
-          {/* Auth-aware actions */}
-          {user ? (
-            <div className="space-y-3">
-              <Button onClick={handleAccept} disabled={accepting} className="w-full">
-                {accepting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Accepting…
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Accept Invitation
-                  </>
-                )}
-              </Button>
-              {acceptError && (
-                <p className="text-sm text-destructive text-center">{acceptError}</p>
-              )}
+          {/* Verification form */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                Email Address
+              </label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                disabled={verifying}
+              />
             </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                Sign in with <strong>{inviteData.collaborator_email}</strong> to access this plan.
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-muted-foreground" />
+                Access Key
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Enter the 5-digit key from your invitation email
               </p>
-              <div className="flex gap-2">
-                <Button onClick={() => handleGoToAuth('login')} className="flex-1">
-                  Sign In
-                </Button>
-                <Button onClick={() => handleGoToAuth('signup')} variant="outline" className="flex-1">
-                  Sign Up
-                </Button>
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={5}
+                  value={accessKey}
+                  onChange={setAccessKey}
+                  disabled={verifying}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                  </InputOTPGroup>
+                </InputOTP>
               </div>
             </div>
-          )}
+
+            <Button
+              onClick={handleVerify}
+              disabled={verifying || !email.trim() || accessKey.length < 5}
+              className="w-full"
+            >
+              {verifying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                'Verify & Access Plan'
+              )}
+            </Button>
+
+            {verifyError && (
+              <div className="text-sm text-destructive text-center space-y-1">
+                <p>{verifyError}</p>
+                {attemptsRemaining !== null && attemptsRemaining > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {attemptsRemaining} attempt{attemptsRemaining === 1 ? '' : 's'} remaining
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Info note */}
+          <p className="text-xs text-muted-foreground text-center">
+            No account required. Your access is scoped to this plan only.
+          </p>
         </CardContent>
       </Card>
     </div>

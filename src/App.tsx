@@ -20,6 +20,7 @@ import SharedReview from "./pages/SharedReview";
 import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
 import InviteAccept from "./pages/InviteAccept";
+import SoftCollabReview from "./pages/SoftCollabReview";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -145,6 +146,8 @@ const App = () => (
             <Route path="/advisor/:shareId" element={<AdvisorView />} />
             {/* Collaboration invite acceptance - public route */}
             <Route path="/invite/:token" element={<InviteAccept />} />
+            {/* Soft collaborator review - public route, session-gated */}
+            <Route path="/plan/:planId/review" element={<SoftCollabReview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

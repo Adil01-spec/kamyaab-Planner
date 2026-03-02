@@ -18,6 +18,14 @@ interface InviteRequest {
   appUrl: string;
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -34,12 +42,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Missing required fields");
     }
 
-    // Fetch plan title from DB (don't trust frontend)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Fetch plan title from DB
     const { data: planData } = await supabase
       .from("plans")
       .select("plan_json")
@@ -47,7 +55,22 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     const planJson = planData?.plan_json as { title?: string } | null;
-    const planTitle = planJson?.title || "Execution Plan";
+    const planTitle = planJson?.title?.trim() || "Execution Plan";
+
+    // Generate 5-digit access key server-side
+    const accessKey = (10000 + Math.floor(Math.random() * 90000)).toString();
+    const accessKeyHash = await sha256Hex(accessKey);
+
+    // Store hash in plan_invites
+    const { error: updateErr } = await supabase
+      .from("plan_invites")
+      .update({ access_key_hash: accessKeyHash })
+      .eq("token", token);
+
+    if (updateErr) {
+      console.error("Failed to store access key hash:", updateErr);
+      throw new Error("Failed to store access key");
+    }
 
     const roleDescription = role === 'commenter' 
       ? 'view and leave comments on' 
@@ -83,21 +106,33 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="margin: 0 0 8px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
             Your Role
           </p>
-          <p style="margin: 0; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px 0; font-size: 16px; color: #1a1a1a;">
             <span style="display: inline-block; background: ${role === 'commenter' ? '#e8f5e9' : '#e3f2fd'}; color: ${role === 'commenter' ? '#2e7d32' : '#1565c0'}; padding: 4px 12px; border-radius: 16px; font-size: 14px; font-weight: 500;">
               ${role === 'commenter' ? 'Commenter' : 'Viewer'}
             </span>
           </p>
+
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
+            Your Access Key
+          </p>
+          <div style="background: #f8f9fa; border: 2px dashed #dee2e6; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 0;">
+            <p style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1a1a1a; font-family: 'Courier New', Courier, monospace;">
+              ${accessKey}
+            </p>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #888;">
+              Enter this key on the invite page to access the plan
+            </p>
+          </div>
         </div>
         
         <div style="text-align: center; margin-bottom: 24px;">
           <a href="${inviteLink}" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 500; font-size: 16px;">
-            Accept Invitation
+            Open Invitation
           </a>
         </div>
         
         <p style="color: #888; font-size: 14px; text-align: center; margin: 0;">
-          As a ${role}, you can ${roleDescription} the plan. You cannot modify tasks or execution.
+          As a ${role}, you can ${roleDescription} the plan. No account required.
         </p>
         
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;">
