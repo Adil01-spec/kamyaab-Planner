@@ -27,6 +27,7 @@ export type Database = {
           reminder_sent: boolean
           source: string
           start_time: string
+          status: string
           task_ref: string | null
           title: string
           user_id: string
@@ -43,6 +44,7 @@ export type Database = {
           reminder_sent?: boolean
           source?: string
           start_time: string
+          status?: string
           task_ref?: string | null
           title: string
           user_id: string
@@ -59,6 +61,7 @@ export type Database = {
           reminder_sent?: boolean
           source?: string
           start_time?: string
+          status?: string
           task_ref?: string | null
           title?: string
           user_id?: string

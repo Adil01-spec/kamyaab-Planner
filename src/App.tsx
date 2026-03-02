@@ -46,10 +46,10 @@ const App = () => (
     <AuthProvider>
       <DevModeProvider>
         <TooltipProvider>
-        <ReminderChecker />
         <Toaster />
         <Sonner position="top-center" />
         <BrowserRouter>
+          <ReminderChecker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route 

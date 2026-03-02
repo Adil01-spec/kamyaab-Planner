@@ -17,17 +17,16 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Find events where reminder is due but not yet sent
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
+
+    // 1. Find events where reminder is due but not yet sent
     const { data: dueEvents, error: fetchError } = await supabase
       .from("calendar_events")
       .select("id, title, start_time, reminder_minutes, user_id")
       .eq("reminder_sent", false)
       .not("reminder_minutes", "is", null)
-      .filter(
-        "start_time",
-        "gte",
-        new Date().toISOString() // only future/current events
-      );
+      .gte("start_time", nowIso);
 
     if (fetchError) {
       console.error("Fetch error:", fetchError);
@@ -37,7 +36,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const now = Date.now();
     const toUpdate: string[] = [];
 
     for (const event of dueEvents || []) {
@@ -57,25 +55,32 @@ Deno.serve(async (req) => {
         .from("calendar_events")
         .update({
           reminder_sent: true,
-          reminder_due_at: new Date().toISOString(),
+          reminder_due_at: nowIso,
         })
         .in("id", toUpdate);
 
       if (updateError) {
         console.error("Update error:", updateError);
-        return new Response(JSON.stringify({ error: updateError.message }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      } else {
+        updatedCount = count || toUpdate.length;
       }
-
-      updatedCount = count || toUpdate.length;
     }
 
-    console.log(`Processed ${updatedCount} reminders`);
+    // 2. Mark past upcoming events as missed
+    const { error: missedError, count: missedCount } = await supabase
+      .from("calendar_events")
+      .update({ status: "missed" })
+      .eq("status", "upcoming")
+      .lt("start_time", nowIso);
+
+    if (missedError) {
+      console.error("Missed update error:", missedError);
+    }
+
+    console.log(`Processed ${updatedCount} reminders, marked ${missedCount || 0} missed`);
 
     return new Response(
-      JSON.stringify({ processed: updatedCount }),
+      JSON.stringify({ processed: updatedCount, missed: missedCount || 0 }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
