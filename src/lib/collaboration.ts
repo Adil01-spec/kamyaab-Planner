@@ -39,6 +39,8 @@ export interface PlanComment {
   createdAt: string;
   editedAt: string | null;
   deletedAt: string | null;
+  isSoftAuthor: boolean;
+  softAuthorEmail: string | null;
 }
 
 /**

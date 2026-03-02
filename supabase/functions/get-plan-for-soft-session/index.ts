@@ -65,7 +65,7 @@ serve(async (req: Request) => {
     // Fetch comments for this plan
     const { data: comments } = await supabase
       .from("plan_comments")
-      .select("id, author_name, content, target_type, target_ref, created_at")
+      .select("id, author_name, content, target_type, target_ref, created_at, is_soft_author, soft_author_email")
       .eq("plan_id", session.plan_id)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
@@ -84,14 +84,27 @@ serve(async (req: Request) => {
       .eq("plan_id", session.plan_id)
       .order("created_at", { ascending: true });
 
-    // Extract day_closures from plan_json
+    // Extract day_closures and sanitize plan_json
     const planJson = plan.plan_json as any;
     const dayClosure = planJson?.day_closures || [];
+
+    // Strip sensitive fields for external sessions
+    const sensitiveKeys = [
+      'user_id', 'owner_id', 'subscription_tier', 'subscription_state',
+      'subscription_provider', 'subscription_expires_at', 'collaborator_list',
+      'collaborators', 'strategic_access_level', 'strategic_calls_lifetime',
+      'strategic_last_call_at', 'strategic_trial_used', 'email_domain_type',
+      'email_verified_at', 'grace_ends_at', 'plan_memory',
+    ];
+    const sanitizedPlan = { ...planJson };
+    for (const key of sensitiveKeys) {
+      delete sanitizedPlan[key];
+    }
 
     return new Response(
       JSON.stringify({
         plan_id: plan.id,
-        plan_json: plan.plan_json,
+        plan_json: sanitizedPlan,
         created_at: plan.created_at,
         role: session.role,
         email: session.email,

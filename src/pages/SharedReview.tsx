@@ -1,8 +1,12 @@
 import { useParams } from 'react-router-dom';
 import { useSharedReview } from '@/hooks/useSharedReview';
-import { SharedReviewContent } from '@/components/SharedReviewContent';
 import { SharedReviewFeedbackForm } from '@/components/SharedReviewFeedbackForm';
 import { Footer } from '@/components/Footer';
+import { PlanOverviewCard } from '@/components/review/PlanOverviewCard';
+import { StrategyInsightsCard } from '@/components/review/StrategyInsightsCard';
+import { ExecutionMetricsCard } from '@/components/review/ExecutionMetricsCard';
+import { WeeklyBreakdownCard } from '@/components/review/WeeklyBreakdownCard';
+import { RealityCheckCard } from '@/components/review/RealityCheckCard';
 import { isShareExpired, formatExpiryDate } from '@/lib/shareReview';
 import { Loader2, FileX, AlertTriangle, Clock, Rocket } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -104,6 +108,8 @@ export default function SharedReview() {
     );
   }
 
+  const planSnapshot = data.plan_snapshot;
+
   // Valid shared review
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -121,10 +127,12 @@ export default function SharedReview() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 max-w-3xl mx-auto px-4 py-8 w-full">
-        <SharedReviewContent
-          planSnapshot={data.plan_snapshot}
-        />
+      <main className="flex-1 max-w-3xl mx-auto px-4 py-8 w-full space-y-6">
+        <PlanOverviewCard plan={planSnapshot} mode="public_snapshot" />
+        <StrategyInsightsCard plan={planSnapshot} mode="public_snapshot" defaultOpen />
+        <RealityCheckCard plan={planSnapshot} mode="public_snapshot" />
+        <ExecutionMetricsCard plan={planSnapshot} mode="public_snapshot" />
+        <WeeklyBreakdownCard plan={planSnapshot} mode="public_snapshot" />
         <SharedReviewFeedbackForm sharedReviewId={data.id} />
       </main>
 
