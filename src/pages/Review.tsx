@@ -25,6 +25,7 @@ import { PlanningStyleProfile } from '@/components/PlanningStyleProfile';
 import { OperatingStyleOverview } from '@/components/OperatingStyleOverview';
 import { PlanCommentsSection } from '@/components/PlanCommentsSection';
 import { CollaboratorBadge } from '@/components/CollaboratorBadge';
+import PlanSuggestionsSection from '@/components/PlanSuggestionsSection';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { useCollaboratorAccess } from '@/hooks/useCollaboratorAccess';
 import { calculatePlanProgress } from '@/lib/planProgress';
@@ -526,6 +527,11 @@ const Review = () => {
         {/* 8.5. Plan Comments (Collaboration) */}
         {planId && (
           <PlanCommentsSection planId={planId} />
+        )}
+
+        {/* 8.6. External Suggestions */}
+        {planId && (
+          <PlanSuggestionsSection planId={planId} />
         )}
 
         {/* 9. Plan History & Comparison */}

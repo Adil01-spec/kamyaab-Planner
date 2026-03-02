@@ -35,3 +35,15 @@ verify_jwt = false
 
 [functions.send-collaboration-invite]
 verify_jwt = false
+
+[functions.soft-collab-feedback]
+verify_jwt = false
+
+[functions.soft-collab-suggest]
+verify_jwt = false
+
+[functions.convert-soft-to-full]
+verify_jwt = false
+
+[functions.get-plan-feedback-summary]
+verify_jwt = false
