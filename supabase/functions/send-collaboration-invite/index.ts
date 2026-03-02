@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -11,7 +12,8 @@ const corsHeaders = {
 interface InviteRequest {
   collaboratorEmail: string;
   ownerName: string;
-  planTitle: string;
+  planId: string;
+  token: string;
   role: 'viewer' | 'commenter';
   appUrl: string;
 }
@@ -26,15 +28,32 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    const { collaboratorEmail, ownerName, planTitle, role, appUrl }: InviteRequest = await req.json();
+    const { collaboratorEmail, ownerName, planId, token, role, appUrl }: InviteRequest = await req.json();
 
-    if (!collaboratorEmail || !ownerName || !planTitle || !role || !appUrl) {
+    if (!collaboratorEmail || !ownerName || !planId || !token || !role || !appUrl) {
       throw new Error("Missing required fields");
     }
+
+    // Fetch plan title from DB (don't trust frontend)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: planData } = await supabase
+      .from("plans")
+      .select("plan_json")
+      .eq("id", planId)
+      .single();
+
+    const planJson = planData?.plan_json as { title?: string } | null;
+    const planTitle = planJson?.title || "Execution Plan";
 
     const roleDescription = role === 'commenter' 
       ? 'view and leave comments on' 
       : 'view';
+
+    const inviteLink = `${appUrl}/invite/${token}`;
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -58,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
             Plan
           </p>
           <p style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: #1a1a1a;">
-            ${planTitle || 'Untitled Plan'}
+            ${planTitle}
           </p>
           
           <p style="margin: 0 0 8px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -72,8 +91,8 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
         
         <div style="text-align: center; margin-bottom: 24px;">
-          <a href="${appUrl}/plan" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 500; font-size: 16px;">
-            View Plan
+          <a href="${inviteLink}" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 500; font-size: 16px;">
+            Accept Invitation
           </a>
         </div>
         
@@ -84,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;">
         
         <p style="color: #888; font-size: 12px; text-align: center; margin: 0;">
-          This email was sent by Kamyaab. If you didn't expect this invitation, you can safely ignore it.
+          This invitation expires in 7 days. If you didn't expect this, you can safely ignore it.
         </p>
       </body>
       </html>
