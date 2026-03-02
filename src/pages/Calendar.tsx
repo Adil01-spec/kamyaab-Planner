@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List, Layout
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
+import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
 
 const CalendarPage = () => {
@@ -28,7 +29,7 @@ const CalendarPage = () => {
   const highlightIdRef = useRef<string | null>(null);
 
   const { settings: mobileSettings, isMobile } = useMobileSettings();
-  const { settings: desktopSettings } = useDesktopSettings();
+  const { settings: desktopSettings, toggleSetting, updateSettings, resetToDefaults } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
 
@@ -172,9 +173,12 @@ const CalendarPage = () => {
       <div className="max-w-3xl mx-auto px-4 pt-6 sm:pt-10 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
-            <p className="text-sm text-muted-foreground">Your scheduled tasks & events</p>
+          <div className="flex items-center gap-2">
+            <DesktopHamburgerMenu settings={desktopSettings} onToggle={toggleSetting} onUpdateSettings={updateSettings} onReset={resetToDefaults} />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
+              <p className="text-sm text-muted-foreground">Your scheduled tasks & events</p>
+            </div>
           </div>
           <Button onClick={() => handleAddNew()} size="sm" className="gradient-kaamyab hover:opacity-90">
             <Plus className="w-4 h-4 mr-1" /> New Event
