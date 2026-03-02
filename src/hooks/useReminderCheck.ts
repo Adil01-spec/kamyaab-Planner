@@ -27,13 +27,7 @@ function addDismissedId(id: string) {
 export function useReminderCheck() {
   const { user } = useAuth();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const navigateRef = useRef<ReturnType<typeof useNavigate> | null>(null);
-
-  try {
-    navigateRef.current = useNavigate();
-  } catch {
-    // Will fall back to window.location if outside Router
-  }
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -64,50 +58,11 @@ export function useReminderCheck() {
           });
 
           const dateStr = format(startTime, 'yyyy-MM-dd');
-          const nav = navigateRef.current;
-
-          const goToCalendar = () => {
-            const url = `/calendar?date=${dateStr}&highlight=${event.id}`;
-            if (nav) nav(url);
-            else window.location.href = url;
-          };
-
-          const goToTask = () => {
-            if (nav) nav('/plan');
-            else window.location.href = '/plan';
-          };
-
-          // Build description with action buttons via HTML-like approach
-          // Since shadcn toast doesn't support multiple actions natively,
-          // we use description with embedded navigation hints
           const hasTask = !!event.task_ref;
 
           toast({
             title: `⏰ Reminder: ${event.title}`,
             description: `Starts at ${timeStr}`,
-            action: hasTask ? (
-              <div className="flex gap-2">
-                <button
-                  onClick={goToTask}
-                  className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary"
-                >
-                  Open Task
-                </button>
-                <button
-                  onClick={goToCalendar}
-                  className="inline-flex h-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground px-3 text-sm font-medium transition-colors hover:opacity-90"
-                >
-                  Calendar
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={goToCalendar}
-                className="inline-flex h-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground px-3 text-sm font-medium transition-colors hover:opacity-90"
-              >
-                View Calendar
-              </button>
-            ),
             duration: 10000,
           });
 
@@ -124,5 +79,5 @@ export function useReminderCheck() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [user]);
+  }, [user, navigate]);
 }
