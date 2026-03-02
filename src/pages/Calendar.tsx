@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCalendarEvents, type CalendarEvent, type CreateCalendarEventInput, type UpdateCalendarEventInput } from '@/hooks/useCalendarEvents';
 import { CalendarEventModal } from '@/components/CalendarEventModal';
@@ -7,24 +8,66 @@ import { DynamicBackground } from '@/components/DynamicBackground';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfDay, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List, LayoutGrid, Link2, Clock } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfDay, addDays, parseISO, isValid } from 'date-fns';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List, LayoutGrid, Link2, Clock, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
+import { supabase } from '@/integrations/supabase/client';
 
 const CalendarPage = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [view, setView] = useState<'month' | 'week' | 'list'>('month');
+  const [missedCount, setMissedCount] = useState(0);
+  const [filterMissed, setFilterMissed] = useState(false);
+  const highlightIdRef = useRef<string | null>(null);
 
   const { settings: mobileSettings, isMobile } = useMobileSettings();
   const { settings: desktopSettings } = useDesktopSettings();
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
+
+  // Deep link: read date & highlight params on mount
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    const highlightParam = searchParams.get('highlight');
+
+    if (dateParam) {
+      const parsed = parseISO(dateParam);
+      if (isValid(parsed)) {
+        setSelectedDate(parsed);
+        setCurrentMonth(parsed);
+      }
+    }
+
+    if (highlightParam) {
+      highlightIdRef.current = highlightParam;
+    }
+
+    // Clear params after reading
+    if (dateParam || highlightParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, []); // Only on mount
+
+  // Check missed events count
+  useEffect(() => {
+    if (!user) return;
+    const checkMissed = async () => {
+      const { count } = await supabase
+        .from('calendar_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'missed');
+      setMissedCount(count || 0);
+    };
+    checkMissed();
+  }, [user]);
 
   // Fetch events for visible range
   const visibleRange = useMemo(() => {
@@ -38,17 +81,40 @@ const CalendarPage = () => {
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents(visibleRange);
 
+  // Highlight event after events load
+  useEffect(() => {
+    if (!highlightIdRef.current || events.length === 0) return;
+    const id = highlightIdRef.current;
+    highlightIdRef.current = null;
+
+    // Small delay so DOM is rendered
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-event-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('pulse-highlight');
+        setTimeout(() => el.classList.remove('pulse-highlight'), 2000);
+      }
+    });
+  }, [events]);
+
+  // Filtered events
+  const displayEvents = useMemo(() => {
+    if (!filterMissed) return events;
+    return events.filter(e => e.status === 'missed');
+  }, [events, filterMissed]);
+
   // Group events by date
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    events.forEach((ev) => {
+    displayEvents.forEach((ev) => {
       const key = format(new Date(ev.start_time), 'yyyy-MM-dd');
       const arr = map.get(key) || [];
       arr.push(ev);
       map.set(key, arr);
     });
     return map;
-  }, [events]);
+  }, [displayEvents]);
 
   const getEventsForDate = (date: Date) => eventsByDate.get(format(date, 'yyyy-MM-dd')) || [];
 
@@ -94,10 +160,10 @@ const CalendarPage = () => {
   // Upcoming events for list view
   const upcomingEvents = useMemo(() => {
     const now = new Date();
-    return events
+    return displayEvents
       .filter((e) => new Date(e.start_time) >= startOfDay(now))
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  }, [events]);
+  }, [displayEvents]);
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-8">
@@ -114,6 +180,44 @@ const CalendarPage = () => {
             <Plus className="w-4 h-4 mr-1" /> New Event
           </Button>
         </div>
+
+        {/* Missed Events Banner */}
+        {missedCount > 0 && !filterMissed && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 rounded-xl border border-destructive/20 bg-destructive/5 p-3 flex items-center gap-3"
+          >
+            <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+            <p className="text-sm text-foreground flex-1">
+              You have <span className="font-semibold">{missedCount}</span> missed scheduled task{missedCount > 1 ? 's' : ''}.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => setFilterMissed(true)}
+            >
+              Review Missed
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Active filter indicator */}
+        {filterMissed && (
+          <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/5 p-3 flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+            <p className="text-sm text-foreground flex-1 font-medium">Showing missed events only</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => setFilterMissed(false)}
+            >
+              <X className="w-3.5 h-3.5 mr-1" /> Clear Filter
+            </Button>
+          </div>
+        )}
 
         {/* View Tabs */}
         <Tabs value={view} onValueChange={(v) => setView(v as any)} className="mb-6">
@@ -179,10 +283,13 @@ const CalendarPage = () => {
                         {dayEvents.slice(0, 2).map((ev) => (
                           <div
                             key={ev.id}
+                            data-event-id={ev.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(ev); }}
                             className={cn(
-                              "text-[10px] leading-tight truncate px-1 py-0.5 rounded",
-                              ev.task_ref ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                              "text-[10px] leading-tight truncate px-1 py-0.5 rounded transition-all",
+                              ev.status === 'missed'
+                                ? "bg-destructive/15 text-destructive"
+                                : ev.task_ref ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                             )}
                           >
                             {ev.title}
@@ -241,10 +348,13 @@ const CalendarPage = () => {
                           {dayEvents.map((ev) => (
                             <button
                               key={ev.id}
+                              data-event-id={ev.id}
                               onClick={() => handleEventClick(ev)}
                               className={cn(
-                                "w-full text-left rounded-lg p-2.5 transition-colors hover:bg-muted/40",
-                                ev.task_ref ? "border-l-2 border-primary bg-primary/5" : "border-l-2 border-border bg-muted/20"
+                                "w-full text-left rounded-lg p-2.5 transition-all hover:bg-muted/40",
+                                ev.status === 'missed'
+                                  ? "border-l-2 border-destructive bg-destructive/5"
+                                  : ev.task_ref ? "border-l-2 border-primary bg-primary/5" : "border-l-2 border-border bg-muted/20"
                               )}
                             >
                               <div className="flex items-center gap-2">
@@ -277,10 +387,12 @@ const CalendarPage = () => {
               {upcomingEvents.length === 0 ? (
                 <div className="p-8 text-center">
                   <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">No upcoming events</p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={() => handleAddNew()}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Create Event
-                  </Button>
+                  <p className="text-sm text-muted-foreground">{filterMissed ? 'No missed events' : 'No upcoming events'}</p>
+                  {!filterMissed && (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={() => handleAddNew()}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Create Event
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-border/10">
@@ -289,13 +401,16 @@ const CalendarPage = () => {
                     return (
                       <button
                         key={ev.id}
+                        data-event-id={ev.id}
                         onClick={() => handleEventClick(ev)}
-                        className="w-full text-left p-4 hover:bg-muted/20 transition-colors"
+                        className="w-full text-left p-4 hover:bg-muted/20 transition-all"
                       >
                         <div className="flex items-start gap-3">
                           <div className={cn(
                             "w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0",
-                            ev.task_ref ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                            ev.status === 'missed'
+                              ? "bg-destructive/10 text-destructive"
+                              : ev.task_ref ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                           )}>
                             <span className="text-xs font-bold leading-none">{format(startDate, 'd')}</span>
                             <span className="text-[9px] uppercase">{format(startDate, 'MMM')}</span>

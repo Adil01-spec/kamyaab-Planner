@@ -11,6 +11,7 @@ interface NavItem {
   path: string;
   icon: React.ElementType;
   showIndicator?: boolean;
+  badgeCount?: number;
 }
 
 export function BottomNav() {
@@ -18,6 +19,7 @@ export function BottomNav() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [hasIncompleteTasks, setHasIncompleteTasks] = useState(false);
+  const [missedCount, setMissedCount] = useState(0);
 
   // Check for incomplete tasks
   useEffect(() => {
@@ -45,7 +47,6 @@ export function BottomNav() {
 
     checkTasks();
     
-    // Subscribe to plan changes for real-time updates
     const channel = supabase
       .channel('plan-changes')
       .on('postgres_changes', {
@@ -63,10 +64,45 @@ export function BottomNav() {
     };
   }, [user]);
 
+  // Check for missed calendar events
+  useEffect(() => {
+    const checkMissed = async () => {
+      if (!user) return;
+      try {
+        const { count } = await supabase
+          .from('calendar_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'missed');
+        setMissedCount(count || 0);
+      } catch {
+        // silent
+      }
+    };
+
+    checkMissed();
+
+    const channel = supabase
+      .channel('calendar-missed')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'calendar_events',
+        filter: `user_id=eq.${user?.id}`,
+      }, () => {
+        checkMissed();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const navItems: NavItem[] = [
     { label: 'Today', path: '/today', icon: Sun, showIndicator: hasIncompleteTasks },
     { label: 'Plan', path: '/plan', icon: Calendar },
-    { label: 'Calendar', path: '/calendar', icon: CalendarDays },
+    { label: 'Calendar', path: '/calendar', icon: CalendarDays, badgeCount: missedCount },
     { label: 'Home', path: '/home', icon: Home },
   ];
 
@@ -96,6 +132,12 @@ export function BottomNav() {
                 {/* Indicator dot */}
                 {item.showIndicator && !isActive && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                )}
+                {/* Missed count badge */}
+                {item.badgeCount && item.badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+                    {item.badgeCount > 9 ? '9+' : item.badgeCount}
+                  </span>
                 )}
               </div>
               <span className={cn(

@@ -1,0 +1,1 @@
+ALTER TABLE public.calendar_events ADD COLUMN status text NOT NULL DEFAULT 'upcoming';

@@ -17,6 +17,7 @@ export interface CalendarEvent {
   external_event_id: string | null;
   reminder_sent: boolean;
   created_at: string;
+  status: string;
 }
 
 export interface CreateCalendarEventInput {
