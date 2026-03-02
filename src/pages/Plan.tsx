@@ -80,6 +80,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
@@ -889,6 +890,22 @@ const Plan = () => {
     setRefreshKey(k => k + 1);
   }, []);
 
+  // In-app calendar events hook
+  const { createEvent: createCalendarEvent } = useCalendarEvents();
+  const handleScheduleInApp = useCallback((title: string, description: string, suggestedDate: Date) => {
+    const endDate = new Date(suggestedDate);
+    endDate.setHours(endDate.getHours() + 1);
+    createCalendarEvent.mutate({
+      title,
+      description: description || undefined,
+      start_time: suggestedDate.toISOString(),
+      end_time: endDate.toISOString(),
+      reminder_minutes: 10,
+      plan_id: planId || undefined,
+      task_ref: `week-${Math.floor(Math.random())}-task`,
+    });
+  }, [createCalendarEvent, planId]);
+
   // Flow view interaction state - disable swipe when user is interacting with flow
   const [flowViewActive, setFlowViewActive] = useState(false);
 
@@ -1307,6 +1324,19 @@ const Plan = () => {
                               onToggle={() => toggleTask(weekIndex, taskIndex)}
                               onCalendarStatusChange={triggerCalendarRefresh}
                               onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
+                              onScheduleInApp={(t, d, date) => {
+                                const endDate = new Date(date);
+                                endDate.setHours(endDate.getHours() + Math.max(1, task.estimated_hours));
+                                createCalendarEvent.mutate({
+                                  title: t,
+                                  description: d || undefined,
+                                  start_time: date.toISOString(),
+                                  end_time: endDate.toISOString(),
+                                  reminder_minutes: 10,
+                                  plan_id: planId || undefined,
+                                  task_ref: `week-${weekIndex}-task-${taskIndex}`,
+                                });
+                              }}
                               executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
                               elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
                               onSplit={() => {
