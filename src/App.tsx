@@ -32,14 +32,21 @@ import Help from "./pages/Help";
 import Profile from "./pages/Profile";
 import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
+import { useReminderCheck } from "@/hooks/useReminderCheck";
 
 const queryClient = new QueryClient();
+
+function ReminderChecker() {
+  useReminderCheck();
+  return null;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <DevModeProvider>
         <TooltipProvider>
+        <ReminderChecker />
         <Toaster />
         <Sonner position="top-center" />
         <BrowserRouter>
