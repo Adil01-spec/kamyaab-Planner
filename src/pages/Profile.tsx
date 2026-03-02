@@ -5,18 +5,55 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
 import { Footer } from '@/components/Footer';
 import { EditProfileModal } from '@/components/EditProfileModal';
+import { DeferredProfileCard } from '@/components/DeferredProfileCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil, CalendarDays, Bell } from 'lucide-react';
 import { format } from 'date-fns';
+import { type CalendarTarget, getCalendarPreference, setCalendarPreference } from '@/components/CalendarSelectionModal';
+
+const REMINDER_OPTIONS = [
+  { value: '5', label: '5 minutes' },
+  { value: '10', label: '10 minutes' },
+  { value: '15', label: '15 minutes' },
+  { value: '30', label: '30 minutes' },
+  { value: '60', label: '1 hour' },
+];
+
+const CALENDAR_OPTIONS: { value: CalendarTarget; label: string }[] = [
+  { value: 'in_app', label: 'In-App Calendar' },
+  { value: 'google', label: 'Google Calendar' },
+  { value: 'apple', label: 'Apple Calendar' },
+];
+
+const getDefaultReminder = () => {
+  try { return localStorage.getItem('default_reminder_minutes') || '15'; } catch { return '15'; }
+};
+const setDefaultReminder = (v: string) => {
+  try { localStorage.setItem('default_reminder_minutes', v); } catch {}
+};
+const getNotificationsEnabled = () => {
+  try { return localStorage.getItem('notification_enabled') !== 'false'; } catch { return true; }
+};
+const setNotificationsEnabled = (v: boolean) => {
+  try { localStorage.setItem('notification_enabled', v ? 'true' : 'false'); } catch {}
+};
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
   const subscription = useSubscription();
   const [editOpen, setEditOpen] = useState(false);
+
+  // Calendar settings state
+  const [calendarPref, setCalendarPref] = useState<CalendarTarget>(getCalendarPreference() || 'in_app');
+  const [reminderTime, setReminderTime] = useState(getDefaultReminder());
+  const [notificationsOn, setNotificationsOn] = useState(getNotificationsEnabled());
 
   const userInitials = profile?.fullName
     ? profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -29,6 +66,8 @@ const Profile = () => {
 
   const tierDef = TIER_DEFINITIONS[subscription.tier];
   const tierBadgeVariant = subscription.tier === 'standard' ? 'secondary' as const : 'default' as const;
+
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -95,6 +134,9 @@ const Profile = () => {
 
         <EditProfileModal open={editOpen} onOpenChange={setEditOpen} />
 
+        {/* Deferred Profile Completion */}
+        <DeferredProfileCard />
+
         {/* Current Plan */}
         <Card className="border-border/30 bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-3">
@@ -139,6 +181,80 @@ const Profile = () => {
               View Plans & Pricing
               <ExternalLink className="w-3.5 h-3.5 ml-2" />
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Calendar Settings */}
+        <Card className="border-border/30 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              Calendar Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Default Calendar</Label>
+              <Select
+                value={calendarPref}
+                onValueChange={(v) => {
+                  const target = v as CalendarTarget;
+                  setCalendarPref(target);
+                  setCalendarPreference(target);
+                }}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CALENDAR_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Default Reminder</Label>
+              <Select
+                value={reminderTime}
+                onValueChange={(v) => {
+                  setReminderTime(v);
+                  setDefaultReminder(v);
+                }}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REMINDER_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Notifications</Label>
+                <p className="text-xs text-muted-foreground">Receive task reminders</p>
+              </div>
+              <Switch
+                checked={notificationsOn}
+                onCheckedChange={(v) => {
+                  setNotificationsOn(v);
+                  setNotificationsEnabled(v);
+                }}
+              />
+            </div>
+
+            <div className="flex items-start gap-3 text-sm">
+              <Bell className="w-4 h-4 mt-0.5 text-muted-foreground/60 shrink-0" />
+              <div>
+                <p className="text-muted-foreground/60 text-xs">Timezone</p>
+                <p className="text-foreground/90">{timezone}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
