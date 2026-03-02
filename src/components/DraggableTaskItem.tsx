@@ -43,6 +43,7 @@ interface DraggableTaskItemProps {
   onToggle: () => void;
   onCalendarStatusChange?: () => void;
   onStartTask?: () => void;
+  onScheduleInApp?: (title: string, description: string, suggestedDate: Date) => void;
   executionState: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds: number;
   canDrag: boolean;
@@ -67,6 +68,7 @@ export function DraggableTaskItem({
   onToggle,
   onCalendarStatusChange,
   onStartTask,
+  onScheduleInApp,
   executionState,
   elapsedSeconds,
   canDrag,
@@ -215,6 +217,7 @@ export function DraggableTaskItem({
           planCreatedAt={planCreatedAt}
           onCalendarStatusChange={onCalendarStatusChange}
           onStartTask={onStartTask}
+          onScheduleInApp={onScheduleInApp}
           executionState={executionState}
           elapsedSeconds={elapsedSeconds}
         />

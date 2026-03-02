@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Calendar, Home } from 'lucide-react';
+import { Sun, Calendar, CalendarDays, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +66,7 @@ export function BottomNav() {
   const navItems: NavItem[] = [
     { label: 'Today', path: '/today', icon: Sun, showIndicator: hasIncompleteTasks },
     { label: 'Plan', path: '/plan', icon: Calendar },
+    { label: 'Calendar', path: '/calendar', icon: CalendarDays },
     { label: 'Home', path: '/home', icon: Home },
   ];
 

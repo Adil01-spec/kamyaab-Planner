@@ -30,6 +30,7 @@ import Contact from "./pages/Contact";
 import Ownership from "./pages/Ownership";
 import Help from "./pages/Help";
 import Profile from "./pages/Profile";
+import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -137,6 +138,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireProfile>
                   <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/calendar" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <CalendarPage />
                 </ProtectedRoute>
               } 
             />

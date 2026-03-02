@@ -56,6 +56,7 @@ interface TaskItemProps {
   planCreatedAt?: string;
   onCalendarStatusChange?: () => void;
   onStartTask?: () => void;
+  onScheduleInApp?: (title: string, description: string, suggestedDate: Date) => void;
   /** execution_state is the source of truth for task state */
   executionState?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
@@ -126,6 +127,7 @@ export function TaskItem({
   planCreatedAt,
   onCalendarStatusChange,
   onStartTask,
+  onScheduleInApp,
   executionState = 'idle',
   elapsedSeconds = 0,
 }: TaskItemProps) {
@@ -530,7 +532,23 @@ export function TaskItem({
             {showCalendarButtons && (
               <div className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-1.5">
-                  {/* Quick add with suggested date */}
+                  {/* In-App Calendar button */}
+                  {onScheduleInApp && suggestedDate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const desc = details.how ? `How: ${details.how}` : '';
+                        onScheduleInApp(title, desc, suggestedDate);
+                      }}
+                      className="h-9 px-2 text-xs text-primary hover:bg-primary/10 min-h-[36px]"
+                      title="Add to in-app calendar"
+                    >
+                      <CalendarCheck className="w-4 h-4 mr-1" />
+                      <span className="hidden sm:inline">In-App</span>
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
