@@ -36,8 +36,10 @@ const quotes = {
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+  const upgradeFromSoft = searchParams.get('upgrade_from_soft') === 'true';
+  const prefillEmail = searchParams.get('email') || '';
   const [view, setView] = useState<AuthView>(initialMode);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -108,8 +110,12 @@ const Auth = () => {
           toast.error(getErrorMessage(error));
           return;
         }
+        // Convert any soft sessions to full collaboration
+        try {
+          await supabase.functions.invoke('convert-soft-to-full');
+          localStorage.removeItem('soft_collab_session');
+        } catch { /* non-critical */ }
         toast.success('Welcome back!');
-        // Login goes to onboarding (ProtectedRoute will handle redirect based on profile/verification)
         navigate('/onboarding');
       } else {
         const { error } = await signUp(email.trim(), password);
@@ -118,7 +124,6 @@ const Auth = () => {
           return;
         }
         toast.success('Account created! Please verify your email.');
-        // Signup redirects to email verification
         navigate('/verify-email');
       }
     } catch (error: any) {
@@ -262,6 +267,11 @@ const Auth = () => {
         </>
       ) : (
         <>
+          {upgradeFromSoft && view === 'signup' && (
+            <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 text-center">
+              <p className="text-sm text-primary font-medium">Welcome! Sign up to unlock full collaboration.</p>
+            </div>
+          )}
           <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
             {view === 'login' ? 'Log In' : 'Sign Up'}
           </h1>

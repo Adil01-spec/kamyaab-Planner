@@ -7,17 +7,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const VALID_TYPES = ["edit_task", "new_task", "adjust_deadline"];
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { session_token } = await req.json();
+    const { session_token, suggestion_type, target_ref, title, description } = await req.json();
 
-    if (!session_token) {
+    if (!session_token || !suggestion_type || !description?.trim()) {
       return new Response(
-        JSON.stringify({ error: "Missing session token" }),
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!VALID_TYPES.includes(suggestion_type)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid suggestion_type" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -48,63 +57,42 @@ serve(async (req: Request) => {
       );
     }
 
-    // Fetch plan data
-    const { data: plan, error: planErr } = await supabase
-      .from("plans")
-      .select("id, plan_json, created_at")
-      .eq("id", session.plan_id)
-      .single();
-
-    if (planErr || !plan) {
+    if (session.role !== "commenter") {
       return new Response(
-        JSON.stringify({ error: "Plan not found" }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: "Only commenters can submit suggestions" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Fetch comments for this plan
-    const { data: comments } = await supabase
-      .from("plan_comments")
-      .select("id, author_name, content, target_type, target_ref, created_at")
-      .eq("plan_id", session.plan_id)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
-
-    // Fetch feedback for this plan
-    const { data: feedback } = await supabase
-      .from("soft_feedback")
-      .select("*")
-      .eq("plan_id", session.plan_id)
-      .order("created_at", { ascending: true });
-
-    // Fetch suggestions for this plan
-    const { data: suggestions } = await supabase
+    // Insert suggestion
+    const { data: suggestion, error: insertErr } = await supabase
       .from("plan_suggestions")
-      .select("*")
-      .eq("plan_id", session.plan_id)
-      .order("created_at", { ascending: true });
+      .insert({
+        plan_id: session.plan_id,
+        session_id: session.id,
+        email: session.email,
+        suggestion_type,
+        target_ref: target_ref || null,
+        title: title?.trim() || null,
+        description: description.trim(),
+      })
+      .select()
+      .single();
 
-    // Extract day_closures from plan_json
-    const planJson = plan.plan_json as any;
-    const dayClosure = planJson?.day_closures || [];
+    if (insertErr) {
+      console.error("Insert suggestion error:", insertErr);
+      return new Response(
+        JSON.stringify({ error: "Failed to save suggestion" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({
-        plan_id: plan.id,
-        plan_json: plan.plan_json,
-        created_at: plan.created_at,
-        role: session.role,
-        email: session.email,
-        comments: comments || [],
-        feedback: feedback || [],
-        suggestions: suggestions || [],
-        day_closures: dayClosure,
-        session_expires_at: session.expires_at,
-      }),
+      JSON.stringify({ suggestion }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error) {
-    console.error("get-plan-for-soft-session error:", error);
+    console.error("soft-collab-suggest error:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

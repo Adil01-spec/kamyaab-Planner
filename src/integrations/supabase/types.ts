@@ -265,6 +265,63 @@ export type Database = {
           },
         ]
       }
+      plan_suggestions: {
+        Row: {
+          created_at: string | null
+          description: string
+          email: string
+          id: string
+          plan_id: string
+          resolved_at: string | null
+          session_id: string
+          status: string
+          suggestion_type: string
+          target_ref: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          email: string
+          id?: string
+          plan_id: string
+          resolved_at?: string | null
+          session_id: string
+          status?: string
+          suggestion_type: string
+          target_ref?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          email?: string
+          id?: string
+          plan_id?: string
+          resolved_at?: string | null
+          session_id?: string
+          status?: string
+          suggestion_type?: string
+          target_ref?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_suggestions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_suggestions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "soft_collab_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string
@@ -502,6 +559,63 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soft_feedback: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          email: string
+          execution_score: number | null
+          feasibility_score: number | null
+          id: string
+          plan_id: string
+          session_id: string
+          strategy_score: number | null
+          target_ref: string | null
+          target_type: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          email: string
+          execution_score?: number | null
+          feasibility_score?: number | null
+          id?: string
+          plan_id: string
+          session_id: string
+          strategy_score?: number | null
+          target_ref?: string | null
+          target_type: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          email?: string
+          execution_score?: number | null
+          feasibility_score?: number | null
+          id?: string
+          plan_id?: string
+          session_id?: string
+          strategy_score?: number | null
+          target_ref?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soft_feedback_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soft_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "soft_collab_sessions"
             referencedColumns: ["id"]
           },
         ]
