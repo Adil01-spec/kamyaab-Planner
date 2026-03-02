@@ -1,225 +1,282 @@
 
+# Collaboration Consolidation + Integrated Calendar System
 
-# Evolve Soft Collaboration into External Collaboration Layer
+## Scope Assessment
 
-## Overview
-
-Five enhancements to the existing soft collaboration system, adding structured feedback, suggestion mode, upgrade path, activity timeline, and session status indicators. All changes are additive -- OTP system, account-based collaboration, and execution engine remain untouched.
+This is a large architectural initiative with two distinct parts. Given the scope, I recommend implementing in **two phases** within this plan: Part 1 (Collaboration Consolidation) first, then Part 2 (Calendar System).
 
 ---
 
-## 1. Database Changes (Single Migration)
+## PART 1 -- COLLABORATION CONSOLIDATION
 
-### 1a. `soft_feedback` table
-Stores structured ratings and section/task-level feedback from soft collaborators.
+### 1. Collaboration Mode Abstraction
+
+**New file: `src/lib/collaborationMode.ts`**
+
+Define the centralized type and resolver:
 
 ```text
-soft_feedback
-----------------------------------------------
-id            uuid PK (gen_random_uuid)
-plan_id       uuid NOT NULL (FK plans)
-session_id    uuid NOT NULL (FK soft_collab_sessions)
-email         text NOT NULL
-target_type   text NOT NULL  -- 'plan' | 'week' | 'task'
-target_ref    text           -- e.g. 'week-2', 'week-1-task-3'
-content       text           -- optional comment text
-strategy_score    smallint   -- 1-5, nullable
-feasibility_score smallint   -- 1-5, nullable
-execution_score   smallint   -- 1-5, nullable
-created_at    timestamptz DEFAULT now()
+type CollaborationMode = 'public_snapshot' | 'external_session' | 'authenticated'
 ```
 
-RLS enabled, no public policies (all access via service role in edge functions).
+**New hook: `src/hooks/useCollaborationContext.ts`**
 
-### 1b. `plan_suggestions` table
-Stores edit/add/deadline suggestions from commenter-role soft collaborators.
+Returns a unified context object:
+- `mode`: one of the three modes
+- `role`: 'owner' | 'commenter' | 'viewer' | null
+- `canComment`: boolean
+- `canSuggest`: boolean (commenter in external_session mode only)
+- `isOwner`: boolean
+- `isExternal`: boolean (external_session mode)
+- `isPublic`: boolean (public_snapshot mode)
+
+The hook accepts a discriminated input:
+- For `authenticated`: wraps `useCollaboratorAccess` internally
+- For `external_session`: reads from soft session props (role, sessionToken)
+- For `public_snapshot`: always read-only, no commenting
+
+All four review pages (`SharedReview`, `AdvisorView`, `SoftCollabReview`, authenticated `Review`) will import this hook. Existing behavior stays identical -- this only centralizes the permission resolution.
+
+### 2. Unified Presentation Components
+
+Extract shared presentation sub-components used across all review modes:
+
+| Component | Source | Used By |
+|-----------|--------|---------|
+| `PlanOverviewCard` | From SharedReviewContent + AdvisorViewContent | All 4 views |
+| `StrategyInsightsCard` | From SharedReviewContent + AdvisorViewContent | All 4 views |
+| `ExecutionMetricsCard` | From AdvisorViewContent | Advisor, Review, SoftCollab |
+| `WeeklyBreakdownCard` | From SharedReviewContent + AdvisorViewContent | All 4 views |
+| `RealityCheckCard` | From SharedReviewContent + AdvisorViewContent | Advisor, Review, SharedReview |
+
+Each component accepts:
+- `plan`: the plan data (snapshot or live)
+- `mode`: CollaborationMode (controls what fields are shown)
+- Optional `onFeedbackClick` callback (for external_session task-level feedback)
+
+**Pages are refactored to compose these shared components** instead of duplicating layout logic. The components conditionally render based on mode (e.g., print styles only in public_snapshot/advisor, feedback buttons only in external_session).
+
+### 3. Normalize Comment Attribution
+
+**Database migration:** Add two columns to `plan_comments`:
+- `is_soft_author` (boolean, default false)
+- `soft_author_email` (text, nullable)
+
+**Edge function change:** Update `soft-collab-comment` to set `is_soft_author = true` and `soft_author_email = session.email` on insert.
+
+**Frontend:** Comment rendering checks `is_soft_author`:
+- If true: show email-derived display name with an "External" badge
+- If false: show normal authenticated user profile
+- This logic lives in a shared `CommentAttribution` sub-component used by both `PlanCommentsSection` and `SoftCollabReview`
+
+### 4. Centralize Plan Sanitization
+
+**New file: `src/lib/planSanitization.ts`**
 
 ```text
-plan_suggestions
-----------------------------------------------
-id            uuid PK (gen_random_uuid)
-plan_id       uuid NOT NULL (FK plans)
-session_id    uuid NOT NULL (FK soft_collab_sessions)
-email         text NOT NULL
-suggestion_type  text NOT NULL  -- 'edit_task' | 'new_task' | 'adjust_deadline'
-target_ref    text           -- e.g. 'week-2-task-1'
-title         text           -- suggested task title (for new_task)
-description   text NOT NULL  -- what they suggest
-status        text NOT NULL DEFAULT 'pending'  -- 'pending' | 'approved' | 'rejected'
-resolved_at   timestamptz
-created_at    timestamptz DEFAULT now()
+sanitizePlanForMode(plan, mode: CollaborationMode) => SanitizedPlan
 ```
 
-RLS enabled, no public policies. Owner reads/manages via authenticated queries with an RLS policy: `SELECT/UPDATE/DELETE WHERE plan_id IN (SELECT id FROM plans WHERE user_id = auth.uid())`.
+Rules:
+- `public_snapshot`: Return frozen snapshot as-is (already sanitized at share creation time)
+- `external_session`: Strip `user_id`, subscription tier, collaborator list, internal execution metadata, auth fields. Keep live task state, weeks, strategy overview, execution insights.
+- `authenticated`: Return full plan unchanged.
+
+**Also add server-side version** in `get-plan-for-soft-session`: strip sensitive fields from `plan_json` before returning (defense in depth). Currently the edge function returns the full `plan_json` -- it should strip `owner_id`-like fields.
 
 ---
 
-## 2. Edge Function Changes
+## PART 2 -- INTEGRATED CALENDAR SYSTEM
 
-### 2a. New: `soft-collab-feedback` (verify_jwt = false)
-**Input**: `{ session_token, target_type, target_ref, content, strategy_score, feasibility_score, execution_score }`
+### 1. Calendar Selection Modal
 
-Logic:
-1. Validate session (exists, not expired, role = commenter)
-2. Validate scores are 1-5 or null
-3. Insert into `soft_feedback` via service role
-4. Return success with the created feedback record
+**New component: `src/components/CalendarSelectionModal.tsx`**
 
-### 2b. New: `soft-collab-suggest` (verify_jwt = false)
-**Input**: `{ session_token, suggestion_type, target_ref, title, description }`
+When user clicks "Schedule" on a task, show a dialog with options:
+- In-App Calendar (always available)
+- Google Calendar (desktop + Android)
+- Apple Calendar (iOS only, uses existing .ics flow -- NO changes)
+- Device Default (fallback)
 
-Logic:
-1. Validate session (exists, not expired, role = commenter)
-2. Validate suggestion_type is one of the allowed values
-3. Insert into `plan_suggestions` via service role
-4. Return success with created suggestion
+Persist preference in `localStorage` key `calendar_preference`. On subsequent uses, skip the modal and use the saved preference (with a "Change" option).
 
-### 2c. Modify: `get-plan-for-soft-session`
-Add to the response payload:
-- `feedback`: all `soft_feedback` rows for this plan
-- `suggestions`: all `plan_suggestions` rows for this plan (so commenter can see their own + others)
-- `activity`: recent task completion changes (derived from plan_json diff or from plan_history if available)
+### 2. In-App Calendar System
 
-### 2d. New: `get-plan-feedback-summary` (verify_jwt = true, for owner)
-**Input**: uses auth.uid() from JWT
-Logic:
-1. Get owner's plan
-2. Aggregate `soft_feedback` for that plan: average scores, count by target_type
-3. Fetch all `plan_suggestions` with status
-4. Return structured summary
+#### 2a. Database: `calendar_events` table
 
----
+```text
+calendar_events
+---------------------------------
+id                uuid PK
+user_id           uuid NOT NULL
+plan_id           uuid nullable
+task_ref          text nullable
+title             text NOT NULL
+description       text
+start_time        timestamptz NOT NULL
+end_time          timestamptz nullable
+reminder_minutes  integer nullable
+source            text DEFAULT 'in_app'
+external_event_id text nullable
+reminder_sent     boolean DEFAULT false
+created_at        timestamptz DEFAULT now()
+```
 
-## 3. Frontend: Structured Feedback (SoftCollabReview)
+RLS: user can only SELECT/INSERT/UPDATE/DELETE where `user_id = auth.uid()`.
 
-### 3a. Task-level and Week-level comment targeting
-- Each task row and week header gets a small feedback icon button (for commenters)
-- Clicking opens an inline feedback form with:
-  - Comment text area
-  - Three optional star ratings (Strategy 1-5, Feasibility 1-5, Execution 1-5)
-  - Submit button
-- Comments in the comments section show their `target_ref` as a badge (e.g., "Week 2", "Task: Design wireframes")
+#### 2b. Notification Permission Flow
 
-### 3b. New component: `SoftFeedbackForm.tsx`
-- Compact inline form with rating sliders and text
-- Calls `soft-collab-feedback` edge function
-- Shows success animation on submit
+When user selects In-App Calendar and `Notification.permission !== 'granted'`:
+- Show explanation: "Allow notifications to receive task reminders?"
+- Request `Notification.requestPermission()`
+- Store result in localStorage `notification_enabled`
+- Handle denial gracefully (still create event, just no reminder)
 
-### 3c. Aggregated metrics display
-- At the top of the soft review page (below the overview card), show aggregated feedback scores if any exist:
-  - Average Strategy / Feasibility / Execution scores as small gauges
-  - Total feedback count
+#### 2c. Reminder Engine (Cron Edge Function)
 
----
+**New edge function: `calendar-reminders`**
+- Runs every minute via pg_cron
+- Selects events where `reminder_sent = false` AND `start_time - (reminder_minutes * interval '1 minute') <= now()`
+- For each matched event: attempt to send a web push notification (or fallback to storing a "pending reminder" the frontend polls)
+- Sets `reminder_sent = true`
 
-## 4. Frontend: Suggestion Mode (SoftCollabReview)
+**Note:** True push notifications require a service worker + web push subscription. For MVP, the reminder engine will mark events as "reminder_due" and the frontend will poll/check on page load and show an in-app toast notification. This avoids the complexity of VAPID keys and service workers in the initial implementation.
 
-### 4a. New component: `SoftSuggestionForm.tsx`
-- Available only for commenter role
-- Three suggestion types via tabs/buttons:
-  - **Edit Task**: select a task reference, describe the edit
-  - **New Task**: provide title + description + target week
-  - **Adjust Deadline**: select task, suggest new duration/deadline
-- Calls `soft-collab-suggest` edge function
+### 3. Google Calendar Integration
 
-### 4b. Suggestions list on soft review page
-- Shows all suggestions for this plan with status badges (Pending/Approved/Rejected)
-- Read-only for soft users (they can see status but not change it)
+**Approach:** Use the existing `calendarService.ts` Google Calendar URL method (opens Google Calendar in a new tab with pre-filled data) as the primary method. This does NOT require OAuth or token storage.
 
-### 4c. Owner's Suggestion Management (Review.tsx)
-- New section: "External Suggestions" on the owner's `/review` page
-- New component: `PlanSuggestionsSection.tsx`
-  - Lists pending suggestions with Approve/Reject buttons
-  - Approve: updates status to 'approved', optionally converts into a real task in plan_json
-  - Reject: updates status to 'rejected'
-  - Uses authenticated Supabase queries (RLS protects owner-only access)
+For full two-way sync (create/edit/delete via API): this requires Google Cloud OAuth credentials with `calendar.events` scope, which is separate from the sign-in OAuth. This would need:
+- User to configure Google Cloud credentials
+- An edge function to handle the OAuth callback and store encrypted refresh tokens
+- Sync logic in edge functions
 
----
+**Recommendation:** Start with the existing URL-based approach (already working) and add a "Connect Google Calendar" option in Profile settings that links to full API sync as a future enhancement. The modal will use the URL-based flow for now.
 
-## 5. Frontend: Upgrade Path
+### 4. Apple Calendar -- NO CHANGES
 
-### 5a. New component: `SoftUpgradeBanner.tsx`
-- Rendered at the bottom of `SoftCollabReview` when:
-  - User has submitted 2+ feedback entries, OR
-  - User has visited the soft review page 3+ times (tracked via localStorage counter)
-- Shows: "Create a free account to collaborate across plans"
-- CTA button links to `/auth?upgrade_from_soft=true&email={email}`
+The existing `.ics` download flow remains exactly as-is. The CalendarSelectionModal will route to the existing `openAppleCalendar` function. No modifications.
 
-### 5b. Auth page enhancement
-- If `upgrade_from_soft` query param is present:
-  - Pre-fill the email field
-  - Show a subtle banner: "Welcome! Sign up to unlock full collaboration."
-- After signup + verification:
-  - Check if `plan_collaborators` has a matching `collaborator_email`
-  - If yes, update `collaborator_user_id` to the new user's ID
-  - Clear soft session from localStorage
+### 5. Android Reliability
 
-### 5c. New edge function: `convert-soft-to-full` (verify_jwt = true)
-- Called after a new user signs up
-- Input: none (uses auth.uid() and user email from JWT)
-- Logic:
-  1. Find any `plan_collaborators` rows matching user's email where `collaborator_user_id` is null
-  2. Update `collaborator_user_id` to auth.uid()
-  3. Invalidate any `soft_collab_sessions` for that email
-  4. Return count of converted collaborations
+When platform is Android:
+- Default selection in CalendarSelectionModal = "In-App Calendar"
+- Show subtle note: "Recommended for reliable reminders"
+- Google Calendar option still available (uses URL-based flow)
 
----
+### 6. Calendar UI -- `/calendar` Route
 
-## 6. Frontend: Activity Timeline (SoftCollabReview)
+**New page: `src/pages/Calendar.tsx`**
 
-### 6a. New component: `SoftActivityTimeline.tsx`
-- Shows last 7 days of plan activity:
-  - Tasks completed (from plan_json weeks data -- compare completed flags)
-  - Completion consistency mini-chart (7-day bar chart using recharts)
-  - Recent comments/feedback
-- Data comes from `get-plan-for-soft-session` (extended response)
-- Visual quality matches Advisor view presentation
+Features:
+- Month view (grid of days with event dots)
+- Week view (time-slotted layout)
+- Event list view (scrollable list)
+- Click event opens detail modal (edit/delete)
+- Visual differentiation: task-linked events show a link icon, standalone events show a calendar icon
+- Protected route (requires profile)
 
-### 6b. Extend `get-plan-for-soft-session` response
-- Add `day_closures` from plan_json (already stored there) to the response
-- Add `plan_created_at` timestamp
-- Frontend derives activity timeline from day_closures + task completion states
+**New components:**
+- `CalendarMonthView.tsx`
+- `CalendarWeekView.tsx`
+- `CalendarEventList.tsx`
+- `CalendarEventModal.tsx` (create/edit)
 
----
+**Data hook: `src/hooks/useCalendarEvents.ts`**
+- CRUD operations on `calendar_events` table
+- Filter by date range
+- Optimistic updates via TanStack Query
 
-## 7. Frontend: Soft Session Status Indicator
+### 7. Task to Calendar Link
 
-### 7a. Update SoftCollabReview header
-- Replace current role badge with: "External Collaboration Mode" badge (amber/orange variant)
-- Keep the existing LogOut button (already present -- clears soft session)
-- Add session expiry countdown: "Session expires in X hours"
+On each task row (in Plan page):
+- Add a small calendar icon button ("Schedule")
+- Opens `CalendarSelectionModal`
+- Pre-fills: title = task title, description = task how_to/explanation
+- Suggests time based on week structure (uses existing `calculateTaskEventDate`)
+- Allows manual date/time override
+- On save: creates `calendar_events` row with `task_ref = 'week-{n}-task-{m}'`
+- If task marked complete: related calendar event gets a visual "completed" indicator (not auto-deleted)
+
+### 8. Sync Logic
+
+- `source = 'in_app'`: update DB only
+- `source = 'google'`: update Google via URL (user manually syncs -- no API sync in v1)
+- `source = 'apple_export'`: no sync (one-time export)
+- Graceful error handling for all paths
+
+### 9. Profile -- Calendar Settings
+
+**Add new section to `src/pages/Profile.tsx`:**
+- Default calendar choice (dropdown: In-App / Google / Apple / Device)
+- Default reminder time (select: 5min / 10min / 15min / 30min / 1hr)
+- Timezone display (read-only, from browser)
+- Toggle notifications on/off
+- Stored in localStorage (no DB changes needed for preferences)
 
 ---
 
 ## Files Summary
 
+### Part 1 -- Collaboration Consolidation
+
 | File | Action |
 |------|--------|
-| **Migration SQL** | CREATE `soft_feedback`, CREATE `plan_suggestions` with RLS |
-| `supabase/functions/soft-collab-feedback/index.ts` | **New** |
-| `supabase/functions/soft-collab-suggest/index.ts` | **New** |
-| `supabase/functions/convert-soft-to-full/index.ts` | **New** |
-| `supabase/functions/get-plan-for-soft-session/index.ts` | **Modify** -- add feedback, suggestions, day_closures |
-| `supabase/functions/get-plan-feedback-summary/index.ts` | **New** -- owner dashboard aggregation |
-| `src/pages/SoftCollabReview.tsx` | **Major update** -- add feedback forms, suggestions, timeline, upgrade banner, status indicator |
-| `src/components/SoftFeedbackForm.tsx` | **New** |
-| `src/components/SoftSuggestionForm.tsx` | **New** |
-| `src/components/SoftActivityTimeline.tsx` | **New** |
-| `src/components/SoftUpgradeBanner.tsx` | **New** |
-| `src/components/PlanSuggestionsSection.tsx` | **New** -- owner's suggestion management |
-| `src/components/SoftFeedbackSummary.tsx` | **New** -- aggregated scores display |
-| `src/pages/Review.tsx` | **Modify** -- add PlanSuggestionsSection + SoftFeedbackSummary |
-| `src/pages/Auth.tsx` | **Modify** -- handle upgrade_from_soft param |
-| `src/pages/Onboarding.tsx` or post-signup hook | **Modify** -- call convert-soft-to-full after signup |
+| `src/lib/collaborationMode.ts` | **New** -- type + resolver |
+| `src/hooks/useCollaborationContext.ts` | **New** -- unified context hook |
+| `src/lib/planSanitization.ts` | **New** -- sanitizePlanForMode utility |
+| `src/components/review/PlanOverviewCard.tsx` | **New** -- shared component |
+| `src/components/review/StrategyInsightsCard.tsx` | **New** -- shared component |
+| `src/components/review/ExecutionMetricsCard.tsx` | **New** -- shared component |
+| `src/components/review/WeeklyBreakdownCard.tsx` | **New** -- shared component |
+| `src/components/review/RealityCheckCard.tsx` | **New** -- shared component |
+| `src/components/review/CommentAttribution.tsx` | **New** -- shared comment rendering |
+| **Migration SQL** | Add `is_soft_author`, `soft_author_email` to `plan_comments` |
+| `supabase/functions/soft-collab-comment/index.ts` | **Modify** -- set soft author fields |
+| `supabase/functions/get-plan-for-soft-session/index.ts` | **Modify** -- sanitize plan_json |
+| `src/pages/SharedReview.tsx` | **Refactor** -- use shared components |
+| `src/pages/AdvisorView.tsx` | **Refactor** -- use shared components |
+| `src/pages/SoftCollabReview.tsx` | **Refactor** -- use shared components + context hook |
+| `src/pages/Review.tsx` | **Refactor** -- use context hook |
+| `src/components/SharedReviewContent.tsx` | **Remove** (replaced by shared components) |
+| `src/components/AdvisorViewContent.tsx` | **Remove** (replaced by shared components) |
+
+### Part 2 -- Calendar System
+
+| File | Action |
+|------|--------|
+| **Migration SQL** | CREATE `calendar_events` with RLS |
+| `src/components/CalendarSelectionModal.tsx` | **New** |
+| `src/pages/Calendar.tsx` | **New** -- /calendar route |
+| `src/components/CalendarMonthView.tsx` | **New** |
+| `src/components/CalendarWeekView.tsx` | **New** |
+| `src/components/CalendarEventList.tsx` | **New** |
+| `src/components/CalendarEventModal.tsx` | **New** |
+| `src/hooks/useCalendarEvents.ts` | **New** -- CRUD hook |
+| `supabase/functions/calendar-reminders/index.ts` | **New** -- cron reminder check |
+| `src/App.tsx` | **Modify** -- add /calendar route |
+| `src/pages/Profile.tsx` | **Modify** -- add Calendar Settings section |
+| `src/pages/Plan.tsx` | **Modify** -- add Schedule button to task rows |
+| `src/components/BottomNav.tsx` | **Modify** -- add Calendar nav item |
 
 ---
 
 ## What Is NOT Modified
-- OTP verification system (verify-soft-invite, InviteAccept)
-- Account-based collaboration (plan_collaborators, useCollaboratorAccess)
-- Execution engine (/today, /plan, task mutations)
-- Strategic mode / quota logic
-- Subscription tiers
-- Existing RLS policies on plans, plan_comments, plan_collaborators
-- shared_reviews system
 
+- OTP verification system
+- Account-based collaboration (plan_collaborators, useCollaboratorAccess)
+- Execution engine (/today, task mutations, completion logic)
+- Strategic scoring / quota logic
+- Subscription tiers / RLS on plans
+- Share system (shared_reviews table)
+- Apple .ics flow (completely untouched)
+- Existing soft feedback + suggestions tables and edge functions
+
+## Implementation Order
+
+1. Part 1 tasks first (consolidation is lower risk, provides cleaner foundation)
+2. Database migration for `calendar_events` + `plan_comments` columns
+3. Calendar UI components + /calendar route
+4. CalendarSelectionModal + task-to-calendar linking
+5. Reminder engine (cron edge function)
+6. Profile calendar settings
