@@ -2,7 +2,7 @@
  * CollaborationModal
  * 
  * Modal for managing plan collaborators.
- * Invite by email, list collaborators, update roles, remove.
+ * Invite by email, list accepted collaborators + pending invites, update roles, remove.
  */
 
 import { useState } from 'react';
@@ -25,12 +25,11 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, UserPlus, X, Eye, MessageSquare, Check } from 'lucide-react';
+import { Loader2, UserPlus, X, Eye, MessageSquare, Check, Clock } from 'lucide-react';
 import { useCollaborators } from '@/hooks/useCollaborators';
 import { useSubscription } from '@/hooks/useSubscription';
 import { 
   type CollaboratorRole, 
-  formatRole, 
   getInitials,
   formatCommentTime,
   getCollaboratorLimit
@@ -46,11 +45,13 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
   const { tier } = useSubscription();
   const {
     collaborators,
+    pendingInvites,
     loading,
     canAdd,
     limit,
     addCollaborator,
     removeCollaborator,
+    removePendingInvite,
     updateRole,
   } = useCollaborators(planId);
 
@@ -61,7 +62,6 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
 
   const handleInvite = async () => {
     if (!email.trim()) return;
-    
     setIsAdding(true);
     const success = await addCollaborator(email, role);
     if (success) {
@@ -77,11 +77,18 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
     setRemovingId(null);
   };
 
+  const handleRemovePending = async (id: string) => {
+    setRemovingId(id);
+    await removePendingInvite(id);
+    setRemovingId(null);
+  };
+
   const handleRoleChange = async (id: string, newRole: CollaboratorRole) => {
     await updateRole(id, newRole);
   };
 
   const tierLabel = tier === 'business' ? 'Business' : 'Pro';
+  const totalCount = collaborators.length + pendingInvites.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,7 +151,7 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
             </Button>
           </div>
 
-          {!canAdd && collaborators.length >= limit && (
+          {!canAdd && totalCount >= limit && (
             <p className="text-xs text-muted-foreground">
               You've reached your {tierLabel} limit of {limit} collaborator{limit === 1 ? '' : 's'}.
             </p>
@@ -153,14 +160,14 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
 
         <Separator />
 
-        {/* Collaborator list */}
+        {/* Collaborator + pending list */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-foreground">
               Collaborators
             </span>
             <span className="text-xs text-muted-foreground">
-              {collaborators.length} of {limit} on {tierLabel}
+              {totalCount} of {limit} on {tierLabel}
             </span>
           </div>
 
@@ -168,12 +175,13 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
             <div className="flex items-center justify-center py-6">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
-          ) : collaborators.length === 0 ? (
+          ) : totalCount === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
               No collaborators yet
             </p>
           ) : (
-            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            <div className="space-y-2 max-h-[240px] overflow-y-auto">
+              {/* Accepted collaborators */}
               {collaborators.map((collab) => (
                 <div 
                   key={collab.id}
@@ -184,7 +192,6 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
                       {getInitials(collab.email)}
                     </AvatarFallback>
                   </Avatar>
-
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{collab.email}</p>
                     <p className="text-xs text-muted-foreground">
@@ -194,7 +201,6 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
                       }
                     </p>
                   </div>
-
                   <Select 
                     value={collab.role} 
                     onValueChange={(v) => handleRoleChange(collab.id, v as CollaboratorRole)}
@@ -207,7 +213,6 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
                       <SelectItem value="commenter">Commenter</SelectItem>
                     </SelectContent>
                   </Select>
-
                   <Button
                     variant="ghost"
                     size="icon"
@@ -223,21 +228,52 @@ export function CollaborationModal({ planId, open, onOpenChange }: Collaboration
                   </Button>
                 </div>
               ))}
+
+              {/* Pending invites */}
+              {pendingInvites.map((invite) => (
+                <div 
+                  key={invite.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-dashed border-border"
+                >
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                      {getInitials(invite.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{invite.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Invited {formatCommentTime(invite.createdAt)}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <Clock className="w-3 h-3" />
+                    Pending
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemovePending(invite.id)}
+                    disabled={removingId === invite.id}
+                  >
+                    {removingId === invite.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <X className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
         {/* Info note */}
         <div className="p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground">
-          <p>
-            <strong>Viewers</strong> can see your plan and review.
-          </p>
-          <p>
-            <strong>Commenters</strong> can also leave feedback.
-          </p>
-          <p className="mt-1">
-            Collaborators cannot modify your tasks or execution.
-          </p>
+          <p><strong>Viewers</strong> can see your plan and review.</p>
+          <p><strong>Commenters</strong> can also leave feedback.</p>
+          <p className="mt-1">Collaborators cannot modify your tasks or execution.</p>
         </div>
       </DialogContent>
     </Dialog>

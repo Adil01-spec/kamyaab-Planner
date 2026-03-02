@@ -212,6 +212,50 @@ export type Database = {
           },
         ]
       }
+      plan_invites: {
+        Row: {
+          accepted_at: string | null
+          collaborator_email: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          owner_id: string
+          plan_id: string
+          role: Database["public"]["Enums"]["collaborator_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          collaborator_email: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          owner_id: string
+          plan_id: string
+          role?: Database["public"]["Enums"]["collaborator_role"]
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          collaborator_email?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          owner_id?: string
+          plan_id?: string
+          role?: Database["public"]["Enums"]["collaborator_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_invites_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string

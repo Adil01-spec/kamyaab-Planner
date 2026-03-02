@@ -19,6 +19,7 @@ import PlanReset from "./pages/PlanReset";
 import SharedReview from "./pages/SharedReview";
 import AdvisorView from "./pages/AdvisorView";
 import Review from "./pages/Review";
+import InviteAccept from "./pages/InviteAccept";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -142,6 +143,8 @@ const App = () => (
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}
             <Route path="/advisor/:shareId" element={<AdvisorView />} />
+            {/* Collaboration invite acceptance - public route */}
+            <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
