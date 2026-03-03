@@ -33,10 +33,11 @@ const CalendarPage = () => {
   const dynamicBackgroundEnabled = isMobile ? mobileSettings.dynamicBackground : desktopSettings.dynamicBackground;
   const backgroundPattern = isMobile ? mobileSettings.backgroundPattern : desktopSettings.backgroundPattern;
 
-  // Deep link: read date & highlight params on mount
+  // Deep link: read date, highlight, & filter params on mount
   useEffect(() => {
     const dateParam = searchParams.get('date');
     const highlightParam = searchParams.get('highlight');
+    const filterParam = searchParams.get('filter');
 
     if (dateParam) {
       const parsed = parseISO(dateParam);
@@ -50,8 +51,12 @@ const CalendarPage = () => {
       highlightIdRef.current = highlightParam;
     }
 
+    if (filterParam === 'missed') {
+      setFilterMissed(true);
+    }
+
     // Clear params after reading
-    if (dateParam || highlightParam) {
+    if (dateParam || highlightParam || filterParam) {
       setSearchParams({}, { replace: true });
     }
   }, []); // Only on mount

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import type { TaskCalendarEvent } from '@/hooks/useTaskCalendarEvents';
+import { TaskCalendarBadge } from '@/components/TaskCalendarBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ interface TaskItemProps {
   /** execution_state is the source of truth for task state */
   executionState?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
+  calendarEvent?: TaskCalendarEvent;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -130,6 +133,7 @@ export function TaskItem({
   onScheduleInApp,
   executionState = 'idle',
   elapsedSeconds = 0,
+  calendarEvent,
 }: TaskItemProps) {
   // Derive status from execution_state (source of truth), with legacy fallback
   const isDone = executionState === 'done' || (executionState === 'idle' && completed);
@@ -451,8 +455,15 @@ export function TaskItem({
               </Collapsible>
             )}
             
-            {/* Scheduled badge - shows when task is confirmed scheduled */}
-            {showScheduledBadge && (
+            {/* Calendar event badge from database - shows linked event status */}
+            {calendarEvent && !showScheduledBadge && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <TaskCalendarBadge event={calendarEvent} compact />
+              </div>
+            )}
+            
+            {/* Scheduled badge - shows when task is confirmed scheduled (local storage) */}
+            {showScheduledBadge && !calendarEvent && (
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-md">
                   <CalendarCheck className="w-3.5 h-3.5" />

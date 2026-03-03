@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Scissors } from 'lucide-react';
 import { TaskItem } from '@/components/TaskItem';
+import type { TaskCalendarEvent } from '@/hooks/useTaskCalendarEvents';
 import { cn } from '@/lib/utils';
 import { hapticSelection, hapticLight } from '@/lib/hapticFeedback';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -53,6 +54,7 @@ interface DraggableTaskItemProps {
   onSplit?: () => void;
   canSplit?: boolean;
   splitBlockReason?: string;
+  calendarEvent?: TaskCalendarEvent;
 }
 
 export function DraggableTaskItem({
@@ -77,6 +79,7 @@ export function DraggableTaskItem({
   onSplit,
   canSplit = true,
   splitBlockReason,
+  calendarEvent,
 }: DraggableTaskItemProps) {
   const isMobile = useIsMobile();
 
@@ -220,6 +223,7 @@ export function DraggableTaskItem({
           onScheduleInApp={onScheduleInApp}
           executionState={executionState}
           elapsedSeconds={elapsedSeconds}
+          calendarEvent={calendarEvent}
         />
       </div>
 
@@ -237,6 +241,7 @@ export function DraggableTaskItem({
     <div
       ref={setNodeRef}
       style={style}
+      data-task-id={taskId}
       className={cn(
         "relative group",
         isDragging && "z-50"
