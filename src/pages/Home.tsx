@@ -53,6 +53,7 @@ import { Footer } from '@/components/Footer';
 import { HomeDesktopCard } from '@/components/HomeDesktopCard';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { DeferredProfileCard } from '@/components/DeferredProfileCard';
+import { MissedEventsBanner } from '@/components/MissedEventsBanner';
 
 interface Task {
   title: string;
@@ -643,6 +644,9 @@ const Home = () => {
         <div className="mb-6">
           <DeferredProfileCard />
         </div>
+
+        {/* Missed Calendar Events Banner */}
+        <MissedEventsBanner />
 
         {/* ═══════════════════════════════════════════════════════════════
             DESKTOP TWO-COLUMN LAYOUT

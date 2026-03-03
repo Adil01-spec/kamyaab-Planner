@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Trash2, Loader2 } from 'lucide-react';
+import { CalendarIcon, Trash2, Loader2, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { CalendarEvent, CreateCalendarEventInput, UpdateCalendarEventInput } from '@/hooks/useCalendarEvents';
 
@@ -57,6 +58,7 @@ export function CalendarEventModal({
   onDelete,
   isSaving = false,
 }: CalendarEventModalProps) {
+  const navigate = useNavigate();
   const isEditing = !!event;
 
   const [title, setTitle] = useState('');
@@ -207,6 +209,19 @@ export function CalendarEventModal({
             {isEditing && onDelete && event && (
               <Button variant="destructive" size="sm" onClick={() => { onDelete(event.id); onOpenChange(false); }}>
                 <Trash2 className="w-4 h-4 mr-1" /> Delete
+              </Button>
+            )}
+            {/* Deep link to Plan task */}
+            {isEditing && event?.task_ref && event?.plan_id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate(`/plan?highlight=${event.task_ref}`);
+                }}
+              >
+                <ExternalLink className="w-4 h-4 mr-1" /> Open Task
               </Button>
             )}
             <div className="flex-1" />

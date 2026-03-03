@@ -43,7 +43,7 @@ import { getScheduledCalendarTasks } from '@/hooks/useCalendarStatus';
 import { formatTotalTime } from '@/lib/executionTimer';
 import { getCurrentStreak, recordTaskCompletion } from '@/lib/streakTracker';
 import { hapticSuccess, hapticSelection } from '@/lib/hapticFeedback';
-import { Loader2, Calendar, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
+import { Loader2, Calendar, CalendarDays, ChevronRight, Moon, Sparkles, Clock, Play } from 'lucide-react';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, startOfDay, isBefore } from 'date-fns';
@@ -51,6 +51,7 @@ import { Json } from '@/integrations/supabase/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/Footer';
+import { TodayScheduleSection } from '@/components/TodayScheduleSection';
 interface PlanData {
   overview: string;
   total_weeks: number;
@@ -545,6 +546,10 @@ const Today = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Calendar quick link */}
+            <Button variant="ghost" size="icon" onClick={() => navigate('/calendar')} className="text-muted-foreground hover:text-foreground" title="Calendar">
+              <CalendarDays className="w-4 h-4" />
+            </Button>
             {/* Full Plan button - mobile/tablet only */}
             <Button variant="ghost" size="sm" onClick={() => navigate('/plan')} className="text-muted-foreground hover:text-foreground h-9 px-3 lg:hidden">
               <Calendar className="w-4 h-4 mr-1.5" />
@@ -613,6 +618,9 @@ const Today = () => {
 
         {/* Phase 7.5: Missed Task Notice - gentle rollforward message */}
         <MissedTaskNotice missedCount={missedTaskCount} show={showMissedNotice} className="mb-4" />
+
+        {/* Today's Schedule - Calendar events for today */}
+        <TodayScheduleSection />
 
         {/* Today Focus Card - Context-aware summary (mobile/tablet only) */}
         <div className="lg:hidden">

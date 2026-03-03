@@ -79,8 +79,10 @@ import { compileExecutionMetrics } from '@/lib/executionAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useCalendarSync } from '@/hooks/useCalendarSync';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useTaskCalendarEvents } from '@/hooks/useTaskCalendarEvents';
 import { isAppleDevice } from '@/lib/calendarService';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
@@ -174,6 +176,7 @@ interface PlanData {
 const Plan = () => {
   const { profile, logout, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
   const [planCreatedAt, setPlanCreatedAt] = useState<string | null>(null);
@@ -336,6 +339,28 @@ const Plan = () => {
 
     fetchPlan();
   }, [user]);
+
+  // Deep link: highlight a task from calendar deep link
+  useEffect(() => {
+    const highlightParam = searchParams.get('highlight');
+    if (!highlightParam || !plan) return;
+
+    // Clear param
+    setSearchParams({}, { replace: true });
+
+    // Small delay so DOM is rendered
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Try to find element with matching task ID
+        const el = document.querySelector(`[data-task-id="${highlightParam}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('pulse-highlight');
+          setTimeout(() => el.classList.remove('pulse-highlight'), 2000);
+        }
+      }, 300);
+    });
+  }, [plan, searchParams]);
 
   // Initialize execution timer hook
   const executionTimer = useExecutionTimer({
@@ -892,19 +917,25 @@ const Plan = () => {
 
   // In-app calendar events hook
   const { createEvent: createCalendarEvent } = useCalendarEvents();
-  const handleScheduleInApp = useCallback((title: string, description: string, suggestedDate: Date) => {
-    const endDate = new Date(suggestedDate);
-    endDate.setHours(endDate.getHours() + 1);
-    createCalendarEvent.mutate({
-      title,
-      description: description || undefined,
-      start_time: suggestedDate.toISOString(),
-      end_time: endDate.toISOString(),
-      reminder_minutes: 10,
-      plan_id: planId || undefined,
-      task_ref: `week-${Math.floor(Math.random())}-task`,
-    });
-  }, [createCalendarEvent, planId]);
+  
+  // Task-calendar linkage: track which tasks have calendar events
+  const { eventMap: taskCalendarEvents, updateEventStatus } = useTaskCalendarEvents(planId);
+  
+  // When a task is toggled to done, update linked calendar event status
+  const originalToggleTask = toggleTask;
+  const toggleTaskWithCalendar = useCallback(async (weekIndex: number, taskIndex: number) => {
+    await originalToggleTask(weekIndex, taskIndex);
+    const taskRef = `week-${weekIndex}-task-${taskIndex}`;
+    const linkedEvent = taskCalendarEvents.get(taskRef);
+    if (linkedEvent) {
+      const task = plan?.weeks[weekIndex]?.tasks[taskIndex];
+      const wasCompleted = task?.execution_state === 'done' || task?.completed;
+      // After toggle, if it was not completed -> now completed
+      if (!wasCompleted) {
+        updateEventStatus.mutate({ taskRef, status: 'completed' });
+      }
+    }
+  }, [originalToggleTask, taskCalendarEvents, updateEventStatus, plan]);
 
   // Flow view interaction state - disable swipe when user is interacting with flow
   const [flowViewActive, setFlowViewActive] = useState(false);
@@ -966,6 +997,10 @@ const Plan = () => {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* Calendar quick link */}
+            <Button variant="ghost" size="icon" onClick={() => navigate('/calendar')} className="text-muted-foreground hover:text-foreground" title="Calendar">
+              <Calendar className="w-4 h-4" />
+            </Button>
             {saving && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -1321,10 +1356,11 @@ const Plan = () => {
                               isWeekComplete={isWeekComplete}
                               isLockedWeek={isLockedWeek}
                               planCreatedAt={planCreatedAt || undefined}
-                              onToggle={() => toggleTask(weekIndex, taskIndex)}
+                              onToggle={() => toggleTaskWithCalendar(weekIndex, taskIndex)}
                               onCalendarStatusChange={triggerCalendarRefresh}
                               onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
                               onScheduleInApp={(t, d, date) => {
+                                const taskRef = `week-${weekIndex}-task-${taskIndex}`;
                                 const endDate = new Date(date);
                                 endDate.setHours(endDate.getHours() + Math.max(1, task.estimated_hours));
                                 createCalendarEvent.mutate({
@@ -1334,9 +1370,10 @@ const Plan = () => {
                                   end_time: endDate.toISOString(),
                                   reminder_minutes: 10,
                                   plan_id: planId || undefined,
-                                  task_ref: `week-${weekIndex}-task-${taskIndex}`,
+                                  task_ref: taskRef,
                                 });
                               }}
+                              calendarEvent={taskCalendarEvents.get(`week-${weekIndex}-task-${taskIndex}`) || undefined}
                               executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
                               elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
                               onSplit={() => {
