@@ -1,40 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { TaskCalendarEvent } from '@/hooks/useTaskCalendarEvents';
 import { TaskCalendarBadge } from '@/components/TaskCalendarBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarCheck, RotateCcw, Check, X } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createSingleTaskCalendarEvent, isAppleDevice, isAndroidDevice, getPlanStartDate, calculateTaskEventDate, getCalendarButtonLabel } from '@/lib/calendarService';
-import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { playCalendarConfirmSound } from '@/lib/celebrationSound';
-import { hapticSuccess } from '@/lib/hapticFeedback';
-import { 
-  useTaskCalendarStatus, 
-  getTaskCalendarStatus, 
-  markTaskAsScheduled,
-  type CalendarPlatform,
-} from '@/hooks/useCalendarStatus';
 
 // Legacy export for backward compatibility
-export const isTaskAddedToCalendar = (weekNumber: number, taskIndex: number): boolean => {
-  const status = getTaskCalendarStatus(weekNumber, taskIndex);
-  return status.status === 'scheduled';
-};
-
-export const markWeekTasksAsCalendarAdded = (weekNumber: number, taskCount: number) => {
-  for (let i = 0; i < taskCount; i++) {
-    const suggestedDate = new Date();
-    suggestedDate.setHours(9, 0, 0, 0);
-    markTaskAsScheduled(weekNumber, i, suggestedDate, 'unknown');
-  }
-};
+export const isTaskAddedToCalendar = (_weekNumber: number, _taskIndex: number): boolean => false;
+export const markWeekTasksAsCalendarAdded = (_weekNumber: number, _taskCount: number) => {};
 
 interface TaskExplanation {
   how: string;
@@ -58,7 +35,8 @@ interface TaskItemProps {
   planCreatedAt?: string;
   onCalendarStatusChange?: () => void;
   onStartTask?: () => void;
-  onScheduleInApp?: (title: string, description: string, suggestedDate: Date) => void;
+  /** Opens the scheduling modal in the parent */
+  onOpenScheduleModal?: () => void;
   /** execution_state is the source of truth for task state */
   executionState?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
@@ -78,7 +56,6 @@ const getPriorityColor = (priority: string) => {
   }
 };
 
-// Helper to normalize explanation structure
 function getExplanationDetails(props: TaskItemProps): {
   how: string;
   why: string;
@@ -88,7 +65,6 @@ function getExplanationDetails(props: TaskItemProps): {
 } {
   const { explanation, howTo, expectedOutcome } = props;
   
-  // Handle nested explanation object (new structure)
   if (explanation && typeof explanation === 'object') {
     const exp = explanation as TaskExplanation;
     const hasDetails = !!(exp.how || exp.why || exp.expected_outcome);
@@ -101,7 +77,6 @@ function getExplanationDetails(props: TaskItemProps): {
     };
   }
   
-  // Handle flat structure (legacy)
   const legacyWhy = typeof explanation === 'string' ? explanation : '';
   const hasDetails = !!(legacyWhy || howTo || expectedOutcome);
   
@@ -130,52 +105,15 @@ export function TaskItem({
   planCreatedAt,
   onCalendarStatusChange,
   onStartTask,
-  onScheduleInApp,
+  onOpenScheduleModal,
   executionState = 'idle',
   elapsedSeconds = 0,
   calendarEvent,
 }: TaskItemProps) {
-  // Derive status from execution_state (source of truth), with legacy fallback
   const isDone = executionState === 'done' || (executionState === 'idle' && completed);
   const isActive = executionState === 'doing';
   const isPaused = executionState === 'paused';
   const [isOpen, setIsOpen] = useState(false);
-  const [calendarPopoverOpen, setCalendarPopoverOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedHour, setSelectedHour] = useState<string>('9');
-  const [calendarOpened, setCalendarOpened] = useState(false); // Track if user has opened calendar
-  const [showAndroidConfirmation, setShowAndroidConfirmation] = useState(false); // Android-specific confirmation
-  const [pendingScheduleDate, setPendingScheduleDate] = useState<Date | null>(null); // Date pending confirmation
-  
-  // Detect if on Android
-  const isAndroid = isAndroidDevice();
-  
-  // Use the simplified calendar status hook
-  const { 
-    status: calendarStatus, 
-    scheduledAt,
-    pendingConfirmation,
-    markScheduled, 
-    markPending,
-    reset: resetCalendarStatus,
-    refresh: refreshCalendarStatus,
-  } = useTaskCalendarStatus(weekNumber, taskIndex);
-  
-  // Calculate the scheduled date for preview
-  const getScheduledDate = (): Date | null => {
-    if (weekNumber === undefined || taskIndex === undefined) return null;
-    const planStartDate = getPlanStartDate(planCreatedAt);
-    return calculateTaskEventDate(planStartDate, weekNumber, taskIndex);
-  };
-  
-  const suggestedDate = getScheduledDate();
-  
-  // Initialize selected date when popover opens
-  useEffect(() => {
-    if (calendarPopoverOpen && suggestedDate && !selectedDate) {
-      setSelectedDate(suggestedDate);
-    }
-  }, [calendarPopoverOpen, suggestedDate, selectedDate]);
   
   const details = getExplanationDetails({
     title, priority, estimatedHours, completed, onToggle,
@@ -192,159 +130,9 @@ export function TaskItem({
     onToggle();
   };
 
-  // Opens external calendar ONLY - does NOT update any state
-  const handleOpenCalendar = (customDate?: Date) => {
-    if (weekNumber !== undefined && taskIndex !== undefined) {
-      const taskInput = {
-        title,
-        priority,
-        estimated_hours: estimatedHours,
-        explanation,
-        how_to: howTo,
-        expected_outcome: expectedOutcome
-      };
-      
-      // Use plan's created_at date for correct future date calculation
-      const planStartDate = getPlanStartDate(planCreatedAt);
-      createSingleTaskCalendarEvent(taskInput, weekNumber, taskIndex, planStartDate, customDate);
-      
-      const dateToShow = customDate || suggestedDate;
-      
-      // Android: Show confirmation dialog after returning
-      if (isAndroid) {
-        setPendingScheduleDate(dateToShow || new Date());
-        setShowAndroidConfirmation(true);
-        setCalendarPopoverOpen(false);
-        
-        toast({
-          title: "Calendar opened",
-          description: "Complete adding the event, then confirm below.",
-        });
-      } else {
-        // iOS/Desktop: Track that calendar was opened (for showing inline actions)
-        setCalendarOpened(true);
-        setCalendarPopoverOpen(false);
-        
-        toast({
-          title: "Calendar opened",
-          description: dateToShow 
-            ? `Add "${title}" for ${format(dateToShow, 'EEEE, MMM d')} at ${format(dateToShow, 'h:mm a')}.`
-            : `Add "${title}" to your calendar.`,
-        });
-      }
-    }
-  };
-  
-  // User explicitly confirms they added to calendar
-  const handleMarkAsScheduled = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    // Use the selected date or suggested date
-    const dateToUse = selectedDate || suggestedDate;
-    if (!dateToUse) {
-      toast({
-        title: "No date selected",
-        description: "Please select a date first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Create date with selected hour
-    const scheduledDate = new Date(dateToUse);
-    scheduledDate.setHours(parseInt(selectedHour), 0, 0, 0);
-    
-    const platform: CalendarPlatform = isAndroid ? 'android' : isAppleDevice() ? 'ios' : 'desktop';
-    
-    hapticSuccess();
-    playCalendarConfirmSound();
-    markScheduled(scheduledDate, platform);
-    setCalendarOpened(false);
-    setShowAndroidConfirmation(false);
-    setPendingScheduleDate(null);
-    
-    toast({
-      title: "Marked as scheduled",
-      description: `"${title}" scheduled for ${format(scheduledDate, 'EEEE, MMM d')} at ${format(scheduledDate, 'h:mm a')}.`,
-    });
-    
-    // Notify parent to refresh weekly calendar
-    onCalendarStatusChange?.();
-  };
-  
-  // Android confirmation: User confirms they added the event
-  const handleAndroidConfirmYes = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    if (pendingScheduleDate) {
-      const scheduledDate = new Date(pendingScheduleDate);
-      scheduledDate.setHours(parseInt(selectedHour), 0, 0, 0);
-      
-      hapticSuccess();
-      playCalendarConfirmSound();
-      markScheduled(scheduledDate, 'android');
-      setShowAndroidConfirmation(false);
-      setPendingScheduleDate(null);
-      setCalendarOpened(false);
-      
-      toast({
-        title: "Event confirmed!",
-        description: `"${title}" added to your weekly schedule.`,
-      });
-      
-      onCalendarStatusChange?.();
-    }
-  };
-  
-  // Android confirmation: User wants to try again
-  const handleAndroidConfirmNo = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    setShowAndroidConfirmation(false);
-    setPendingScheduleDate(null);
-    resetCalendarStatus();
-    
-    toast({
-      title: "No problem!",
-      description: "Tap 'Add to Calendar' to try again.",
-    });
-  };
-  
-  // User wants to add again
-  const handleAddAgain = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    resetCalendarStatus();
-    setCalendarOpened(false);
-    onCalendarStatusChange?.();
-  };
-
-  const handleQuickAdd = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    handleOpenCalendar();
-  };
-
-  const handleCustomDateAdd = () => {
-    if (selectedDate) {
-      const dateWithTime = new Date(selectedDate);
-      dateWithTime.setHours(parseInt(selectedHour), 0, 0, 0);
-      handleOpenCalendar(dateWithTime);
-    }
-  };
-
-  // Generate time options
-  const timeOptions = Array.from({ length: 14 }, (_, i) => {
-    const hour = i + 6; // 6 AM to 7 PM
-    return {
-      value: hour.toString(),
-      label: format(new Date().setHours(hour, 0), 'h:mm a'),
-    };
-  });
-  
-  // Determine what UI to show
-  const showScheduledBadge = calendarStatus === 'scheduled' && scheduledAt;
-  const showInlineActions = calendarOpened && calendarStatus === 'not_added' && !completed && !isAndroid;
-  const showCalendarButtons = showCalendarButton && !isLocked && !completed && calendarStatus === 'not_added' && !calendarOpened && suggestedDate && !showAndroidConfirmation;
-  const showAndroidConfirmUI = isAndroid && showAndroidConfirmation && !completed;
+  const hasCalendarEvent = !!calendarEvent;
+  const isReschedule = hasCalendarEvent && calendarEvent.status !== 'completed';
+  const showScheduleButton = showCalendarButton && !isLocked && !completed && onOpenScheduleModal;
 
   return (
     <div
@@ -361,7 +149,7 @@ export function TaskItem({
         )}
         onClick={handleClick}
       >
-        {/* Touch-friendly checkbox wrapper */}
+        {/* Checkbox */}
         <div 
           className="relative flex items-center justify-center touch-checkbox"
           onClick={(e) => {
@@ -414,7 +202,6 @@ export function TaskItem({
               {estimatedHours}h
             </span>
             
-            {/* Show warning for tasks without explanations */}
             {details.needsRegeneration && !isLocked && (
               <span className="text-xs text-amber-500 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
@@ -422,7 +209,6 @@ export function TaskItem({
               </span>
             )}
             
-            {/* Locked task indicator - subtle message */}
             {isLocked && !completed && (
               <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
                 <Lock className="w-3 h-3" />
@@ -430,7 +216,6 @@ export function TaskItem({
               </span>
             )}
             
-            {/* Expand button for tasks with details - touch optimized */}
             {details.hasDetails && (
               <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                 <CollapsibleTrigger asChild>
@@ -455,199 +240,37 @@ export function TaskItem({
               </Collapsible>
             )}
             
-            {/* Calendar event badge from database - shows linked event status */}
-            {calendarEvent && !showScheduledBadge && (
+            {/* Calendar event badge */}
+            {calendarEvent && (
               <div onClick={(e) => e.stopPropagation()}>
                 <TaskCalendarBadge event={calendarEvent} compact />
               </div>
             )}
             
-            {/* Scheduled badge - shows when task is confirmed scheduled (local storage) */}
-            {showScheduledBadge && !calendarEvent && (
-              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <span className="text-xs text-primary flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-md">
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  <span>{format(new Date(scheduledAt!), 'EEE, MMM d')}</span>
-                </span>
+            {/* Schedule / Reschedule button */}
+            {showScheduleButton && (
+              <div onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleAddAgain}
-                  className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted/50"
-                  title="Remove and add again"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-            
-            {/* Inline actions - shown after user opens calendar (iOS/Desktop only) */}
-            {showInlineActions && (
-              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleMarkAsScheduled}
-                  className="h-8 px-3 text-xs gradient-kaamyab hover:opacity-90"
-                >
-                  <CalendarCheck className="w-4 h-4 mr-1.5" />
-                  Mark as scheduled
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleOpenCalendar();
+                    onOpenScheduleModal!();
                   }}
-                  className="h-8 px-2 text-xs"
-                  title="Open calendar again"
+                  className="h-8 px-2.5 text-xs text-primary hover:bg-primary/10 min-h-[36px]"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            
-            {/* Android confirmation UI - shown after returning from calendar */}
-            {showAndroidConfirmUI && (
-              <div className="w-full mt-2" onClick={(e) => e.stopPropagation()}>
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
-                  <p className="text-sm font-medium text-foreground">
-                    Did you add this event to your calendar?
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAndroidConfirmYes}
-                      className="flex-1 h-9 text-xs gradient-kaamyab hover:opacity-90"
-                    >
-                      <Check className="w-4 h-4 mr-1.5" />
-                      Yes, I added it
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAndroidConfirmNo}
-                      className="flex-1 h-9 text-xs"
-                    >
-                      <RotateCcw className="w-4 h-4 mr-1.5" />
-                      No, add again
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Calendar buttons - only show when not_added and not opened yet */}
-            {showCalendarButtons && (
-              <div className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-1.5">
-                  {/* In-App Calendar button */}
-                  {onScheduleInApp && suggestedDate && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const desc = details.how ? `How: ${details.how}` : '';
-                        onScheduleInApp(title, desc, suggestedDate);
-                      }}
-                      className="h-9 px-2 text-xs text-primary hover:bg-primary/10 min-h-[36px]"
-                      title="Add to in-app calendar"
-                    >
-                      <CalendarCheck className="w-4 h-4 mr-1" />
-                      <span className="hidden sm:inline">In-App</span>
-                    </Button>
+                  {isReschedule ? (
+                    <>
+                      <CalendarClock className="w-4 h-4 mr-1" />
+                      Reschedule
+                    </>
+                  ) : (
+                    <>
+                      <CalendarPlus className="w-4 h-4 mr-1" />
+                      Schedule
+                    </>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleQuickAdd}
-                    className="h-9 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 active:bg-primary/10 min-h-[36px] hidden sm:flex"
-                    title={`Quick add for ${format(suggestedDate!, 'EEEE, MMMM d')} at 9:00 AM`}
-                  >
-                    <CalendarPlus className="w-4 h-4 mr-1" />
-                    {format(suggestedDate!, 'MMM d')}
-                  </Button>
-                  
-                  {/* Custom date picker popover */}
-                  <Popover open={calendarPopoverOpen} onOpenChange={setCalendarPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 px-3 text-xs border-primary/30 hover:bg-primary/5 active:bg-primary/10 min-h-[36px]"
-                      >
-                        <CalendarPlus className="w-4 h-4 sm:mr-1.5" />
-                        <span className="hidden sm:inline">Pick date</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0 z-50" 
-                      align="end"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="p-3 space-y-3">
-                        <div className="text-sm font-medium text-foreground">
-                          Schedule: {title.slice(0, 30)}{title.length > 30 ? '...' : ''}
-                        </div>
-                        
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                          initialFocus
-                          className="rounded-md border pointer-events-auto"
-                        />
-                        
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-muted-foreground" />
-                          <Select value={selectedHour} onValueChange={setSelectedHour}>
-                            <SelectTrigger className="flex-1 h-10">
-                              <SelectValue placeholder="Select time" />
-                            </SelectTrigger>
-                            <SelectContent className="z-[60]">
-                              {timeOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="flex gap-2 pt-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => setCalendarPopoverOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="flex-1"
-                            onClick={handleCustomDateAdd}
-                            disabled={!selectedDate}
-                          >
-                            <CalendarPlus className="w-4 h-4 mr-1.5" />
-                            {getCalendarButtonLabel()}
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                
-                {/* Android helper text */}
-                {isAndroid && (
-                  <p className="text-[10px] text-muted-foreground/70 pl-0.5">
-                    For best experience, Google Calendar is recommended.
-                  </p>
-                )}
+                </Button>
               </div>
             )}
           </div>
