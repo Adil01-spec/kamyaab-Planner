@@ -54,6 +54,8 @@ import { ShareReviewButton } from '@/components/ShareReviewButton';
 import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { AddTaskModal } from '@/components/AddTaskModal';
 import { SplitTaskModal } from '@/components/SplitTaskModal';
+import { CalendarSelectionModal, type CalendarScheduleData } from '@/components/CalendarSelectionModal';
+import { getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { useTaskMutations, NewTask } from '@/hooks/useTaskMutations';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
@@ -199,6 +201,11 @@ const Plan = () => {
   // Manual task control state
   const [addTaskModalWeek, setAddTaskModalWeek] = useState<number | null>(null);
   const [splitTaskData, setSplitTaskData] = useState<{
+    weekIndex: number;
+    taskIndex: number;
+    task: Task;
+  } | null>(null);
+  const [scheduleModalData, setScheduleModalData] = useState<{
     weekIndex: number;
     taskIndex: number;
     task: Task;
@@ -1359,18 +1366,11 @@ const Plan = () => {
                               onToggle={() => toggleTaskWithCalendar(weekIndex, taskIndex)}
                               onCalendarStatusChange={triggerCalendarRefresh}
                               onStartTask={() => handleStartTaskClick(weekIndex, taskIndex, task.title, task.estimated_hours)}
-                              onScheduleInApp={(t, d, date) => {
-                                const taskRef = `week-${weekIndex}-task-${taskIndex}`;
-                                const endDate = new Date(date);
-                                endDate.setHours(endDate.getHours() + Math.max(1, task.estimated_hours));
-                                createCalendarEvent.mutate({
-                                  title: t,
-                                  description: d || undefined,
-                                  start_time: date.toISOString(),
-                                  end_time: endDate.toISOString(),
-                                  reminder_minutes: 10,
-                                  plan_id: planId || undefined,
-                                  task_ref: taskRef,
+                              onOpenScheduleModal={() => {
+                                setScheduleModalData({
+                                  weekIndex,
+                                  taskIndex,
+                                  task: task as Task,
                                 });
                               }}
                               calendarEvent={taskCalendarEvents.get(`week-${weekIndex}-task-${taskIndex}`) || undefined}
@@ -1672,6 +1672,44 @@ const Plan = () => {
           onOpenChange={(open) => !open && setSplitTaskData(null)}
           task={splitTaskData.task}
           onSplit={(task1, task2) => splitTask(splitTaskData.weekIndex, splitTaskData.taskIndex, task1, task2)}
+        />
+      )}
+
+      {/* Schedule Task Modal */}
+      {scheduleModalData && plan && (
+        <CalendarSelectionModal
+          open={!!scheduleModalData}
+          onOpenChange={(open) => !open && setScheduleModalData(null)}
+          taskTitle={scheduleModalData.task.title}
+          estimatedHours={scheduleModalData.task.estimated_hours}
+          defaultDate={(() => {
+            const planStart = getPlanStartDate(planCreatedAt || undefined);
+            return calculateTaskEventDate(planStart, scheduleModalData.weekIndex, scheduleModalData.taskIndex) || new Date();
+          })()}
+          existingEvent={taskCalendarEvents.get(`week-${scheduleModalData.weekIndex}-task-${scheduleModalData.taskIndex}`) || null}
+          isSaving={createCalendarEvent.isPending}
+          onSave={(data: CalendarScheduleData) => {
+            const taskRef = `week-${scheduleModalData.weekIndex}-task-${scheduleModalData.taskIndex}`;
+            const startTime = new Date(data.date);
+            startTime.setHours(data.startHour, 0, 0, 0);
+            const endTime = new Date(startTime);
+            endTime.setHours(endTime.getHours() + data.durationHours);
+
+            createCalendarEvent.mutate({
+              title: scheduleModalData.task.title,
+              description: scheduleModalData.task.explanation
+                ? typeof scheduleModalData.task.explanation === 'object'
+                  ? `How: ${(scheduleModalData.task.explanation as any).how || ''}`
+                  : String(scheduleModalData.task.explanation)
+                : undefined,
+              start_time: startTime.toISOString(),
+              end_time: endTime.toISOString(),
+              reminder_minutes: data.reminderMinutes,
+              plan_id: planId || undefined,
+              task_ref: taskRef,
+            });
+            setScheduleModalData(null);
+          }}
         />
       )}
     </div>
