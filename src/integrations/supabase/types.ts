@@ -103,6 +103,57 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_payments: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          approved_at: string | null
+          created_at: string | null
+          currency: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          payment_method: string
+          plan_tier: string
+          screenshot_url: string | null
+          status: string | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          approved_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          payment_method: string
+          plan_tier: string
+          screenshot_url?: string | null
+          status?: string | null
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          approved_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          payment_method?: string
+          plan_tier?: string
+          screenshot_url?: string | null
+          status?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       plan_collaborators: {
         Row: {
           accepted_at: string | null
@@ -429,6 +480,8 @@ export type Database = {
           grace_ends_at: string | null
           id: string
           last_plan_completed_at: string | null
+          pending_expires_at: string | null
+          pending_plan_tier: string | null
           plan_memory: Json | null
           profession: string | null
           profession_details: Json | null
@@ -454,6 +507,8 @@ export type Database = {
           grace_ends_at?: string | null
           id: string
           last_plan_completed_at?: string | null
+          pending_expires_at?: string | null
+          pending_plan_tier?: string | null
           plan_memory?: Json | null
           profession?: string | null
           profession_details?: Json | null
@@ -479,6 +534,8 @@ export type Database = {
           grace_ends_at?: string | null
           id?: string
           last_plan_completed_at?: string | null
+          pending_expires_at?: string | null
+          pending_plan_tier?: string | null
           plan_memory?: Json | null
           profession?: string | null
           profession_details?: Json | null

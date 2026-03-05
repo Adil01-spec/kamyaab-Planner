@@ -31,6 +31,7 @@ import Ownership from "./pages/Ownership";
 import Help from "./pages/Help";
 import Profile from "./pages/Profile";
 import CalendarPage from "./pages/Calendar";
+import AdminPayments from "./pages/AdminPayments";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 
@@ -153,6 +154,14 @@ const App = () => (
               element={
                 <ProtectedRoute requireProfile>
                   <CalendarPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/payments" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <AdminPayments />
                 </ProtectedRoute>
               } 
             />

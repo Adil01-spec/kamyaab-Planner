@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.get-plan-feedback-summary]
 verify_jwt = false
+
+[functions.approve-manual-payment]
+verify_jwt = false
