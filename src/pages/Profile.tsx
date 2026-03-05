@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
+import { getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS, type ProductTier } from '@/lib/subscriptionTiers';
 import { Footer } from '@/components/Footer';
 import { EditProfileModal } from '@/components/EditProfileModal';
 import { DeferredProfileCard } from '@/components/DeferredProfileCard';
+import { ManualPaymentModal } from '@/components/payments/ManualPaymentModal';
+import { PendingPaymentBanner } from '@/components/payments/PendingPaymentBanner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil, CalendarDays, Bell } from 'lucide-react';
+import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil, CalendarDays, Bell, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { type CalendarTarget, getCalendarPreference, setCalendarPreference } from '@/components/CalendarSelectionModal';
 
@@ -49,7 +51,8 @@ const Profile = () => {
   const { user, profile, logout } = useAuth();
   const subscription = useSubscription();
   const [editOpen, setEditOpen] = useState(false);
-
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<ProductTier>('pro');
   // Calendar settings state
   const [calendarPref, setCalendarPref] = useState<CalendarTarget>(getCalendarPreference() || 'in_app');
   const [reminderTime, setReminderTime] = useState(getDefaultReminder());
@@ -133,6 +136,11 @@ const Profile = () => {
         </Card>
 
         <EditProfileModal open={editOpen} onOpenChange={setEditOpen} />
+        <ManualPaymentModal 
+          open={paymentOpen} 
+          onOpenChange={setPaymentOpen} 
+          selectedTier={selectedUpgradeTier} 
+        />
 
         {/* Deferred Profile Completion */}
         <DeferredProfileCard />
@@ -167,10 +175,42 @@ const Profile = () => {
               </div>
             )}
 
+            <PendingPaymentBanner />
+
             {subscription.daysRemaining !== null && subscription.daysRemaining <= 30 && (
               <p className="text-xs text-muted-foreground">
                 {subscription.daysRemaining} days remaining
               </p>
+            )}
+
+            {/* Upgrade options for non-business tiers */}
+            {subscription.tier !== 'business' && (
+              <div className="space-y-2 pt-2 border-t border-border/30">
+                <p className="text-xs font-medium text-foreground/80 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  Upgrade Plan
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['student', 'pro', 'business'] as const)
+                    .filter(t => {
+                      const tiers = ['standard', 'student', 'pro', 'business'];
+                      return tiers.indexOf(t) > tiers.indexOf(subscription.tier);
+                    })
+                    .map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { setSelectedUpgradeTier(t); setPaymentOpen(true); }}
+                        className="rounded-lg border border-border/50 bg-card px-3 py-2 text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 text-foreground"
+                      >
+                        <span className="block">{TIER_DEFINITIONS[t].name}</span>
+                        <span className="block text-muted-foreground text-[10px] mt-0.5">
+                          {formatPKRPrice(TIER_DEFINITIONS[t].priceMonthlyPKR)}
+                        </span>
+                      </button>
+                    ))
+                  }
+                </div>
+              </div>
             )}
 
             <Button
