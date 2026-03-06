@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { PaymentInstructions } from './PaymentInstructions';
-import { useAuth } from '@/contexts/AuthContext';
+import { WhatsAppPaymentButton } from '@/components/WhatsAppPaymentButton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatPKRPrice, TIER_DEFINITIONS, type ProductTier } from '@/lib/subscriptionTiers';
@@ -274,6 +274,12 @@ export function ManualPaymentModal({ open, onOpenChange, selectedTier, onSuccess
               maxLength={500}
               rows={2}
             />
+          </div>
+
+          {/* WhatsApp alternative */}
+          <div className="flex items-center gap-2 py-1">
+            <span className="text-xs text-muted-foreground">Or submit proof via</span>
+            <WhatsAppPaymentButton variant="ghost" size="sm" />
           </div>
 
           {/* Submit */}
