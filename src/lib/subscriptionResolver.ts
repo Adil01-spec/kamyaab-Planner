@@ -38,6 +38,8 @@ export interface EffectiveSubscription {
   isActive: boolean;
   /** Days until expiration (null if no expiration or expired) */
   daysRemaining: number | null;
+  /** Whether user is in grace with restricted access */
+  isGraceRestricted: boolean;
 }
 
 /**
@@ -76,10 +78,12 @@ export function getEffectiveSubscription(
   const isPaid = tier !== 'standard';
   
   // Can user access paid features?
-  // For now, ALL non-standard tiers are active (no enforcement yet)
-  // Future: Will check expiration, grace period, canceled state
-  const isActive = isPaid;
+  // Active if paid and not fully expired
+  const isActive = isPaid && (state !== 'expired' || inGrace);
   
+  // Grace-restricted: in grace period, can view but not create
+  const isGraceRestricted = inGrace && state === 'grace';
+
   return {
     tier,
     state,
@@ -87,6 +91,7 @@ export function getEffectiveSubscription(
     inGrace,
     isActive,
     daysRemaining,
+    isGraceRestricted,
   };
 }
 
