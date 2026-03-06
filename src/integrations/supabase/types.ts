@@ -117,6 +117,7 @@ export type Database = {
           plan_tier: string
           screenshot_url: string | null
           status: string | null
+          subscription_id: string | null
           transaction_id: string | null
           user_id: string
         }
@@ -133,6 +134,7 @@ export type Database = {
           plan_tier: string
           screenshot_url?: string | null
           status?: string | null
+          subscription_id?: string | null
           transaction_id?: string | null
           user_id: string
         }
@@ -149,10 +151,19 @@ export type Database = {
           plan_tier?: string
           screenshot_url?: string | null
           status?: string | null
+          subscription_id?: string | null
           transaction_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "manual_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_collaborators: {
         Row: {
@@ -744,6 +755,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscriptions: {
+        Row: {
+          billing_cycle: string
+          created_at: string | null
+          end_date: string
+          grace_end: string | null
+          id: string
+          payment_source: string | null
+          plan_tier: string
+          start_date: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          billing_cycle?: string
+          created_at?: string | null
+          end_date: string
+          grace_end?: string | null
+          id?: string
+          payment_source?: string | null
+          plan_tier: string
+          start_date: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          billing_cycle?: string
+          created_at?: string | null
+          end_date?: string
+          grace_end?: string | null
+          id?: string
+          payment_source?: string | null
+          plan_tier?: string
+          start_date?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

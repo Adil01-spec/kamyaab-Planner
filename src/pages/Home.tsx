@@ -54,6 +54,7 @@ import { HomeDesktopCard } from '@/components/HomeDesktopCard';
 import { TodayProgressRing } from '@/components/TodayProgressRing';
 import { DeferredProfileCard } from '@/components/DeferredProfileCard';
 import { MissedEventsBanner } from '@/components/MissedEventsBanner';
+import { RenewalBanner } from '@/components/RenewalBanner';
 
 interface Task {
   title: string;
@@ -644,6 +645,9 @@ const Home = () => {
         <div className="mb-6">
           <DeferredProfileCard />
         </div>
+
+        {/* Renewal Banner */}
+        <RenewalBanner />
 
         {/* Missed Calendar Events Banner */}
         <MissedEventsBanner />

@@ -80,19 +80,41 @@ Deno.serve(async (req) => {
     }
 
     if (action === "approve") {
-      // Update payment status
+      const now = new Date();
+      const startDate = now.toISOString();
+      const endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const graceEnd = new Date(now.getTime() + 33 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Create subscription record
+      const { data: sub, error: subErr } = await supabase
+        .from("subscriptions")
+        .insert({
+          user_id: payment.user_id,
+          plan_tier: payment.plan_tier,
+          billing_cycle: "monthly",
+          status: "active",
+          start_date: startDate,
+          end_date: endDate,
+          grace_end: graceEnd,
+          payment_source: "manual",
+        })
+        .select("id")
+        .single();
+
+      if (subErr) {
+        console.error("Failed to create subscription:", subErr);
+      }
+
+      // Update payment status and link subscription
       await supabase
         .from("manual_payments")
         .update({
           status: "approved",
-          approved_at: new Date().toISOString(),
+          approved_at: now.toISOString(),
           admin_notes: notes || null,
+          subscription_id: sub?.id || null,
         })
         .eq("id", payment_id);
-
-      // Calculate expiration (30 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
 
       // Activate subscription on profile
       await supabase
@@ -100,7 +122,7 @@ Deno.serve(async (req) => {
         .update({
           subscription_tier: payment.plan_tier,
           subscription_state: "active",
-          subscription_expires_at: expiresAt.toISOString(),
+          subscription_expires_at: endDate,
           subscription_provider: "manual",
           pending_plan_tier: null,
           pending_expires_at: null,

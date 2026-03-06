@@ -34,6 +34,7 @@ import CalendarPage from "./pages/Calendar";
 import AdminPayments from "./pages/AdminPayments";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
+import { AdsenseLoader } from "@/components/AdsenseLoader";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
         <TooltipProvider>
         <Toaster />
         <Sonner position="top-center" />
+        <AdsenseLoader />
         <BrowserRouter>
           <ReminderChecker />
           <Routes>

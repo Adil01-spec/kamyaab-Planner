@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.approve-manual-payment]
 verify_jwt = false
+
+[functions.subscription-renewal-reminders]
+verify_jwt = false
