@@ -8,6 +8,8 @@ import { EditProfileModal } from '@/components/EditProfileModal';
 import { DeferredProfileCard } from '@/components/DeferredProfileCard';
 import { ManualPaymentModal } from '@/components/payments/ManualPaymentModal';
 import { PendingPaymentBanner } from '@/components/payments/PendingPaymentBanner';
+import { RenewalBanner } from '@/components/RenewalBanner';
+import { WhatsAppPaymentButton } from '@/components/WhatsAppPaymentButton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -145,6 +147,9 @@ const Profile = () => {
         {/* Deferred Profile Completion */}
         <DeferredProfileCard />
 
+        {/* Renewal Banner */}
+        <RenewalBanner />
+
         {/* Current Plan */}
         <Card className="border-border/30 bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-3">
@@ -177,10 +182,17 @@ const Profile = () => {
 
             <PendingPaymentBanner />
 
-            {subscription.daysRemaining !== null && subscription.daysRemaining <= 30 && (
-              <p className="text-xs text-muted-foreground">
-                {subscription.daysRemaining} days remaining
-              </p>
+            {subscription.daysRemaining !== null && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{subscription.daysRemaining} days remaining</span>
+                {subscription.isPaid && subscription.daysRemaining <= 30 && (
+                  <span className="text-foreground/70">
+                    Expires: {subscription.daysRemaining > 0 
+                      ? `in ${subscription.daysRemaining} days` 
+                      : 'Expired'}
+                  </span>
+                )}
+              </div>
             )}
 
             {/* Upgrade options for non-business tiers */}

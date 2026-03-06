@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { PaymentInstructions } from './PaymentInstructions';
 import { WhatsAppPaymentButton } from '@/components/WhatsAppPaymentButton';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatPKRPrice, TIER_DEFINITIONS, type ProductTier } from '@/lib/subscriptionTiers';
