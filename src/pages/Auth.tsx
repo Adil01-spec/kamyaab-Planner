@@ -764,6 +764,29 @@ const Auth = () => {
                       </div>
                     )}
 
+                    {view === 'signup' && (
+                      <div className="flex items-start gap-3 py-1">
+                        <Checkbox
+                          id="terms-mobile"
+                          checked={acceptedTerms}
+                          onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                          disabled={loading}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="terms-mobile" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                          I agree to the{' '}
+                          <Link 
+                            to="/terms" 
+                            target="_blank"
+                            className="text-primary hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Terms of Service
+                          </Link>
+                        </label>
+                      </div>
+                    )}
+
                     <Button 
                       type="submit" 
                       className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
