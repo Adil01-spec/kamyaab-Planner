@@ -628,7 +628,7 @@ const Auth = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95 pointer-events-none" />
         
         {/* Content Container */}
-        <div className="relative z-10 flex-1 flex flex-col px-5 pt-8 pb-6 safe-area-bottom">
+        <div className="relative z-10 flex-1 flex flex-col px-5 pt-8 pb-6 safe-area-bottom overflow-y-auto">
           {/* Quote Card at Top */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
