@@ -628,7 +628,7 @@ const Auth = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/40 to-background/95 pointer-events-none" />
         
         {/* Content Container */}
-        <div className="relative z-10 flex-1 flex flex-col px-5 pt-8 pb-6 safe-area-bottom">
+        <div className="relative z-10 flex-1 flex flex-col px-5 pt-8 pb-6 safe-area-bottom overflow-y-auto">
           {/* Quote Card at Top */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -761,6 +761,29 @@ const Auth = () => {
                         >
                           {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
+                      </div>
+                    )}
+
+                    {view === 'signup' && (
+                      <div className="flex items-start gap-3 py-1">
+                        <Checkbox
+                          id="terms-mobile"
+                          checked={acceptedTerms}
+                          onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                          disabled={loading}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="terms-mobile" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                          I agree to the{' '}
+                          <Link 
+                            to="/terms" 
+                            target="_blank"
+                            className="text-primary hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Terms of Service
+                          </Link>
+                        </label>
                       </div>
                     )}
 
