@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound, AlertCircle } from 'lucide-react';
 import { validatePassword } from '@/lib/passwordValidation';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+import { getLoginLockoutSeconds, recordFailedLogin, clearLoginAttempts } from '@/lib/loginRateLimiter';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
@@ -53,6 +54,35 @@ const Auth = () => {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   
+  // Rate-limiting state
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const lockoutInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Start countdown timer when locked
+  const startLockoutTimer = (seconds: number) => {
+    setLockoutSeconds(seconds);
+    if (lockoutInterval.current) clearInterval(lockoutInterval.current);
+    lockoutInterval.current = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          if (lockoutInterval.current) clearInterval(lockoutInterval.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Check lockout on email change
+  useEffect(() => {
+    if (email.trim() && view === 'login') {
+      const remaining = getLoginLockoutSeconds(email);
+      if (remaining > 0) startLockoutTimer(remaining);
+      else setLockoutSeconds(0);
+    }
+    return () => { if (lockoutInterval.current) clearInterval(lockoutInterval.current); };
+  }, [email, view]);
+
   // Detect Safari browser (memoized to avoid recalculating on every render)
   const isSafariBrowser = useMemo(() => isSafari(), []);
 
@@ -89,6 +119,16 @@ const Auth = () => {
       return;
     }
 
+    // Check rate-limit lockout (login only)
+    if (view === 'login') {
+      const remaining = getLoginLockoutSeconds(email);
+      if (remaining > 0) {
+        startLockoutTimer(remaining);
+        toast.error(`Too many failed attempts. Try again in ${Math.ceil(remaining / 60)} minute(s).`);
+        return;
+      }
+    }
+
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
       toast.error(`Password requires: ${pwCheck.errors.join(', ')}.`);
@@ -110,9 +150,16 @@ const Auth = () => {
       if (view === 'login') {
         const { error } = await signIn(email.trim(), password);
         if (error) {
-          toast.error(getErrorMessage(error));
+          const lockSecs = recordFailedLogin(email);
+          if (lockSecs > 0) {
+            startLockoutTimer(lockSecs);
+            toast.error(`Account temporarily locked. Try again in ${Math.ceil(lockSecs / 60)} minute(s).`);
+          } else {
+            toast.error(getErrorMessage(error));
+          }
           return;
         }
+        clearLoginAttempts(email);
         // Convert any soft sessions to full collaboration
         try {
           await supabase.functions.invoke('convert-soft-to-full');
@@ -369,10 +416,19 @@ const Auth = () => {
               </motion.div>
             )}
 
+            {view === 'login' && lockoutSeconds > 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                <p className="text-sm text-destructive">
+                  Too many attempts. Try again in {Math.ceil(lockoutSeconds / 60)}:{String(lockoutSeconds % 60).padStart(2, '0')}
+                </p>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               className="w-full h-14 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all"
-              disabled={loading}
+              disabled={loading || (view === 'login' && lockoutSeconds > 0)}
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -798,10 +854,19 @@ const Auth = () => {
                       </div>
                     )}
 
+                    {view === 'login' && lockoutSeconds > 0 && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                        <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                        <p className="text-sm text-destructive">
+                          Too many attempts. Try again in {Math.ceil(lockoutSeconds / 60)}:{String(lockoutSeconds % 60).padStart(2, '0')}
+                        </p>
+                      </div>
+                    )}
+
                     <Button 
                       type="submit" 
                       className="w-full h-13 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                      disabled={loading}
+                      disabled={loading || (view === 'login' && lockoutSeconds > 0)}
                     >
                       {loading ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
