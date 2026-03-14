@@ -69,7 +69,7 @@ const Auth = () => {
       return 'Email already registered. Try logging in.';
     }
     if (message.includes('Password should be at least')) {
-      return 'Password must be at least 6 characters.';
+      return 'Password must be at least 8 characters with a letter, number, and special character.';
     }
     if (message.includes('Invalid email')) {
       return 'Invalid email format.';
