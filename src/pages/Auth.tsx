@@ -150,9 +150,16 @@ const Auth = () => {
       if (view === 'login') {
         const { error } = await signIn(email.trim(), password);
         if (error) {
-          toast.error(getErrorMessage(error));
+          const lockSecs = recordFailedLogin(email);
+          if (lockSecs > 0) {
+            startLockoutTimer(lockSecs);
+            toast.error(`Account temporarily locked. Try again in ${Math.ceil(lockSecs / 60)} minute(s).`);
+          } else {
+            toast.error(getErrorMessage(error));
+          }
           return;
         }
+        clearLoginAttempts(email);
         // Convert any soft sessions to full collaboration
         try {
           await supabase.functions.invoke('convert-soft-to-full');
