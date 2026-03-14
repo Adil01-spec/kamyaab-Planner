@@ -48,6 +48,7 @@ import { ReEntryBanner } from '@/components/ReEntryBanner';
 import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 import { DevPanel } from '@/components/DevPanel';
+import { AdSlot } from '@/components/AdSlot';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { Footer } from '@/components/Footer';
 import { HomeDesktopCard } from '@/components/HomeDesktopCard';
@@ -1035,6 +1036,11 @@ const Home = () => {
             timerElapsed,
           }}
         />
+      </div>
+      
+      {/* Ad slot for free-tier users */}
+      <div className="max-w-lg mx-auto px-5">
+        <AdSlot format="banner" slot="home-banner" className="my-4" />
       </div>
       
       {/* Footer - with bottom nav spacing on mobile */}

@@ -29,6 +29,7 @@ import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { ReEntryBanner } from '@/components/ReEntryBanner';
 import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { DevPanel } from '@/components/DevPanel';
+import { AdSlot } from '@/components/AdSlot';
 import { SwipeableTaskWrapper } from '@/components/SwipeableTaskWrapper';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { checkAllTasksCompleted } from '@/lib/planCompletion';
@@ -964,6 +965,11 @@ const Today = () => {
           }}
         />
       </div>
+      {/* Ad slot for free-tier users */}
+      <div className="max-w-lg lg:max-w-[1280px] mx-auto px-5">
+        <AdSlot format="inline" slot="today-inline" className="my-4" />
+      </div>
+
       {/* Footer - with bottom nav spacing on mobile */}
       <Footer className="pb-20 sm:pb-0" />
 

@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound, AlertCircle } from 'lucide-react';
+import { validatePassword } from '@/lib/passwordValidation';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
@@ -67,7 +69,7 @@ const Auth = () => {
       return 'Email already registered. Try logging in.';
     }
     if (message.includes('Password should be at least')) {
-      return 'Password must be at least 6 characters.';
+      return 'Password must be at least 8 characters with a letter, number, and special character.';
     }
     if (message.includes('Invalid email')) {
       return 'Invalid email format.';
@@ -87,8 +89,9 @@ const Auth = () => {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      toast.error(`Password requires: ${pwCheck.errors.join(', ')}.`);
       return;
     }
 
@@ -332,6 +335,10 @@ const Auth = () => {
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </motion.div>
+            )}
+
+            {view === 'signup' && password && (
+              <PasswordStrengthIndicator password={password} className="px-1" />
             )}
 
             {view === 'signup' && (
@@ -762,6 +769,10 @@ const Auth = () => {
                           {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
+                    )}
+
+                    {view === 'signup' && password && (
+                      <PasswordStrengthIndicator password={password} className="px-1" />
                     )}
 
                     {view === 'signup' && (

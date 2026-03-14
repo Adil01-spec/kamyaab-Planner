@@ -34,6 +34,7 @@ import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { toast } from '@/hooks/use-toast';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { Footer } from '@/components/Footer';
+import { AdSlot } from '@/components/AdSlot';
 import { FloatingTimerPill } from '@/components/FloatingTimerPill';
 import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { 
@@ -570,6 +571,11 @@ const Review = () => {
         </Card>
 
       </main>
+
+      {/* Ad slot for free-tier users */}
+      <div className="max-w-2xl mx-auto px-5">
+        <AdSlot format="banner" slot="review-banner" className="my-4" />
+      </div>
 
       {/* Footer - with bottom nav spacing on mobile */}
       <Footer className="pb-20 sm:pb-0" />
