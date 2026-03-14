@@ -34,6 +34,7 @@ import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { toast } from '@/hooks/use-toast';
 import { type ScenarioTag } from '@/lib/scenarioMemory';
 import { Footer } from '@/components/Footer';
+import { AdSlot } from '@/components/AdSlot';
 import { FloatingTimerPill } from '@/components/FloatingTimerPill';
 import { useExecutionTimer } from '@/hooks/useExecutionTimer';
 import { 

@@ -29,6 +29,7 @@ import { DailyNudgeBanner } from '@/components/DailyNudgeBanner';
 import { ReEntryBanner } from '@/components/ReEntryBanner';
 import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { DevPanel } from '@/components/DevPanel';
+import { AdSlot } from '@/components/AdSlot';
 import { SwipeableTaskWrapper } from '@/components/SwipeableTaskWrapper';
 import { getTasksScheduledForToday, type ScheduledTodayTask } from '@/lib/todayScheduledTasks';
 import { checkAllTasksCompleted } from '@/lib/planCompletion';

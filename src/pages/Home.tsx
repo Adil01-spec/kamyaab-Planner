@@ -48,6 +48,7 @@ import { ReEntryBanner } from '@/components/ReEntryBanner';
 import { useReEntryContext } from '@/hooks/useReEntryContext';
 import { computeDailyContext, type SignalState } from '@/lib/dailyContextEngine';
 import { DevPanel } from '@/components/DevPanel';
+import { AdSlot } from '@/components/AdSlot';
 import { DevModeActivator } from '@/components/DevModeActivator';
 import { Footer } from '@/components/Footer';
 import { HomeDesktopCard } from '@/components/HomeDesktopCard';
