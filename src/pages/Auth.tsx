@@ -119,6 +119,16 @@ const Auth = () => {
       return;
     }
 
+    // Check rate-limit lockout (login only)
+    if (view === 'login') {
+      const remaining = getLoginLockoutSeconds(email);
+      if (remaining > 0) {
+        startLockoutTimer(remaining);
+        toast.error(`Too many failed attempts. Try again in ${Math.ceil(remaining / 60)} minute(s).`);
+        return;
+      }
+    }
+
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
       toast.error(`Password requires: ${pwCheck.errors.join(', ')}.`);
