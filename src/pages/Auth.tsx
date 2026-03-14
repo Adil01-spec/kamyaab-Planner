@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Mail, Eye, EyeOff, ArrowLeft, KeyRound, AlertCircle } from 'lucide-react';
+import { validatePassword } from '@/lib/passwordValidation';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
