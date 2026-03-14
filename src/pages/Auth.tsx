@@ -771,6 +771,10 @@ const Auth = () => {
                       </div>
                     )}
 
+                    {view === 'signup' && password && (
+                      <PasswordStrengthIndicator password={password} className="px-1" />
+                    )}
+
                     {view === 'signup' && (
                       <div className="flex items-start gap-3 py-1">
                         <Checkbox
