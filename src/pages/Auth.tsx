@@ -83,6 +83,9 @@ const Auth = () => {
     return () => { if (lockoutInterval.current) clearInterval(lockoutInterval.current); };
   }, [email, view]);
 
+  // Detect Safari browser (memoized to avoid recalculating on every render)
+  const isSafariBrowser = useMemo(() => isSafari(), []);
+
   const getErrorMessage = (error: any): string => {
     const message = error?.message || '';
     
