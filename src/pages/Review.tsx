@@ -571,6 +571,11 @@ const Review = () => {
 
       </main>
 
+      {/* Ad slot for free-tier users */}
+      <div className="max-w-2xl mx-auto px-5">
+        <AdSlot format="banner" slot="review-banner" className="my-4" />
+      </div>
+
       {/* Footer - with bottom nav spacing on mobile */}
       <Footer className="pb-20 sm:pb-0" />
 

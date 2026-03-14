@@ -1037,6 +1037,11 @@ const Home = () => {
         />
       </div>
       
+      {/* Ad slot for free-tier users */}
+      <div className="max-w-lg mx-auto px-5">
+        <AdSlot format="banner" slot="home-banner" className="my-4" />
+      </div>
+      
       {/* Footer - with bottom nav spacing on mobile */}
       <Footer className="pb-20 sm:pb-0" />
     </div>
