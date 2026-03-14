@@ -89,8 +89,9 @@ const Auth = () => {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      toast.error(`Password requires: ${pwCheck.errors.join(', ')}.`);
       return;
     }
 
