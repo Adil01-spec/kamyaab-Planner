@@ -416,10 +416,19 @@ const Auth = () => {
               </motion.div>
             )}
 
+            {view === 'login' && lockoutSeconds > 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                <p className="text-sm text-destructive">
+                  Too many attempts. Try again in {Math.ceil(lockoutSeconds / 60)}:{String(lockoutSeconds % 60).padStart(2, '0')}
+                </p>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               className="w-full h-14 text-base font-semibold rounded-xl bg-primary hover:bg-primary/90 transition-all"
-              disabled={loading}
+              disabled={loading || (view === 'login' && lockoutSeconds > 0)}
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
