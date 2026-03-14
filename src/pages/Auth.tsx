@@ -337,6 +337,10 @@ const Auth = () => {
               </motion.div>
             )}
 
+            {view === 'signup' && password && (
+              <PasswordStrengthIndicator password={password} className="px-1" />
+            )}
+
             {view === 'signup' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
