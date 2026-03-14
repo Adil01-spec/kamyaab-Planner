@@ -54,8 +54,34 @@ const Auth = () => {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   
-  // Detect Safari browser (memoized to avoid recalculating on every render)
-  const isSafariBrowser = useMemo(() => isSafari(), []);
+  // Rate-limiting state
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const lockoutInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Start countdown timer when locked
+  const startLockoutTimer = (seconds: number) => {
+    setLockoutSeconds(seconds);
+    if (lockoutInterval.current) clearInterval(lockoutInterval.current);
+    lockoutInterval.current = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          if (lockoutInterval.current) clearInterval(lockoutInterval.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Check lockout on email change
+  useEffect(() => {
+    if (email.trim() && view === 'login') {
+      const remaining = getLoginLockoutSeconds(email);
+      if (remaining > 0) startLockoutTimer(remaining);
+      else setLockoutSeconds(0);
+    }
+    return () => { if (lockoutInterval.current) clearInterval(lockoutInterval.current); };
+  }, [email, view]);
 
   const getErrorMessage = (error: any): string => {
     const message = error?.message || '';
