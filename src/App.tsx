@@ -33,6 +33,7 @@ import Help from "./pages/Help";
 import Profile from "./pages/Profile";
 import CalendarPage from "./pages/Calendar";
 import AdminPayments from "./pages/AdminPayments";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
