@@ -51,6 +51,11 @@ export default function Pricing() {
           </div>
         </div>
 
+        {/* Pending payment status */}
+        <div className="mb-4">
+          <PendingPaymentBanner />
+        </div>
+
         {/* Intro text */}
         <div className="mb-8 p-4 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50">
           <p className="text-sm text-foreground/80 leading-relaxed">
@@ -73,6 +78,19 @@ export default function Pricing() {
       </div>
 
       <Footer className="relative z-10" />
+
+      {/* Manual Payment Modal */}
+      {selectedTier && selectedTier !== 'standard' && (
+        <ManualPaymentModal
+          open={!!selectedTier}
+          onOpenChange={(open) => { if (!open) setSelectedTier(null); }}
+          selectedTier={selectedTier}
+          onSuccess={() => {
+            setSelectedTier(null);
+            navigate('/profile');
+          }}
+        />
+      )}
     </div>
   );
 }
