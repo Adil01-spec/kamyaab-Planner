@@ -5,6 +5,7 @@
  * what features are available at each level.
  */
 
+import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,28 +13,19 @@ import { TierComparisonTable } from '@/components/TierComparisonTable';
 import { useSubscription } from '@/hooks/useSubscription';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { Footer } from '@/components/Footer';
-import { toast } from 'sonner';
-import { type ProductTier, getTierDisplayName, formatPKRPrice, TIER_DEFINITIONS } from '@/lib/subscriptionTiers';
+import { ManualPaymentModal } from '@/components/payments/ManualPaymentModal';
+import { PendingPaymentBanner } from '@/components/payments/PendingPaymentBanner';
+import { type ProductTier } from '@/lib/subscriptionTiers';
 
 export default function Pricing() {
   const navigate = useNavigate();
   const { tier } = useSubscription();
   const currentTier = tier || 'standard';
+  const [selectedTier, setSelectedTier] = useState<ProductTier | null>(null);
 
-  const handleSelectTier = (selectedTier: ProductTier) => {
-    const tierDef = TIER_DEFINITIONS[selectedTier];
-    const tierName = getTierDisplayName(selectedTier);
-    const price = formatPKRPrice(tierDef.priceMonthlyPKR);
-    
-    // Show informational toast about upgrade
-    toast.info(`Upgrade to ${tierName}`, {
-      description: `${tierName} is ${price}/month. Payment integration coming soon! Contact support to upgrade now.`,
-      duration: 6000,
-      action: {
-        label: 'Got it',
-        onClick: () => {},
-      },
-    });
+  const handleSelectTier = (t: ProductTier) => {
+    if (t === 'standard' || t === currentTier) return;
+    setSelectedTier(t);
   };
 
   return (
@@ -59,6 +51,11 @@ export default function Pricing() {
           </div>
         </div>
 
+        {/* Pending payment status */}
+        <div className="mb-4">
+          <PendingPaymentBanner />
+        </div>
+
         {/* Intro text */}
         <div className="mb-8 p-4 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50">
           <p className="text-sm text-foreground/80 leading-relaxed">
@@ -81,6 +78,19 @@ export default function Pricing() {
       </div>
 
       <Footer className="relative z-10" />
+
+      {/* Manual Payment Modal */}
+      {selectedTier && selectedTier !== 'standard' && (
+        <ManualPaymentModal
+          open={!!selectedTier}
+          onOpenChange={(open) => { if (!open) setSelectedTier(null); }}
+          selectedTier={selectedTier}
+          onSuccess={() => {
+            setSelectedTier(null);
+            navigate('/profile');
+          }}
+        />
+      )}
     </div>
   );
 }
