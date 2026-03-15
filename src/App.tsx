@@ -64,6 +64,8 @@ const App = () => (
                 </AuthRoute>
               } 
             />
+            {/* Password Reset - public route for recovery links */}
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Email Verification - for email/password signups */}
             <Route 
               path="/verify-email" 
