@@ -10,6 +10,7 @@ import AuthRoute from "@/components/AuthRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import Today from "./pages/Today";

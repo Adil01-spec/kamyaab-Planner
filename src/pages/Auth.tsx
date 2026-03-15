@@ -83,6 +83,15 @@ const Auth = () => {
     return () => { if (lockoutInterval.current) clearInterval(lockoutInterval.current); };
   }, [email, view]);
 
+  // Redirect recovery links to /reset-password
+  useEffect(() => {
+    const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('type') === 'recovery' || hash.includes('type=recovery')) {
+      navigate('/reset-password' + window.location.hash, { replace: true });
+    }
+  }, [navigate]);
+
   // Detect Safari browser (memoized to avoid recalculating on every render)
   const isSafariBrowser = useMemo(() => isSafari(), []);
 
