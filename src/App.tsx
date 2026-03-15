@@ -10,6 +10,7 @@ import AuthRoute from "@/components/AuthRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
 import Today from "./pages/Today";
@@ -63,6 +64,8 @@ const App = () => (
                 </AuthRoute>
               } 
             />
+            {/* Password Reset - public route for recovery links */}
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Email Verification - for email/password signups */}
             <Route 
               path="/verify-email" 
