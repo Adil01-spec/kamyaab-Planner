@@ -171,6 +171,14 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute requireProfile>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
             {/* Public shared review - no auth required */}
             <Route path="/shared-review/:token" element={<SharedReview />} />
             {/* Professional advisor view - no auth required, enhanced content */}
