@@ -18,7 +18,8 @@ import {
   Settings,
   BarChart3,
   Sparkles,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-react';
 import {
   DropdownMenu,
