@@ -8,14 +8,14 @@ import PendingPaymentsTable from '@/components/admin/PendingPaymentsTable';
 import SubscriptionsTable from '@/components/admin/SubscriptionsTable';
 import UserTable from '@/components/admin/UserTable';
 
-const ADMIN_EMAIL = 'kaamyab.app@gmail.com';
+const ADMIN_EMAILS = ['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, isLoading } = useAdminDashboard();
 
-  if (user?.email !== ADMIN_EMAIL) {
+  if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Access denied.</p>
