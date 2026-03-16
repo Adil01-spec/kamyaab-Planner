@@ -57,7 +57,18 @@ const Profile = () => {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<ProductTier>('pro');
   // Calendar settings state
-  const [calendarPref, setCalendarPref] = useState<CalendarTarget>(getCalendarPreference() || 'in_app');
+  const [calendarPref, setCalendarPref] = useState<PreferredCalendar>('kamyaab');
+  const [calendarLoaded, setCalendarLoaded] = useState(false);
+
+  // Load calendar preference from DB on mount
+  useState(() => {
+    if (user?.id) {
+      fetchPreferredCalendar(user.id).then(pref => {
+        setCalendarPref(pref);
+        setCalendarLoaded(true);
+      });
+    }
+  });
   const [reminderTime, setReminderTime] = useState(getDefaultReminder());
   const [notificationsOn, setNotificationsOn] = useState(getNotificationsEnabled());
 
