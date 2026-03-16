@@ -61,14 +61,14 @@ const Profile = () => {
   const [calendarLoaded, setCalendarLoaded] = useState(false);
 
   // Load calendar preference from DB on mount
-  useState(() => {
+  useEffect(() => {
     if (user?.id) {
       fetchPreferredCalendar(user.id).then(pref => {
         setCalendarPref(pref);
         setCalendarLoaded(true);
       });
     }
-  });
+  }, [user?.id]);
   const [reminderTime, setReminderTime] = useState(getDefaultReminder());
   const [notificationsOn, setNotificationsOn] = useState(getNotificationsEnabled());
 
