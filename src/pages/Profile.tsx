@@ -261,10 +261,15 @@ const Profile = () => {
               <Label className="text-sm text-muted-foreground">Default Calendar</Label>
               <Select
                 value={calendarPref}
-                onValueChange={(v) => {
-                  const target = v as CalendarTarget;
+                onValueChange={async (v) => {
+                  const target = v as PreferredCalendar;
                   setCalendarPref(target);
-                  setCalendarPreference(target);
+                  try {
+                    if (user?.id) await savePreferredCalendar(user.id, target);
+                    toast.success('Calendar preference saved');
+                  } catch {
+                    toast.error('Failed to save preference');
+                  }
                 }}
               >
                 <SelectTrigger className="h-10">
