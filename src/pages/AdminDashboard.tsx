@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import MetricsCards from '@/components/admin/MetricsCards';
 import PendingPaymentsTable from '@/components/admin/PendingPaymentsTable';
 import SubscriptionsTable from '@/components/admin/SubscriptionsTable';
@@ -32,6 +33,12 @@ const AdminDashboard = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-xl font-semibold text-foreground">Admin Dashboard</h1>
+          <div className="ml-auto">
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/payments')} className="gap-1.5">
+              <CreditCard className="w-4 h-4" />
+              Payment Management
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
