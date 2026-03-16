@@ -56,6 +56,7 @@ import { AddTaskModal } from '@/components/AddTaskModal';
 import { SplitTaskModal } from '@/components/SplitTaskModal';
 import { CalendarSelectionModal, type CalendarScheduleData } from '@/components/CalendarSelectionModal';
 import { getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
+import { routeCalendarEvent } from '@/utils/calendarRouter';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
 import { useTaskMutations, NewTask } from '@/hooks/useTaskMutations';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
