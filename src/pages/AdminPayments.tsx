@@ -15,7 +15,7 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 
-const ADMIN_EMAIL = 'kaamyab.app@gmail.com';
+const ADMIN_EMAILS = ['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'];
 
 const AdminPayments = () => {
   const navigate = useNavigate();
