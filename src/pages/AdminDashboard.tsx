@@ -8,7 +8,7 @@ import PendingPaymentsTable from '@/components/admin/PendingPaymentsTable';
 import SubscriptionsTable from '@/components/admin/SubscriptionsTable';
 import UserTable from '@/components/admin/UserTable';
 
-const ADMIN_EMAIL = 'kaamyab.app@gmail.com';
+const ADMIN_EMAILS = ['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
