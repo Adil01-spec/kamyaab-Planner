@@ -33,6 +33,12 @@ const AdminDashboard = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-xl font-semibold text-foreground">Admin Dashboard</h1>
+          <div className="ml-auto">
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/payments')} className="gap-1.5">
+              <CreditCard className="w-4 h-4" />
+              Payment Management
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
