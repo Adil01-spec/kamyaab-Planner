@@ -610,6 +610,15 @@ const Home = () => {
                       Terms of Service
                     </Link>
                   </DropdownMenuItem>
+                  {['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'].includes(user?.email || '') && (
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/admin')} 
+                      className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
                     onClick={handleLogout} 

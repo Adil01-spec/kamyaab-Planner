@@ -15,7 +15,7 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const { data, isLoading } = useAdminDashboard();
 
-  if (user?.email !== ADMIN_EMAIL) {
+  if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Access denied.</p>
