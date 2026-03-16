@@ -19,7 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil, CalendarDays, Bell, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
-import { type CalendarTarget, getCalendarPreference, setCalendarPreference } from '@/components/CalendarSelectionModal';
+import { type PreferredCalendar, savePreferredCalendar, fetchPreferredCalendar, CALENDAR_LABELS } from '@/utils/calendarRouter';
+import { toast } from 'sonner';
 
 const REMINDER_OPTIONS = [
   { value: '5', label: '5 minutes' },
@@ -29,8 +30,8 @@ const REMINDER_OPTIONS = [
   { value: '60', label: '1 hour' },
 ];
 
-const CALENDAR_OPTIONS: { value: CalendarTarget; label: string }[] = [
-  { value: 'in_app', label: 'In-App Calendar' },
+const CALENDAR_OPTIONS: { value: PreferredCalendar; label: string }[] = [
+  { value: 'kamyaab', label: 'Kamyaab Calendar' },
   { value: 'google', label: 'Google Calendar' },
   { value: 'apple', label: 'Apple Calendar' },
 ];
