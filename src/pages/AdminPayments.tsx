@@ -15,7 +15,7 @@ import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 
-const ADMIN_EMAIL = 'kaamyab.app@gmail.com';
+const ADMIN_EMAILS = ['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'];
 
 const AdminPayments = () => {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ const AdminPayments = () => {
   const [processing, setProcessing] = useState(false);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
 
-  if (user?.email !== ADMIN_EMAIL) {
+  if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Access denied.</p>
