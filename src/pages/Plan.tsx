@@ -1712,12 +1712,8 @@ const Plan = () => {
 
             // Route based on calendar target
             const target = data.calendarTarget || 'kamyaab';
-            if (target === 'google') {
-              const { routeCalendarEvent } = require('@/utils/calendarRouter');
-              routeCalendarEvent(eventData, 'google');
-            } else if (target === 'apple') {
-              const { routeCalendarEvent } = require('@/utils/calendarRouter');
-              routeCalendarEvent(eventData, 'apple');
+            if (target === 'google' || target === 'apple') {
+              routeCalendarEvent(eventData, target);
             } else {
               // Save to internal calendar_events
               createCalendarEvent.mutate({
