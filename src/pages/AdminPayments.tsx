@@ -29,7 +29,7 @@ const AdminPayments = () => {
   const [processing, setProcessing] = useState(false);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
 
-  if (user?.email !== ADMIN_EMAIL) {
+  if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Access denied.</p>
