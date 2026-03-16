@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -19,7 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Mail, Crown, User, LogOut, ExternalLink, Calendar, Pencil, CalendarDays, Bell, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
-import { type CalendarTarget, getCalendarPreference, setCalendarPreference } from '@/components/CalendarSelectionModal';
+import { type PreferredCalendar, savePreferredCalendar, fetchPreferredCalendar, CALENDAR_LABELS } from '@/utils/calendarRouter';
+import { toast } from 'sonner';
 
 const REMINDER_OPTIONS = [
   { value: '5', label: '5 minutes' },
@@ -29,8 +30,8 @@ const REMINDER_OPTIONS = [
   { value: '60', label: '1 hour' },
 ];
 
-const CALENDAR_OPTIONS: { value: CalendarTarget; label: string }[] = [
-  { value: 'in_app', label: 'In-App Calendar' },
+const CALENDAR_OPTIONS: { value: PreferredCalendar; label: string }[] = [
+  { value: 'kamyaab', label: 'Kamyaab Calendar' },
   { value: 'google', label: 'Google Calendar' },
   { value: 'apple', label: 'Apple Calendar' },
 ];
@@ -56,7 +57,18 @@ const Profile = () => {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<ProductTier>('pro');
   // Calendar settings state
-  const [calendarPref, setCalendarPref] = useState<CalendarTarget>(getCalendarPreference() || 'in_app');
+  const [calendarPref, setCalendarPref] = useState<PreferredCalendar>('kamyaab');
+  const [calendarLoaded, setCalendarLoaded] = useState(false);
+
+  // Load calendar preference from DB on mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchPreferredCalendar(user.id).then(pref => {
+        setCalendarPref(pref);
+        setCalendarLoaded(true);
+      });
+    }
+  }, [user?.id]);
   const [reminderTime, setReminderTime] = useState(getDefaultReminder());
   const [notificationsOn, setNotificationsOn] = useState(getNotificationsEnabled());
 
@@ -249,10 +261,15 @@ const Profile = () => {
               <Label className="text-sm text-muted-foreground">Default Calendar</Label>
               <Select
                 value={calendarPref}
-                onValueChange={(v) => {
-                  const target = v as CalendarTarget;
+                onValueChange={async (v) => {
+                  const target = v as PreferredCalendar;
                   setCalendarPref(target);
-                  setCalendarPreference(target);
+                  try {
+                    if (user?.id) await savePreferredCalendar(user.id, target);
+                    toast.success('Calendar preference saved');
+                  } catch {
+                    toast.error('Failed to save preference');
+                  }
                 }}
               >
                 <SelectTrigger className="h-10">

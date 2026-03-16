@@ -494,6 +494,7 @@ export type Database = {
           pending_expires_at: string | null
           pending_plan_tier: string | null
           plan_memory: Json | null
+          preferred_calendar: string | null
           profession: string | null
           profession_details: Json | null
           project_deadline: string | null
@@ -521,6 +522,7 @@ export type Database = {
           pending_expires_at?: string | null
           pending_plan_tier?: string | null
           plan_memory?: Json | null
+          preferred_calendar?: string | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null
@@ -548,6 +550,7 @@ export type Database = {
           pending_expires_at?: string | null
           pending_plan_tier?: string | null
           plan_memory?: Json | null
+          preferred_calendar?: string | null
           profession?: string | null
           profession_details?: Json | null
           project_deadline?: string | null

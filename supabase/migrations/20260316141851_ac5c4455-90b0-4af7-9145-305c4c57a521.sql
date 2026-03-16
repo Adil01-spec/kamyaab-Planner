@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN preferred_calendar text DEFAULT 'kamyaab';
