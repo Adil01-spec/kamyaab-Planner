@@ -5,9 +5,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, Clock, Loader2, Info } from 'lucide-react';
+import { CalendarIcon, Clock, Loader2, Info, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { type PreferredCalendar, fetchPreferredCalendar, CALENDAR_LABELS } from '@/utils/calendarRouter';
 import type { TaskCalendarEvent } from '@/hooks/useTaskCalendarEvents';
 
 export type CalendarTarget = 'in_app' | 'google' | 'apple' | 'device';
@@ -17,25 +19,22 @@ export interface CalendarScheduleData {
   startHour: number;
   durationHours: number;
   reminderMinutes: number;
+  /** Which calendar to route to (override or user default) */
+  calendarTarget: PreferredCalendar;
 }
 
 interface CalendarSelectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: CalendarScheduleData) => void;
-  /** Pre-fill defaults from plan structure */
   defaultDate?: Date;
-  /** Existing event for rescheduling */
   existingEvent?: TaskCalendarEvent | null;
-  /** Task title for display */
   taskTitle?: string;
-  /** Estimated hours for default duration */
   estimatedHours?: number;
-  /** Whether save is in progress */
   isSaving?: boolean;
 }
 
-const getStoredPreference = (): CalendarTarget | null => {
+export const getCalendarPreference = (): CalendarTarget | null => {
   try {
     return localStorage.getItem('calendar_preference') as CalendarTarget | null;
   } catch {
@@ -49,10 +48,8 @@ export const setCalendarPreference = (target: CalendarTarget) => {
   } catch {}
 };
 
-export const getCalendarPreference = getStoredPreference;
-
 const timeOptions = Array.from({ length: 18 }, (_, i) => {
-  const hour = i + 5; // 5 AM to 10 PM
+  const hour = i + 5;
   const ampm = hour >= 12 ? 'PM' : 'AM';
   const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
   return { value: hour.toString(), label: `${h12}:00 ${ampm}` };
@@ -74,6 +71,12 @@ const reminderOptions = [
   { value: '60', label: '1 hour before' },
 ];
 
+const calendarOptions: { value: PreferredCalendar; label: string }[] = [
+  { value: 'kamyaab', label: 'Kamyaab Calendar' },
+  { value: 'google', label: 'Google Calendar' },
+  { value: 'apple', label: 'Apple Calendar' },
+];
+
 export function CalendarSelectionModal({
   open,
   onOpenChange,
@@ -84,15 +87,22 @@ export function CalendarSelectionModal({
   estimatedHours = 1,
   isSaving = false,
 }: CalendarSelectionModalProps) {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [startHour, setStartHour] = useState('9');
   const [durationHours, setDurationHours] = useState('1');
   const [reminderMinutes, setReminderMinutes] = useState('10');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [calendarTarget, setCalendarTarget] = useState<PreferredCalendar>('kamyaab');
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
-  // Populate on open — priority: existing event > default
   useEffect(() => {
     if (!open) return;
+
+    // Load user's preferred calendar
+    if (user?.id) {
+      fetchPreferredCalendar(user.id).then(pref => setCalendarTarget(pref));
+    }
 
     if (existingEvent) {
       const start = new Date(existingEvent.start_time);
@@ -114,7 +124,8 @@ export function CalendarSelectionModal({
       setReminderMinutes('10');
     }
     setValidationError(null);
-  }, [open]); // only on open change — never re-run while modal is open
+    setShowCalendarPicker(false);
+  }, [open]);
 
   const handleSave = () => {
     if (!selectedDate) {
@@ -126,9 +137,7 @@ export function CalendarSelectionModal({
     const startTime = new Date(selectedDate);
     startTime.setHours(parseInt(startHour), 0, 0, 0);
 
-    // Allow today but not past time
     if (startTime < now && startTime.toDateString() === now.toDateString()) {
-      // same day — just warn if time is past
       if (startTime.getTime() < now.getTime()) {
         setValidationError('Selected time is in the past. Choose a later time.');
         return;
@@ -144,6 +153,7 @@ export function CalendarSelectionModal({
       startHour: parseInt(startHour),
       durationHours: parseInt(durationHours),
       reminderMinutes: parseInt(reminderMinutes),
+      calendarTarget,
     });
   };
 
@@ -162,6 +172,39 @@ export function CalendarSelectionModal({
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
+          {/* Calendar indicator + override */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Calendar: <span className="font-medium text-foreground">{CALENDAR_LABELS[calendarTarget]}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+            >
+              Change <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+
+          {showCalendarPicker && (
+            <div className="grid grid-cols-3 gap-2">
+              {calendarOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setCalendarTarget(opt.value); setShowCalendarPicker(false); }}
+                  className={cn(
+                    "rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors",
+                    calendarTarget === opt.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/40 text-foreground"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Date Picker */}
           <div className="space-y-1.5">
             <Label>Date</Label>
@@ -219,18 +262,20 @@ export function CalendarSelectionModal({
             </div>
           </div>
 
-          {/* Reminder */}
-          <div className="space-y-1.5">
-            <Label>Reminder</Label>
-            <Select value={reminderMinutes} onValueChange={setReminderMinutes}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {reminderOptions.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Reminder — only for Kamyaab calendar */}
+          {calendarTarget === 'kamyaab' && (
+            <div className="space-y-1.5">
+              <Label>Reminder</Label>
+              <Select value={reminderMinutes} onValueChange={setReminderMinutes}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {reminderOptions.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Hint */}
           {!isReschedule && defaultDate && (
@@ -240,7 +285,6 @@ export function CalendarSelectionModal({
             </p>
           )}
 
-          {/* Validation error */}
           {validationError && (
             <p className="text-xs text-destructive font-medium">{validationError}</p>
           )}
