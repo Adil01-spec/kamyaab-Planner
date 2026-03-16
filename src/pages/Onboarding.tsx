@@ -135,6 +135,17 @@ const Onboarding = () => {
         projectDescription: data.projectDescription,
         projectDeadline: data.noDeadline ? null : data.projectDeadline,
       });
+
+      // Auto-detect preferred calendar based on device
+      try {
+        const { detectDefaultCalendar, savePreferredCalendar } = await import('@/utils/calendarRouter');
+        const detectedCal = detectDefaultCalendar();
+        if (user?.id) {
+          await savePreferredCalendar(user.id, detectedCal);
+        }
+      } catch (e) {
+        console.warn('Failed to set default calendar preference:', e);
+      }
       
       toast.success('Profile saved! Generating your plan...');
       

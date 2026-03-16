@@ -1695,19 +1695,40 @@ const Plan = () => {
             const endTime = new Date(startTime);
             endTime.setHours(endTime.getHours() + data.durationHours);
 
-            createCalendarEvent.mutate({
+            const eventData = {
               title: scheduleModalData.task.title,
               description: scheduleModalData.task.explanation
                 ? typeof scheduleModalData.task.explanation === 'object'
                   ? `How: ${(scheduleModalData.task.explanation as any).how || ''}`
                   : String(scheduleModalData.task.explanation)
                 : undefined,
-              start_time: startTime.toISOString(),
-              end_time: endTime.toISOString(),
-              reminder_minutes: data.reminderMinutes,
-              plan_id: planId || undefined,
-              task_ref: taskRef,
-            });
+              startTime,
+              endTime,
+              reminderMinutes: data.reminderMinutes,
+              taskRef,
+              planId: planId || undefined,
+            };
+
+            // Route based on calendar target
+            const target = data.calendarTarget || 'kamyaab';
+            if (target === 'google') {
+              const { routeCalendarEvent } = require('@/utils/calendarRouter');
+              routeCalendarEvent(eventData, 'google');
+            } else if (target === 'apple') {
+              const { routeCalendarEvent } = require('@/utils/calendarRouter');
+              routeCalendarEvent(eventData, 'apple');
+            } else {
+              // Save to internal calendar_events
+              createCalendarEvent.mutate({
+                title: scheduleModalData.task.title,
+                description: eventData.description,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                reminder_minutes: data.reminderMinutes,
+                plan_id: planId || undefined,
+                task_ref: taskRef,
+              });
+            }
             setScheduleModalData(null);
           }}
         />
