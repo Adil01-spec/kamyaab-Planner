@@ -6,20 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ADMIN_EMAIL = "kaamyab.app@gmail.com";
+const ADMIN_EMAILS = ["kaamyab.app@gmail.com", "rajaadil4445@gmail.com"];
 
 async function verifyAdmin(req: Request) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) throw new Error("Unauthorized");
+  if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
 
+  const token = authHeader.replace("Bearer ", "");
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user || user.email !== ADMIN_EMAIL) throw new Error("Forbidden");
-  return user;
+  const { data, error } = await userClient.auth.getClaims(token);
+  if (error || !data?.claims) throw new Error("Unauthorized");
+
+  const email = data.claims.email as string;
+  if (!email || !ADMIN_EMAILS.includes(email)) throw new Error("Forbidden");
+  return data.claims;
 }
 
 Deno.serve(async (req) => {
