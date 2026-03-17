@@ -279,6 +279,24 @@ export function TaskItem({
                 </Button>
               </div>
             )}
+            
+            {/* Confirm external calendar button */}
+            {pendingExternalConfirm && onConfirmExternalEvent && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConfirmExternalEvent();
+                  }}
+                  className="h-8 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 min-h-[36px] border border-emerald-500/30"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                  Confirm
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

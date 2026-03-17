@@ -55,6 +55,8 @@ interface DraggableTaskItemProps {
   canSplit?: boolean;
   splitBlockReason?: string;
   calendarEvent?: TaskCalendarEvent;
+  pendingExternalConfirm?: boolean;
+  onConfirmExternalEvent?: () => void;
 }
 
 export function DraggableTaskItem({
