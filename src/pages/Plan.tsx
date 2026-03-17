@@ -1705,7 +1705,7 @@ const Plan = () => {
             const endTime = new Date(startTime);
             endTime.setHours(endTime.getHours() + data.durationHours);
 
-            const eventData = {
+            const eventData: CalendarEventData = {
               title: scheduleModalData.task.title,
               description: scheduleModalData.task.explanation
                 ? typeof scheduleModalData.task.explanation === 'object'
@@ -1719,12 +1719,21 @@ const Plan = () => {
               planId: planId || undefined,
             };
 
-            // Route based on calendar target
             const target = data.calendarTarget || 'kamyaab';
             if (target === 'google' || target === 'apple') {
+              // Open external calendar first
               routeCalendarEvent(eventData, target);
+              // Show confirmation modal — event only saved after confirm
+              setConfirmationData({
+                calendarTarget: target,
+                eventData,
+                taskRef,
+                startTime,
+                endTime,
+                reminderMinutes: data.reminderMinutes,
+              });
             } else {
-              // Save to internal calendar_events
+              // Kamyaab: save immediately, no confirmation needed
               createCalendarEvent.mutate({
                 title: scheduleModalData.task.title,
                 description: eventData.description,
@@ -1733,14 +1742,41 @@ const Plan = () => {
                 reminder_minutes: data.reminderMinutes,
                 plan_id: planId || undefined,
                 task_ref: taskRef,
+                source: 'kamyaab',
               });
             }
             setScheduleModalData(null);
           }}
         />
       )}
+
+      {/* External Calendar Confirmation Modal */}
+      {confirmationData && (
+        <CalendarConfirmationModal
+          open={!!confirmationData}
+          onOpenChange={(open) => !open && setConfirmationData(null)}
+          calendarTarget={confirmationData.calendarTarget}
+          eventData={confirmationData.eventData}
+          onConfirmed={() => {
+            createCalendarEvent.mutate({
+              title: confirmationData.eventData.title,
+              description: confirmationData.eventData.description,
+              start_time: confirmationData.startTime.toISOString(),
+              end_time: confirmationData.endTime.toISOString(),
+              reminder_minutes: confirmationData.reminderMinutes,
+              plan_id: planId || undefined,
+              task_ref: confirmationData.taskRef,
+              source: confirmationData.calendarTarget,
+              is_confirmed: true,
+            });
+            setConfirmationData(null);
+            toast({ title: 'Event confirmed successfully' });
+          }}
+        />
+      )}
     </div>
   );
 };
+
 
 export default Plan;
