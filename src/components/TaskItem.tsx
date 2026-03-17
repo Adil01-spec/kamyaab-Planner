@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Clock, ChevronDown, HelpCircle, Target, Lock, AlertTriangle, Lightbulb, CalendarPlus, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -41,6 +41,10 @@ interface TaskItemProps {
   executionState?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
   calendarEvent?: TaskCalendarEvent;
+  /** Whether this task has a pending external calendar confirmation */
+  pendingExternalConfirm?: boolean;
+  /** Called when user confirms they added the event to external calendar */
+  onConfirmExternalEvent?: () => void;
 }
 
 const getPriorityColor = (priority: string) => {
@@ -109,6 +113,8 @@ export function TaskItem({
   executionState = 'idle',
   elapsedSeconds = 0,
   calendarEvent,
+  pendingExternalConfirm = false,
+  onConfirmExternalEvent,
 }: TaskItemProps) {
   const isDone = executionState === 'done' || (executionState === 'idle' && completed);
   const isActive = executionState === 'doing';
@@ -270,6 +276,24 @@ export function TaskItem({
                       Schedule
                     </>
                   )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Confirm external calendar button */}
+            {pendingExternalConfirm && onConfirmExternalEvent && (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConfirmExternalEvent();
+                  }}
+                  className="h-8 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 min-h-[36px] border border-emerald-500/30"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                  Confirm
                 </Button>
               </div>
             )}

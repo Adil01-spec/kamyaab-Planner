@@ -55,7 +55,7 @@ import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { AddTaskModal } from '@/components/AddTaskModal';
 import { SplitTaskModal } from '@/components/SplitTaskModal';
 import { CalendarSelectionModal, type CalendarScheduleData } from '@/components/CalendarSelectionModal';
-import { CalendarConfirmationModal } from '@/components/CalendarConfirmationModal';
+
 import { getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { routeCalendarEvent, type CalendarEventData, type PreferredCalendar } from '@/utils/calendarRouter';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
@@ -212,14 +212,14 @@ const Plan = () => {
     taskIndex: number;
     task: Task;
   } | null>(null);
-  const [confirmationData, setConfirmationData] = useState<{
+  const [pendingConfirmations, setPendingConfirmations] = useState<Record<string, {
     calendarTarget: PreferredCalendar;
     eventData: CalendarEventData;
     taskRef: string;
     startTime: Date;
     endTime: Date;
     reminderMinutes: number;
-  } | null>(null);
+  }>>({});
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
@@ -1384,6 +1384,28 @@ const Plan = () => {
                                 });
                               }}
                               calendarEvent={taskCalendarEvents.get(`week-${weekIndex}-task-${taskIndex}`) || undefined}
+                              pendingExternalConfirm={!!pendingConfirmations[`week-${weekIndex}-task-${taskIndex}`]}
+                              onConfirmExternalEvent={() => {
+                                const pending = pendingConfirmations[`week-${weekIndex}-task-${taskIndex}`];
+                                if (!pending) return;
+                                createCalendarEvent.mutate({
+                                  title: pending.eventData.title,
+                                  description: pending.eventData.description,
+                                  start_time: pending.startTime.toISOString(),
+                                  end_time: pending.endTime.toISOString(),
+                                  reminder_minutes: pending.reminderMinutes,
+                                  plan_id: planId || undefined,
+                                  task_ref: pending.taskRef,
+                                  source: pending.calendarTarget,
+                                  is_confirmed: true,
+                                });
+                                setPendingConfirmations(prev => {
+                                  const next = { ...prev };
+                                  delete next[`week-${weekIndex}-task-${taskIndex}`];
+                                  return next;
+                                });
+                                toast({ title: 'Event confirmed successfully' });
+                              }}
                               executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
                               elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
                               onSplit={() => {
@@ -1723,15 +1745,18 @@ const Plan = () => {
             if (target === 'google' || target === 'apple') {
               // Open external calendar first
               routeCalendarEvent(eventData, target);
-              // Show confirmation modal — event only saved after confirm
-              setConfirmationData({
-                calendarTarget: target,
-                eventData,
-                taskRef,
-                startTime,
-                endTime,
-                reminderMinutes: data.reminderMinutes,
-              });
+              // Store pending confirmation for inline confirm button
+              setPendingConfirmations(prev => ({
+                ...prev,
+                [taskRef]: {
+                  calendarTarget: target,
+                  eventData,
+                  taskRef,
+                  startTime,
+                  endTime,
+                  reminderMinutes: data.reminderMinutes,
+                },
+              }));
             } else {
               // Kamyaab: save immediately, no confirmation needed
               createCalendarEvent.mutate({
@@ -1750,30 +1775,6 @@ const Plan = () => {
         />
       )}
 
-      {/* External Calendar Confirmation Modal */}
-      {confirmationData && (
-        <CalendarConfirmationModal
-          open={!!confirmationData}
-          onOpenChange={(open) => !open && setConfirmationData(null)}
-          calendarTarget={confirmationData.calendarTarget}
-          eventData={confirmationData.eventData}
-          onConfirmed={() => {
-            createCalendarEvent.mutate({
-              title: confirmationData.eventData.title,
-              description: confirmationData.eventData.description,
-              start_time: confirmationData.startTime.toISOString(),
-              end_time: confirmationData.endTime.toISOString(),
-              reminder_minutes: confirmationData.reminderMinutes,
-              plan_id: planId || undefined,
-              task_ref: confirmationData.taskRef,
-              source: confirmationData.calendarTarget,
-              is_confirmed: true,
-            });
-            setConfirmationData(null);
-            toast({ title: 'Event confirmed successfully' });
-          }}
-        />
-      )}
     </div>
   );
 };

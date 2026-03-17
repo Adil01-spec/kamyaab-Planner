@@ -55,6 +55,8 @@ interface DraggableTaskItemProps {
   canSplit?: boolean;
   splitBlockReason?: string;
   calendarEvent?: TaskCalendarEvent;
+  pendingExternalConfirm?: boolean;
+  onConfirmExternalEvent?: () => void;
 }
 
 export function DraggableTaskItem({
@@ -80,6 +82,8 @@ export function DraggableTaskItem({
   canSplit = true,
   splitBlockReason,
   calendarEvent,
+  pendingExternalConfirm,
+  onConfirmExternalEvent,
 }: DraggableTaskItemProps) {
   const isMobile = useIsMobile();
 
@@ -224,6 +228,8 @@ export function DraggableTaskItem({
           executionState={executionState}
           elapsedSeconds={elapsedSeconds}
           calendarEvent={calendarEvent}
+          pendingExternalConfirm={pendingExternalConfirm}
+          onConfirmExternalEvent={onConfirmExternalEvent}
         />
       </div>
 
