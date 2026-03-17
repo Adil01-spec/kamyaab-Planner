@@ -1753,30 +1753,6 @@ const Plan = () => {
         />
       )}
 
-      {/* External Calendar Confirmation Modal */}
-      {confirmationData && (
-        <CalendarConfirmationModal
-          open={!!confirmationData}
-          onOpenChange={(open) => !open && setConfirmationData(null)}
-          calendarTarget={confirmationData.calendarTarget}
-          eventData={confirmationData.eventData}
-          onConfirmed={() => {
-            createCalendarEvent.mutate({
-              title: confirmationData.eventData.title,
-              description: confirmationData.eventData.description,
-              start_time: confirmationData.startTime.toISOString(),
-              end_time: confirmationData.endTime.toISOString(),
-              reminder_minutes: confirmationData.reminderMinutes,
-              plan_id: planId || undefined,
-              task_ref: confirmationData.taskRef,
-              source: confirmationData.calendarTarget,
-              is_confirmed: true,
-            });
-            setConfirmationData(null);
-            toast({ title: 'Event confirmed successfully' });
-          }}
-        />
-      )}
     </div>
   );
 };
