@@ -21,6 +21,7 @@ export type Database = {
           end_time: string | null
           external_event_id: string | null
           id: string
+          is_confirmed: boolean | null
           plan_id: string | null
           reminder_due_at: string | null
           reminder_minutes: number | null
@@ -38,6 +39,7 @@ export type Database = {
           end_time?: string | null
           external_event_id?: string | null
           id?: string
+          is_confirmed?: boolean | null
           plan_id?: string | null
           reminder_due_at?: string | null
           reminder_minutes?: number | null
@@ -55,6 +57,7 @@ export type Database = {
           end_time?: string | null
           external_event_id?: string | null
           id?: string
+          is_confirmed?: boolean | null
           plan_id?: string | null
           reminder_due_at?: string | null
           reminder_minutes?: number | null

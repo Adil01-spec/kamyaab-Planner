@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD COLUMN is_confirmed boolean DEFAULT false;
