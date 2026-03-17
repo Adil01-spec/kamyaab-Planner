@@ -212,14 +212,14 @@ const Plan = () => {
     taskIndex: number;
     task: Task;
   } | null>(null);
-  const [confirmationData, setConfirmationData] = useState<{
+  const [pendingConfirmations, setPendingConfirmations] = useState<Record<string, {
     calendarTarget: PreferredCalendar;
     eventData: CalendarEventData;
     taskRef: string;
     startTime: Date;
     endTime: Date;
     reminderMinutes: number;
-  } | null>(null);
+  }>>({});
   const celebratedWeeks = useRef<Set<number>>(new Set());
   const hasCompletedPlan = useRef(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
