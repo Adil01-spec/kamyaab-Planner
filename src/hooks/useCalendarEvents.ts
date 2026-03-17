@@ -29,6 +29,7 @@ export interface CreateCalendarEventInput {
   plan_id?: string;
   task_ref?: string;
   source?: string;
+  is_confirmed?: boolean;
 }
 
 export interface UpdateCalendarEventInput {
