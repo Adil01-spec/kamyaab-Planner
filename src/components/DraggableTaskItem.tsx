@@ -228,6 +228,8 @@ export function DraggableTaskItem({
           executionState={executionState}
           elapsedSeconds={elapsedSeconds}
           calendarEvent={calendarEvent}
+          pendingExternalConfirm={pendingExternalConfirm}
+          onConfirmExternalEvent={onConfirmExternalEvent}
         />
       </div>
 
