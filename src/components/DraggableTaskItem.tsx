@@ -82,6 +82,8 @@ export function DraggableTaskItem({
   canSplit = true,
   splitBlockReason,
   calendarEvent,
+  pendingExternalConfirm,
+  onConfirmExternalEvent,
 }: DraggableTaskItemProps) {
   const isMobile = useIsMobile();
 
