@@ -41,6 +41,10 @@ interface TaskItemProps {
   executionState?: 'idle' | 'doing' | 'paused' | 'done';
   elapsedSeconds?: number;
   calendarEvent?: TaskCalendarEvent;
+  /** Whether this task has a pending external calendar confirmation */
+  pendingExternalConfirm?: boolean;
+  /** Called when user confirms they added the event to external calendar */
+  onConfirmExternalEvent?: () => void;
 }
 
 const getPriorityColor = (priority: string) => {
