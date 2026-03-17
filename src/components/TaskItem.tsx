@@ -113,6 +113,8 @@ export function TaskItem({
   executionState = 'idle',
   elapsedSeconds = 0,
   calendarEvent,
+  pendingExternalConfirm = false,
+  onConfirmExternalEvent,
 }: TaskItemProps) {
   const isDone = executionState === 'done' || (executionState === 'idle' && completed);
   const isActive = executionState === 'doing';
