@@ -1384,6 +1384,28 @@ const Plan = () => {
                                 });
                               }}
                               calendarEvent={taskCalendarEvents.get(`week-${weekIndex}-task-${taskIndex}`) || undefined}
+                              pendingExternalConfirm={!!pendingConfirmations[`week-${weekIndex}-task-${taskIndex}`]}
+                              onConfirmExternalEvent={() => {
+                                const pending = pendingConfirmations[`week-${weekIndex}-task-${taskIndex}`];
+                                if (!pending) return;
+                                createCalendarEvent.mutate({
+                                  title: pending.eventData.title,
+                                  description: pending.eventData.description,
+                                  start_time: pending.startTime.toISOString(),
+                                  end_time: pending.endTime.toISOString(),
+                                  reminder_minutes: pending.reminderMinutes,
+                                  plan_id: planId || undefined,
+                                  task_ref: pending.taskRef,
+                                  source: pending.calendarTarget,
+                                  is_confirmed: true,
+                                });
+                                setPendingConfirmations(prev => {
+                                  const next = { ...prev };
+                                  delete next[`week-${weekIndex}-task-${taskIndex}`];
+                                  return next;
+                                });
+                                toast({ title: 'Event confirmed successfully' });
+                              }}
                               executionState={getExecutionState(task as Task, weekIndex, taskIndex)}
                               elapsedSeconds={getElapsedSeconds(weekIndex, taskIndex)}
                               onSplit={() => {
