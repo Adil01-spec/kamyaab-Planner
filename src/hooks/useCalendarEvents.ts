@@ -87,6 +87,7 @@ export function useCalendarEvents(dateRange?: { start: Date; end: Date }) {
           plan_id: input.plan_id || null,
           task_ref: input.task_ref || null,
           source: input.source || 'in_app',
+          is_confirmed: input.is_confirmed ?? (input.source === 'in_app' || !input.source),
         })
         .select()
         .single();
