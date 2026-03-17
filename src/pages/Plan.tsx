@@ -55,7 +55,7 @@ import { ExternalFeedbackSection } from '@/components/ExternalFeedbackSection';
 import { AddTaskModal } from '@/components/AddTaskModal';
 import { SplitTaskModal } from '@/components/SplitTaskModal';
 import { CalendarSelectionModal, type CalendarScheduleData } from '@/components/CalendarSelectionModal';
-import { CalendarConfirmationModal } from '@/components/CalendarConfirmationModal';
+
 import { getPlanStartDate, calculateTaskEventDate } from '@/lib/calendarService';
 import { routeCalendarEvent, type CalendarEventData, type PreferredCalendar } from '@/utils/calendarRouter';
 import { ProFeatureIndicator } from '@/components/ProFeatureIndicator';
