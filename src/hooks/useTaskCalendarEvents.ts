@@ -29,7 +29,7 @@ export function useTaskCalendarEvents(planId: string | null) {
 
       const { data, error } = await supabase
         .from('calendar_events')
-        .select('id, title, start_time, end_time, status, task_ref, plan_id')
+        .select('id, title, start_time, end_time, status, task_ref, plan_id, source, is_confirmed')
         .eq('user_id', user.id)
         .eq('plan_id', planId)
         .not('task_ref', 'is', null);
