@@ -1723,15 +1723,18 @@ const Plan = () => {
             if (target === 'google' || target === 'apple') {
               // Open external calendar first
               routeCalendarEvent(eventData, target);
-              // Show confirmation modal — event only saved after confirm
-              setConfirmationData({
-                calendarTarget: target,
-                eventData,
-                taskRef,
-                startTime,
-                endTime,
-                reminderMinutes: data.reminderMinutes,
-              });
+              // Store pending confirmation for inline confirm button
+              setPendingConfirmations(prev => ({
+                ...prev,
+                [taskRef]: {
+                  calendarTarget: target,
+                  eventData,
+                  taskRef,
+                  startTime,
+                  endTime,
+                  reminderMinutes: data.reminderMinutes,
+                },
+              }));
             } else {
               // Kamyaab: save immediately, no confirmation needed
               createCalendarEvent.mutate({
