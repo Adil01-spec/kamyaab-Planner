@@ -10,6 +10,8 @@ export interface TaskCalendarEvent {
   status: string;
   task_ref: string;
   plan_id: string | null;
+  source?: string;
+  is_confirmed?: boolean;
 }
 
 /**
