@@ -87,6 +87,7 @@ const CalendarPage = () => {
   }, [currentMonth]);
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents(visibleRange);
+  const dismissMissed = useDismissMissedEvents();
 
   // Highlight event after events load
   useEffect(() => {
