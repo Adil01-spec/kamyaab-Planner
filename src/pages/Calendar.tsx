@@ -211,6 +211,16 @@ const CalendarPage = () => {
             >
               Review Missed
             </Button>
+            <button
+              onClick={() => {
+                dismissMissed.mutate();
+                setMissedCount(0);
+              }}
+              className="shrink-0 p-1 rounded-full hover:bg-muted/50 transition-colors"
+              aria-label="Dismiss all missed events"
+            >
+              <X className="w-3.5 h-3.5 text-muted-foreground/60" />
+            </button>
           </motion.div>
         )}
 
