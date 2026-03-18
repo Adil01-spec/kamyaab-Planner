@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -127,4 +128,33 @@ export function useMissedEventCount() {
   });
 
   return missedCount;
+}
+
+/**
+ * Mutation to bulk-dismiss all missed events by setting status to 'dismissed'.
+ */
+export function useDismissMissedEvents() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ status: 'dismissed' })
+        .eq('user_id', user.id)
+        .eq('status', 'missed');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missed-event-count'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['task-calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['today-calendar-events'] });
+      toast({ title: 'Missed events dismissed' });
+    },
+  });
 }

@@ -15,6 +15,7 @@ import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
+import { useDismissMissedEvents } from '@/hooks/useTaskCalendarEvents';
 
 const CalendarPage = () => {
   const { user } = useAuth();
@@ -86,6 +87,7 @@ const CalendarPage = () => {
   }, [currentMonth]);
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents(visibleRange);
+  const dismissMissed = useDismissMissedEvents();
 
   // Highlight event after events load
   useEffect(() => {
@@ -209,6 +211,16 @@ const CalendarPage = () => {
             >
               Review Missed
             </Button>
+            <button
+              onClick={() => {
+                dismissMissed.mutate();
+                setMissedCount(0);
+              }}
+              className="shrink-0 p-1 rounded-full hover:bg-muted/50 transition-colors"
+              aria-label="Dismiss all missed events"
+            >
+              <X className="w-3.5 h-3.5 text-muted-foreground/60" />
+            </button>
           </motion.div>
         )}
 
