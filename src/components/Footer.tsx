@@ -1,160 +1,140 @@
 import { Link } from 'react-router-dom';
-import { Instagram, Github } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 
-/**
- * Custom X (Twitter) Icon
- * The current X logo differs from the old Twitter bird
- */
-const XIcon = ({
-  className
-
-
-}: {className?: string;}) => <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+const XIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>;
+  </svg>
+);
 
-/**
- * Custom LinkedIn Icon
- * Lucide doesn't include the LinkedIn brand icon
- */
-const LinkedInIcon = ({
-  className
-
-
-}: {className?: string;}) => <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+const LinkedInIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-  </svg>;
-const productLinks = [{
-  label: 'Home',
-  href: '/home'
-}, {
-  label: 'Plan',
-  href: '/plan'
-}, {
-  label: 'Review',
-  href: '/review'
-}, {
-  label: 'Pricing',
-  href: '/pricing'
-}, {
-  label: 'Help Center',
-  href: '/help'
-}];
-const companyLinks = [{
-  label: 'Privacy Policy',
-  href: '/privacy'
-}, {
-  label: 'Refund Policy',
-  href: '/refund-policy'
-}, {
-  label: 'Service Policy',
-  href: '/service-policy'
-}, {
-  label: 'Terms of Service',
-  href: '/terms'
-}, {
-  label: 'Contact',
-  href: '/contact'
-}, {
-  label: 'Ownership',
-  href: '/ownership'
-}];
-const socialLinks = [{
-  icon: XIcon,
-  href: 'https://x.com/kaamyab',
-  label: 'X (Twitter)'
-}, {
-  icon: LinkedInIcon,
-  href: 'https://linkedin.com/company/kaamyab',
-  label: 'LinkedIn'
-}, {
-  icon: Instagram,
-  href: 'https://instagram.com/kaamyab',
-  label: 'Instagram'
-}, {
-  icon: Github,
-  href: 'https://github.com/kaamyab',
-  label: 'GitHub'
-}];
+  </svg>
+);
+
+const navLinks = [
+  { label: 'Home', href: '/' },
+  { label: 'Plans', href: '/plan' },
+  { label: 'Track', href: '/today' },
+  { label: 'Insights', href: '/review' },
+  { label: 'Pricing', href: '/pricing' },
+];
+
+const legalLinks = [
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Terms of Service', href: '/terms' },
+  { label: 'Refund Policy', href: '/refund-policy' },
+];
+
 interface FooterProps {
-  /** Optional extra bottom padding for pages with BottomNav */
   className?: string;
 }
 
-/**
- * Global Footer Component
- * 
- * Professional, minimal footer appearing on all public and authenticated pages.
- * Communicates brand legitimacy and trust without marketing language.
- */
-export function Footer({
-  className
-}: FooterProps) {
-  return <footer className={`mt-auto border-t border-border/50 bg-muted/30 print:bg-white print:text-black ${className || ''}`}>
-      <div className="container max-w-6xl mx-auto px-4 py-12 bg-primary-foreground text-sidebar-foreground opacity-60">
-        {/* Grid: Brand + Navigation + Social */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-          
-          {/* Brand Section */}
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link to="/home" className="inline-block mb-3">
-              <h3 className="text-lg font-bold tracking-[0.2em] uppercase text-muted-foreground">Kamyaab</h3>
-            </Link>
-            <p className="text-sm text-muted-foreground/70 leading-relaxed">
-              Plan better. Execute calmly. Reflect honestly.
-            </p>
-          </div>
+export function Footer({ className }: FooterProps) {
+  return (
+    <footer className={`mt-auto ${className || ''}`}>
+      {/* Main footer — dark charcoal */}
+      <div className="bg-[#0F0F0F] text-[#A1A1A1]">
+        <div className="container max-w-6xl mx-auto px-4 py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
 
-          {/* Product Links */}
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-4">Product</h4>
-            <ul className="space-y-3">
-              {productLinks.map((link) => <li key={link.href}>
-                  <Link to={link.href} className="text-sm text-muted-foreground/70 hover:text-muted-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                </li>)}
-            </ul>
-          </div>
+            {/* Brand */}
+            <div className="sm:col-span-2 lg:col-span-1">
+              <Link to="/" className="inline-flex items-center gap-2 mb-4 group">
+                <img
+                  src={kaamyabLogo}
+                  alt="KAMYAAB"
+                  className="w-10 h-10 rounded-lg object-contain transition-transform group-hover:scale-105"
+                />
+                <span className="text-sm font-bold tracking-[0.2em] uppercase text-white">
+                  KAMYAAB
+                </span>
+              </Link>
+              <p className="text-xs tracking-wide text-[#6B6B6B] leading-relaxed">
+                Execution Intelligence System
+              </p>
+            </div>
 
-          {/* Company Links */}
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-4">Company</h4>
-            <ul className="space-y-3">
-              {companyLinks.map((link) => <li key={link.href}>
-                  <Link to={link.href} className="text-sm text-muted-foreground/70 hover:text-muted-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                </li>)}
-            </ul>
-          </div>
+            {/* Navigation */}
+            <div>
+              <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-[#6B6B6B] mb-5">
+                Navigation
+              </h4>
+              <ul className="space-y-3">
+                {navLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      to={link.href}
+                      className="text-sm text-[#A1A1A1] hover:text-white transition-colors duration-200"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          {/* Social Links */}
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground mb-4">Follow Us</h4>
-            <div className="flex items-center gap-4">
-              {socialLinks.map((social) => {
-              const Icon = social.icon;
-              return <a key={social.label} href={social.href} target="_blank" rel="noopener noreferrer" aria-label={social.label} className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                    <Icon className="w-5 h-5" />
-                  </a>;
-            })}
+            {/* Legal */}
+            <div>
+              <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-[#6B6B6B] mb-5">
+                Legal
+              </h4>
+              <ul className="space-y-3">
+                {legalLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      to={link.href}
+                      className="text-sm text-[#A1A1A1] hover:text-white transition-colors duration-200"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Social */}
+            <div>
+              <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-[#6B6B6B] mb-5">
+                Connect
+              </h4>
+              <div className="flex items-center gap-5">
+                <a
+                  href="https://x.com/kaamyab"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="X (Twitter)"
+                  className="text-[#6B6B6B] hover:text-white transition-colors duration-200"
+                >
+                  <XIcon className="w-4.5 h-4.5 w-[18px] h-[18px]" />
+                </a>
+                <a
+                  href="https://linkedin.com/company/kaamyab"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                  className="text-[#6B6B6B] hover:text-white transition-colors duration-200"
+                >
+                  <LinkedInIcon className="w-[18px] h-[18px]" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
 
-        <Separator className="mb-6 bg-border/30" />
-
-        {/* Footer Statement */}
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground/70 mb-1">
-            Made in Pakistan 🇵🇰 with ❤️
-          </p>
-          <p className="text-xs text-muted-foreground/50">
-            © 2026 Kamyaab. All rights reserved.
-          </p>
+        {/* Bottom bar */}
+        <div className="border-t border-[#1A1A1A]">
+          <div className="container max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-[#4A4A4A]">
+              © 2026 KAMYAAB. All rights reserved.
+            </p>
+            <p className="text-xs text-[#3A3A3A] italic">
+              Built for consistency, not inspiration.
+            </p>
+          </div>
         </div>
       </div>
-    </footer>;
+    </footer>
+  );
 }
