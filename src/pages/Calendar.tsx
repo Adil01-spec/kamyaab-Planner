@@ -15,6 +15,7 @@ import { useMobileSettings } from '@/hooks/useMobileSettings';
 import { useDesktopSettings } from '@/hooks/useDesktopSettings';
 import { DesktopHamburgerMenu } from '@/components/DesktopHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
+import { useDismissMissedEvents } from '@/hooks/useTaskCalendarEvents';
 
 const CalendarPage = () => {
   const { user } = useAuth();
