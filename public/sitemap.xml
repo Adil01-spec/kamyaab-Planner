@@ -1,52 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://kamyaab.lovable.app/</loc>
+    <loc>https://kamyaab-ai.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://kamyaab.lovable.app/auth</loc>
+    <loc>https://kamyaab-ai.com/auth</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://kamyaab.lovable.app/pricing</loc>
+    <loc>https://kamyaab-ai.com/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://kamyaab.lovable.app/help</loc>
+    <loc>https://kamyaab-ai.com/help</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://kamyaab.lovable.app/privacy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://kamyaab.lovable.app/refund-policy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://kamyaab.lovable.app/service-policy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://kamyaab.lovable.app/terms</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://kamyaab.lovable.app/contact</loc>
+    <loc>https://kamyaab-ai.com/contact</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://kamyaab.lovable.app/ownership</loc>
+    <loc>https://kamyaab-ai.com/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/refund-policy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/service-policy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/ownership</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
