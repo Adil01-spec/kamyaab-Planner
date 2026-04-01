@@ -24,6 +24,8 @@ interface TierComparisonTableProps {
   onSelectTier?: (tier: ProductTier) => void;
   /** Compact mode for mobile */
   compact?: boolean;
+  /** Override CTA button label for all tiers */
+  ctaLabel?: string;
   /** Additional class names */
   className?: string;
 }
@@ -36,6 +38,7 @@ export function TierComparisonTable({
   currentTier,
   onSelectTier,
   compact = false,
+  ctaLabel,
   className,
 }: TierComparisonTableProps) {
   return (
@@ -116,7 +119,7 @@ export function TierComparisonTable({
                     className="w-full"
                     onClick={() => onSelectTier(tierId)}
                   >
-                    {tier.priceMonthlyPKR === null ? 'Get Started' : 'Upgrade'}
+                    {ctaLabel || (tier.priceMonthlyPKR === null ? 'Get Started' : 'Upgrade')}
                   </Button>
                 )}
                 

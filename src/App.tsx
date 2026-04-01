@@ -34,6 +34,10 @@ import Profile from "./pages/Profile";
 import CalendarPage from "./pages/Calendar";
 import AdminPayments from "./pages/AdminPayments";
 import AdminDashboard from "./pages/AdminDashboard";
+import Learn from "./pages/Learn";
+import StayConsistent from "./pages/articles/StayConsistent";
+import ExecuteWithoutBurnout from "./pages/articles/ExecuteWithoutBurnout";
+import WhyPeopleFail from "./pages/articles/WhyPeopleFail";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
@@ -139,6 +143,11 @@ const App = () => (
             />
             {/* Pricing page - public */}
             <Route path="/pricing" element={<Pricing />} />
+            {/* Learn / Blog - public content pages */}
+            <Route path="/learn" element={<Learn />} />
+            <Route path="/learn/stay-consistent-with-goals" element={<StayConsistent />} />
+            <Route path="/learn/execute-plans-without-burnout" element={<ExecuteWithoutBurnout />} />
+            <Route path="/learn/why-people-fail-at-execution" element={<WhyPeopleFail />} />
             {/* Legal & Trust Pages - public */}
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />

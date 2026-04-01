@@ -6,14 +6,29 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://kamyaab-ai.com/auth</loc>
+    <loc>https://kamyaab-ai.com/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://kamyaab-ai.com/pricing</loc>
-    <changefreq>monthly</changefreq>
+    <loc>https://kamyaab-ai.com/learn</loc>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/learn/stay-consistent-with-goals</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/learn/execute-plans-without-burnout</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://kamyaab-ai.com/learn/why-people-fail-at-execution</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://kamyaab-ai.com/help</loc>

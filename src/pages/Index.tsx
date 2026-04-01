@@ -421,8 +421,41 @@ const Index = () => {
           </div>
         </section>
 
+        {/* ═══ Learn Section ═══ */}
+        <section className="py-16 bg-background">
+          <div className="container max-w-4xl mx-auto px-4 text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+              Execution Insights
+            </h2>
+            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
+              Practical articles on staying consistent, avoiding burnout, and building systems that work.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {[
+                { title: 'How to Stay Consistent With Your Goals', slug: 'stay-consistent-with-goals' },
+                { title: 'Execute Plans Without Burning Out', slug: 'execute-plans-without-burnout' },
+                { title: 'Why Most People Fail at Execution', slug: 'why-people-fail-at-execution' },
+              ].map((a) => (
+                <Link
+                  key={a.slug}
+                  to={`/learn/${a.slug}`}
+                  className="glass-card rounded-xl p-5 text-left hover:border-primary/30 transition-all group"
+                >
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
+                    {a.title}
+                  </h3>
+                  <span className="text-xs text-primary mt-2 inline-block">Read →</span>
+                </Link>
+              ))}
+            </div>
+            <Link to="/learn" className="text-primary hover:underline font-medium text-sm">
+              View all articles →
+            </Link>
+          </div>
+        </section>
+
         {/* ═══ Pricing Teaser ═══ */}
-        <section className="py-12 bg-background">
+        <section className="py-12 gradient-subtle">
           <div className="container max-w-3xl mx-auto px-4 text-center">
             <p className="text-muted-foreground text-sm">
               Standard is free · Pro and Business plans unlock unlimited strategic mode and team features.{' '}
