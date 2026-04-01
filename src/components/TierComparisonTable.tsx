@@ -24,6 +24,8 @@ interface TierComparisonTableProps {
   onSelectTier?: (tier: ProductTier) => void;
   /** Compact mode for mobile */
   compact?: boolean;
+  /** Override CTA button label for all tiers */
+  ctaLabel?: string;
   /** Additional class names */
   className?: string;
 }
