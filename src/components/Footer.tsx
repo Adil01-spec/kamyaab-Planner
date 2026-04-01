@@ -15,10 +15,10 @@ const LinkedInIcon = ({ className }: { className?: string }) => (
 
 const navLinks = [
   { label: 'Home', href: '/' },
-  { label: 'Plans', href: '/plan' },
-  { label: 'Track', href: '/today' },
-  { label: 'Insights', href: '/review' },
+  { label: 'Learn', href: '/learn' },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Help', href: '/help' },
+  { label: 'Contact', href: '/contact' },
 ];
 
 const legalLinks = [

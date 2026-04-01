@@ -126,6 +126,13 @@ export const LandingHeader = () => {
                 Features
               </button>
               <Link
+                to="/learn"
+                onClick={() => setMobileOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                Learn
+              </Link>
+              <Link
                 to="/pricing"
                 onClick={() => setMobileOpen(false)}
                 className="py-2.5 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
