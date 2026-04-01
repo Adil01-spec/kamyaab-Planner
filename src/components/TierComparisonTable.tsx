@@ -119,7 +119,7 @@ export function TierComparisonTable({
                     className="w-full"
                     onClick={() => onSelectTier(tierId)}
                   >
-                    {tier.priceMonthlyPKR === null ? 'Get Started' : 'Upgrade'}
+                    {ctaLabel || (tier.priceMonthlyPKR === null ? 'Get Started' : 'Upgrade')}
                   </Button>
                 )}
                 
