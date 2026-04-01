@@ -38,6 +38,7 @@ export function TierComparisonTable({
   currentTier,
   onSelectTier,
   compact = false,
+  ctaLabel,
   className,
 }: TierComparisonTableProps) {
   return (
