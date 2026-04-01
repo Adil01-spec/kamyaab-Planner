@@ -36,6 +36,13 @@ export const LandingHeader = () => {
         Features
       </button>
       <Link
+        to="/learn"
+        onClick={() => setMobileOpen(false)}
+        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Learn
+      </Link>
+      <Link
         to="/pricing"
         onClick={() => setMobileOpen(false)}
         className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
