@@ -1,8 +1,8 @@
 /**
  * Pricing Page
  * 
- * Shows subscription tier comparison for users to understand
- * what features are available at each level.
+ * Public visitors see "Get Started" CTAs → /auth
+ * Authenticated users see existing upgrade/payment flow
  */
 
 import { useState } from 'react';
@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { TierComparisonTable } from '@/components/TierComparisonTable';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/contexts/AuthContext';
 import { DynamicBackground } from '@/components/DynamicBackground';
 import { Footer } from '@/components/Footer';
 import { ManualPaymentModal } from '@/components/payments/ManualPaymentModal';
@@ -19,13 +20,21 @@ import { type ProductTier } from '@/lib/subscriptionTiers';
 
 export default function Pricing() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { tier } = useSubscription();
   const currentTier = tier || 'standard';
   const [selectedTier, setSelectedTier] = useState<ProductTier | null>(null);
+  const isAuthenticated = !!user;
 
   const handleSelectTier = (t: ProductTier) => {
-    if (t === 'standard' || t === currentTier) return;
-    setSelectedTier(t);
+    if (isAuthenticated) {
+      // Authenticated: existing upgrade flow
+      if (t === 'standard' || t === currentTier) return;
+      setSelectedTier(t);
+    } else {
+      // Public: redirect to signup
+      navigate('/auth?mode=signup');
+    }
   };
 
   return (
@@ -51,10 +60,12 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Pending payment status */}
-        <div className="mb-4">
-          <PendingPaymentBanner />
-        </div>
+        {/* Pending payment status (authenticated only) */}
+        {isAuthenticated && (
+          <div className="mb-4">
+            <PendingPaymentBanner />
+          </div>
+        )}
 
         {/* Intro text */}
         <div className="mb-8 p-4 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50">
@@ -68,8 +79,16 @@ export default function Pricing() {
         <TierComparisonTable 
           currentTier={currentTier}
           onSelectTier={handleSelectTier}
+          ctaLabel={isAuthenticated ? undefined : 'Get Started'}
           className="mb-8"
         />
+
+        {/* Note for public visitors */}
+        {!isAuthenticated && (
+          <p className="text-xs text-muted-foreground/80 text-center mb-4">
+            Payment instructions available after account setup.
+          </p>
+        )}
 
         {/* Footer note */}
         <p className="text-xs text-muted-foreground/60 text-center">
@@ -79,8 +98,8 @@ export default function Pricing() {
 
       <Footer className="relative z-10" />
 
-      {/* Manual Payment Modal */}
-      {selectedTier && selectedTier !== 'standard' && (
+      {/* Manual Payment Modal (authenticated only) */}
+      {isAuthenticated && selectedTier && selectedTier !== 'standard' && (
         <ManualPaymentModal
           open={!!selectedTier}
           onOpenChange={(open) => { if (!open) setSelectedTier(null); }}
