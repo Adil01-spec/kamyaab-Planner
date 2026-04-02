@@ -158,7 +158,7 @@ const Index = () => {
                 Execution Intelligence System
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
-                Structured Execution Intelligence
+                AI-Powered Execution Intelligence System
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
                 AI plans that actually get completed. Define your objective — KAMYAAB generates a locked execution plan with{' '}
