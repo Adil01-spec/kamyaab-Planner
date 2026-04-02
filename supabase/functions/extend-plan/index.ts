@@ -52,12 +52,21 @@ function normalizeTaskStructure(weeks: any[]): any[] {
   }));
 }
 
+const MAX_PAYLOAD_SIZE = 512 * 1024;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PAYLOAD_SIZE) {
+      return new Response(JSON.stringify({ error: "Request too large" }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -80,7 +89,25 @@ serve(async (req) => {
       });
     }
 
-    const { profile, existingPlan, weeksToAdd = 4 } = await req.json();
+    const body = await req.json();
+    const { profile, existingPlan, weeksToAdd = 4 } = body;
+
+    // Validate weeksToAdd
+    if (typeof weeksToAdd !== 'number' || weeksToAdd < 1 || weeksToAdd > 12) {
+      return new Response(JSON.stringify({ error: "weeksToAdd must be 1-12" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!existingPlan || !Array.isArray(existingPlan.weeks)) {
+      return new Response(JSON.stringify({ error: "Invalid existing plan data" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (existingPlan.weeks.length > 52) {
+      return new Response(JSON.stringify({ error: "Plan exceeds maximum weeks" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
