@@ -245,7 +245,7 @@ const Index = () => {
         <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={problemHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Plans Fail</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Plans Fail Without AI-Powered Goal Tracking</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Ambition without structure produces nothing. Without a system, plans stay wishes.
               </p>
