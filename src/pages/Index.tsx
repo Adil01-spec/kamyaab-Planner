@@ -395,7 +395,7 @@ const Index = () => {
         <section className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={comparisonHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Compares</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Compares to Traditional Planners</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
             </div>
             <div ref={comparisonTableRef} className="scroll-reveal hidden md:block overflow-x-auto">
