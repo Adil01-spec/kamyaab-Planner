@@ -482,6 +482,9 @@ const Index = () => {
             <p className="text-muted-foreground text-sm mt-4">No credit card required.</p>
           </div>
         </section>
+
+        {/* ═══ FAQ ═══ */}
+        <FAQSection />
       </main>
 
       <Footer />
