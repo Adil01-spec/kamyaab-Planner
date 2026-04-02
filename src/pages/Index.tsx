@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { LandingHeader } from '@/components/LandingHeader';
+import { FAQSection } from '@/components/FAQSection';
+import SEO from '@/components/SEO';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
