@@ -200,6 +200,9 @@ const App = () => (
             <Route path="/invite/:token" element={<InviteAccept />} />
             {/* Soft collaborator review - public route, session-gated */}
             <Route path="/plan/:planId/review" element={<SoftCollabReview />} />
+            {/* Template pages - public SEO content */}
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/templates/:slug" element={<TemplatePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
@@ -207,6 +210,7 @@ const App = () => (
       </DevModeProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;
