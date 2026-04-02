@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DevModeProvider } from "@/contexts/DevModeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -38,6 +39,8 @@ import Learn from "./pages/Learn";
 import StayConsistent from "./pages/articles/StayConsistent";
 import ExecuteWithoutBurnout from "./pages/articles/ExecuteWithoutBurnout";
 import WhyPeopleFail from "./pages/articles/WhyPeopleFail";
+import Templates from "./pages/Templates";
+import TemplatePage from "./pages/TemplatePage";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
@@ -50,6 +53,7 @@ function ReminderChecker() {
 }
 
 const App = () => (
+  <HelmetProvider>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <DevModeProvider>
@@ -196,6 +200,9 @@ const App = () => (
             <Route path="/invite/:token" element={<InviteAccept />} />
             {/* Soft collaborator review - public route, session-gated */}
             <Route path="/plan/:planId/review" element={<SoftCollabReview />} />
+            {/* Template pages - public SEO content */}
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/templates/:slug" element={<TemplatePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
@@ -203,6 +210,7 @@ const App = () => (
       </DevModeProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;

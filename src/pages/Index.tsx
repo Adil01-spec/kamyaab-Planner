@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { LandingHeader } from '@/components/LandingHeader';
+import { FAQSection } from '@/components/FAQSection';
+import SEO from '@/components/SEO';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
@@ -143,6 +145,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO canonical="/" />
       <LandingHeader />
 
       <main>
@@ -155,7 +158,7 @@ const Index = () => {
                 Execution Intelligence System
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
-                Structured Execution Intelligence
+                AI-Powered Execution Intelligence System
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
                 AI plans that actually get completed. Define your objective — KAMYAAB generates a locked execution plan with{' '}
@@ -242,7 +245,7 @@ const Index = () => {
         <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={problemHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Plans Fail</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Plans Fail Without AI-Powered Goal Tracking</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Ambition without structure produces nothing. Without a system, plans stay wishes.
               </p>
@@ -285,8 +288,8 @@ const Index = () => {
         <section id="how-it-works" className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={stepsHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Works</h2>
-              <p className="text-muted-foreground text-lg">Three phases from objective to completed execution.</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Automated Weekly Task Breakdown Works</h2>
+              <p className="text-muted-foreground text-lg">Three phases from objective to completed execution — fully automated.</p>
             </div>
             <div ref={stepsCardsRef} className="scroll-reveal scroll-reveal-stagger relative grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="hidden md:block absolute top-[4.5rem] left-[16.6%] right-[16.6%] h-px bg-border z-0" />
@@ -312,7 +315,7 @@ const Index = () => {
         <section className="py-20 bg-background">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={metricsRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">What You Can Measure</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Quantifiable Execution Metrics & Analytics</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Quantifiable execution data — not subjective feelings.
               </p>
@@ -341,7 +344,7 @@ const Index = () => {
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={audienceRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Built for those who value consistency over inspiration
+                Built for Consistent Execution, Not Just Motivation
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -392,7 +395,7 @@ const Index = () => {
         <section className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={comparisonHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Compares</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Compares to Traditional Planners</h2>
               <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
             </div>
             <div ref={comparisonTableRef} className="scroll-reveal hidden md:block overflow-x-auto">
@@ -479,6 +482,9 @@ const Index = () => {
             <p className="text-muted-foreground text-sm mt-4">No credit card required.</p>
           </div>
         </section>
+
+        {/* ═══ FAQ ═══ */}
+        <FAQSection />
       </main>
 
       <Footer />
