@@ -53,6 +53,7 @@ function ReminderChecker() {
 }
 
 const App = () => (
+  <HelmetProvider>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <DevModeProvider>
