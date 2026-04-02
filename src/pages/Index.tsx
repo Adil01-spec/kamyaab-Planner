@@ -288,8 +288,8 @@ const Index = () => {
         <section id="how-it-works" className="py-20 gradient-subtle">
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={stepsHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Works</h2>
-              <p className="text-muted-foreground text-lg">Three phases from objective to completed execution.</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Automated Weekly Task Breakdown Works</h2>
+              <p className="text-muted-foreground text-lg">Three phases from objective to completed execution — fully automated.</p>
             </div>
             <div ref={stepsCardsRef} className="scroll-reveal scroll-reveal-stagger relative grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="hidden md:block absolute top-[4.5rem] left-[16.6%] right-[16.6%] h-px bg-border z-0" />
