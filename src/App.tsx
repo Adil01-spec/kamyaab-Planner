@@ -56,8 +56,8 @@ const App = () => (
         <TooltipProvider>
         <Toaster />
         <Sonner position="top-center" />
-        <AdsenseLoader />
         <BrowserRouter>
+          <AdsenseLoader />
           <ReminderChecker />
           <Routes>
             <Route path="/" element={<Index />} />
