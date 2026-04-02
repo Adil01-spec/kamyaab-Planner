@@ -344,7 +344,7 @@ const Index = () => {
           <div className="container max-w-5xl mx-auto px-4">
             <div ref={audienceRef} className="scroll-reveal text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Built for those who value consistency over inspiration
+                Built for Consistent Execution, Not Just Motivation
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
