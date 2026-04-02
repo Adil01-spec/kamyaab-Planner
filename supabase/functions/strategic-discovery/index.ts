@@ -268,10 +268,9 @@ Current question number: ${questionCount}`;
 
   } catch (error: unknown) {
     console.error("Strategic discovery error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: "An unexpected error occurred. Please try again.",
         nextQuestion: null,
         isComplete: true,
       }),

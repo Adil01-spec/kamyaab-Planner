@@ -68,7 +68,6 @@ Deno.serve(async (req) => {
     // Note: We intentionally do NOT expose user_id or plan_id to the public
     return new Response(
       JSON.stringify({
-        id: data.id,
         token: data.token,
         expires_at: data.expires_at,
         revoked: data.revoked,
