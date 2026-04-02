@@ -39,6 +39,8 @@ import Learn from "./pages/Learn";
 import StayConsistent from "./pages/articles/StayConsistent";
 import ExecuteWithoutBurnout from "./pages/articles/ExecuteWithoutBurnout";
 import WhyPeopleFail from "./pages/articles/WhyPeopleFail";
+import Templates from "./pages/Templates";
+import TemplatePage from "./pages/TemplatePage";
 import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
