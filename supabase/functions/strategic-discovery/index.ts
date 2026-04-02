@@ -47,6 +47,8 @@ const FIELD_GUIDANCE: Record<string, string> = {
 const MAX_QUESTIONS = 8;
 const IDEAL_QUESTIONS = 5;
 
+const MAX_PAYLOAD_SIZE = 64 * 1024;
+
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -54,12 +56,32 @@ serve(async (req: Request) => {
   }
 
   try {
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PAYLOAD_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Request too large" }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { field, answers, questionCount }: RequestBody = await req.json();
 
     // Validate input
-    if (!field) {
+    if (!field || typeof field !== 'string' || field.length > 100) {
       return new Response(
-        JSON.stringify({ error: "Field is required" }),
+        JSON.stringify({ error: "Invalid field" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (typeof questionCount !== 'number' || questionCount < 0 || questionCount > MAX_QUESTIONS + 1) {
+      return new Response(
+        JSON.stringify({ error: "Invalid questionCount" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (answers && (!Array.isArray(answers) || answers.length > MAX_QUESTIONS)) {
+      return new Response(
+        JSON.stringify({ error: "Too many answers" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -246,10 +268,9 @@ Current question number: ${questionCount}`;
 
   } catch (error: unknown) {
     console.error("Strategic discovery error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: "An unexpected error occurred. Please try again.",
         nextQuestion: null,
         isComplete: true,
       }),

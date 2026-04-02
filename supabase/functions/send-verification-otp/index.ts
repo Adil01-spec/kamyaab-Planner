@@ -187,9 +187,8 @@ serve(async (req: Request) => {
 
   } catch (error: unknown) {
     console.error("Send OTP error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "An unexpected error occurred. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

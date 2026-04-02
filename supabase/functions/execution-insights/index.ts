@@ -52,12 +52,22 @@ function formatTime(seconds: number): string {
   return `${minutes}m`;
 }
 
+const MAX_PAYLOAD_SIZE = 512 * 1024;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PAYLOAD_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Request too large" }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -81,6 +91,14 @@ serve(async (req) => {
     }
 
     const { metrics, execution_version }: { metrics: ExecutionMetrics; execution_version: string } = await req.json();
+
+    // Validate metrics bounds
+    if (metrics?.completedTasks && metrics.completedTasks.length > 500) {
+      return new Response(
+        JSON.stringify({ error: "Too many tasks in request" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!metrics || !metrics.completedTasks || metrics.completedTasks.length < 3) {
       return new Response(
@@ -273,7 +291,7 @@ Provide:
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error("AI service temporarily unavailable");
     }
 
     const aiResponse = await response.json();
@@ -300,7 +318,7 @@ Provide:
   } catch (error) {
     console.error("Execution insights error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "An unexpected error occurred. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

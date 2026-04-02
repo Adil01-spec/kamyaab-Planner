@@ -160,21 +160,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Resend API error: ${errorText}`);
+      console.error("Resend API error:", errorText);
+      throw new Error("Failed to send email");
     }
 
     const emailResponse = await response.json();
-    console.log("Collaboration invite email sent:", emailResponse);
+    console.log("Collaboration invite email sent:", emailResponse.id);
 
-    return new Response(JSON.stringify({ success: true, id: emailResponse.id }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: unknown) {
     console.error("Error sending collaboration invite:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: "Failed to send invitation. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

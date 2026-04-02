@@ -41,12 +41,22 @@ interface PlanData {
   risks?: { risk: string; mitigation?: string }[];
 }
 
+const MAX_PAYLOAD_SIZE = 512 * 1024;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PAYLOAD_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "Request too large" }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -73,6 +83,24 @@ serve(async (req) => {
     }
 
     const { plan } = await req.json() as { plan: PlanData };
+
+    // Validate plan bounds
+    if (plan?.weeks && plan.weeks.length > 52) {
+      return new Response(
+        JSON.stringify({ error: "Plan exceeds maximum weeks" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (plan?.weeks) {
+      for (const week of plan.weeks) {
+        if (week.tasks && week.tasks.length > 20) {
+          return new Response(
+            JSON.stringify({ error: "Too many tasks in a single week" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
     
     if (!plan) {
       return new Response(
@@ -329,7 +357,7 @@ Provide your analysis using the critique_plan function.`;
   } catch (error) {
     console.error("plan-reality-check error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "An unexpected error occurred. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
