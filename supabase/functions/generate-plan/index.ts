@@ -131,12 +131,24 @@ function normalizeTaskStructure(planJson: any): any {
   };
 }
 
+// Max payload size: 512KB
+const MAX_PAYLOAD_SIZE = 512 * 1024;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Enforce payload size limit
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PAYLOAD_SIZE) {
+      return new Response(JSON.stringify({ error: "Request too large" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -159,7 +171,27 @@ serve(async (req) => {
       });
     }
 
-    const { profile, retryCount = 0 } = await req.json();
+    const body = await req.json();
+    const { profile, retryCount = 0 } = body;
+
+    // Input validation
+    if (!profile || typeof profile !== 'object') {
+      return new Response(JSON.stringify({ error: "Invalid profile data" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof retryCount !== 'number' || retryCount < 0 || retryCount > 3) {
+      return new Response(JSON.stringify({ error: "Invalid retryCount" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Validate string lengths
+    const maxStr = 2000;
+    const maxTitle = 200;
+    if (profile.fullName && String(profile.fullName).length > maxTitle) profile.fullName = String(profile.fullName).slice(0, maxTitle);
+    if (profile.projectTitle && String(profile.projectTitle).length > maxTitle) profile.projectTitle = String(profile.projectTitle).slice(0, maxTitle);
+    if (profile.projectDescription && String(profile.projectDescription).length > maxStr) profile.projectDescription = String(profile.projectDescription).slice(0, maxStr);
+    if (profile.profession && String(profile.profession).length > maxTitle) profile.profession = String(profile.profession).slice(0, maxTitle);
 
     // ============================================
     // THROTTLING & COST PROTECTION (Phase 8.1)
