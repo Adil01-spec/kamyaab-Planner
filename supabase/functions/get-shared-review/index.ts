@@ -66,9 +66,9 @@ Deno.serve(async (req) => {
 
     // Return the data (client will handle revoked/expired display)
     // Note: We intentionally do NOT expose user_id or plan_id to the public
+    // Note: Intentionally omit internal 'id' field from public response
     return new Response(
       JSON.stringify({
-        id: data.id,
         token: data.token,
         expires_at: data.expires_at,
         revoked: data.revoked,
