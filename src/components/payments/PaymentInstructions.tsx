@@ -21,7 +21,7 @@ const INSTRUCTIONS = {
   jazzcash: {
     title: 'JazzCash Details',
     fields: [
-      { label: 'JazzCash Number', value: '030051499089' },
+      { label: 'JazzCash Number', value: '03051499089' },
       { label: 'Receiver Name', value: 'Adil Zia' },
     ],
   },
