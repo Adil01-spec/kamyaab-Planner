@@ -21,11 +21,29 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Payload size limit
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > 64 * 1024) {
+      return new Response(JSON.stringify({ error: "Request too large" }), {
+        status: 413, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const { token, email, access_key } = await req.json();
 
     if (!token || !email || !access_key) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Input validation
+    if (typeof token !== 'string' || token.length > 500 ||
+        typeof email !== 'string' || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        (typeof access_key !== 'string' && typeof access_key !== 'number')) {
+      return new Response(
+        JSON.stringify({ error: "Invalid input" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }

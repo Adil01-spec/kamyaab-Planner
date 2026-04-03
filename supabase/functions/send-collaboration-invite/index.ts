@@ -32,6 +32,14 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Payload size limit
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > 64 * 1024) {
+      return new Response(JSON.stringify({ error: "Request too large" }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not configured");
     }
@@ -40,6 +48,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!collaboratorEmail || !ownerName || !planId || !token || !role || !appUrl) {
       throw new Error("Missing required fields");
+    }
+
+    // Input validation
+    if (typeof collaboratorEmail !== 'string' || collaboratorEmail.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(collaboratorEmail)) {
+      return new Response(JSON.stringify({ error: "Invalid email" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof ownerName !== 'string' || ownerName.length > 200) {
+      return new Response(JSON.stringify({ error: "Invalid owner name" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof appUrl !== 'string' || appUrl.length > 500) {
+      return new Response(JSON.stringify({ error: "Invalid app URL" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(
