@@ -177,7 +177,7 @@ const App = () => (
               } 
             />
             <Route 
-              path="/admin/payments" 
+              path="/ctrl-9x7k/payments" 
               element={
                 <ProtectedRoute requireProfile>
                   <AdminPayments />
@@ -185,7 +185,7 @@ const App = () => (
               } 
             />
             <Route 
-              path="/admin" 
+              path="/ctrl-9x7k" 
               element={
                 <ProtectedRoute requireProfile>
                   <AdminDashboard />
