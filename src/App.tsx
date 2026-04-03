@@ -185,7 +185,7 @@ const App = () => (
               } 
             />
             <Route 
-              path="/admin" 
+              path="/ctrl-9x7k" 
               element={
                 <ProtectedRoute requireProfile>
                   <AdminDashboard />
