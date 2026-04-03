@@ -13,23 +13,23 @@ const INSTRUCTIONS = {
     title: 'Bank Transfer Details',
     fields: [
       { label: 'Bank Name', value: 'Meezan Bank' },
-      { label: 'Account Title', value: 'Kaamyab Technologies' },
-      { label: 'Account Number', value: '02340105012345' },
-      { label: 'IBAN', value: 'PK36MEZN0002340105012345' },
+      { label: 'Account Title', value: 'Adil Zia' },
+      { label: 'Account Number', value: '03370106510144' },
+      { label: 'IBAN', value: 'PK61MEZN0003370106510144' },
     ],
   },
   jazzcash: {
     title: 'JazzCash Details',
     fields: [
       { label: 'JazzCash Number', value: '0300-1234567' },
-      { label: 'Receiver Name', value: 'Kaamyab Technologies' },
+      { label: 'Receiver Name', value: 'Adil Zia' },
     ],
   },
   easypaisa: {
     title: 'Easypaisa Details',
     fields: [
       { label: 'Easypaisa Number', value: '0345-1234567' },
-      { label: 'Receiver Name', value: 'Kaamyab Technologies' },
+      { label: 'Receiver Name', value: 'Adil Zia' },
     ],
   },
 };
