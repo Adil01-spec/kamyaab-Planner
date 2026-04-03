@@ -28,7 +28,7 @@ const INSTRUCTIONS = {
   easypaisa: {
     title: 'Easypaisa Details',
     fields: [
-      { label: 'Easypaisa Number', value: '0345-1234567' },
+      { label: 'Easypaisa Number', value: '03416077869' },
       { label: 'Receiver Name', value: 'Adil Zia' },
     ],
   },
