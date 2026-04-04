@@ -1,104 +1,72 @@
-import { useEffect } from 'react';
-import heroMockup from '@/assets/hero-mockup.png';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Loader2, Target, Timer, Brain, AlertTriangle, Map, TrendingUp,
-  ArrowRight, CheckCircle, X, Minus, GraduationCap, Briefcase, Code, Users,
-  Gauge, Zap, Lock, Database
-} from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { LandingHeader } from '@/components/LandingHeader';
 import { FAQSection } from '@/components/FAQSection';
 import SEO from '@/components/SEO';
-import { useScrollReveal } from '@/hooks/useScrollReveal';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 
-/* ─── Comparison Data ─── */
-const comparisonData = [
-  { feature: 'AI-generated structured plans', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Describe your objective — AI builds a week-by-week execution plan.' },
-  { feature: 'Milestone-driven execution', kaamyab: true, todo: false, notion: 'partial' as const, habit: false, detail: 'Tasks are sequenced into milestones, not dumped into a flat list.' },
-  { feature: 'Adaptive refinement', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Plans restructure based on your actual execution pace.' },
-  { feature: 'Execution tracking & insights', kaamyab: true, todo: 'partial' as const, notion: false, habit: 'partial' as const, detail: 'Every task is timed with a 4-state system: idle, doing, paused, done.' },
-  { feature: 'Strategic risk assessment', kaamyab: true, todo: false, notion: false, habit: false, detail: 'AI surfaces risks and assumptions before you start executing.' },
-  { feature: 'Week-by-week pacing', kaamyab: true, todo: false, notion: 'partial' as const, habit: true, detail: 'Realistic weekly workload distribution, not arbitrary deadlines.' },
-  { feature: 'Adaptive behavioral memory', kaamyab: true, todo: false, notion: false, habit: false, detail: 'Learns your patterns over time and adjusts future plans accordingly.' },
-];
+// App screenshots
+import todayView from '@/assets/screenshots/today-view.png';
+import planView from '@/assets/screenshots/plan-view.png';
+import reviewView from '@/assets/screenshots/review-view.png';
 
-type CellValue = boolean | 'partial';
+/* ─── Scroll-reveal section wrapper ─── */
+const RevealSection = ({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-80px' });
 
-const CellIcon = ({ val, isKaamyab }: { val: CellValue; isKaamyab?: boolean }) => {
-  if (val === true) return <CheckCircle className={`w-5 h-5 mx-auto ${isKaamyab ? 'text-primary' : 'text-primary'}`} />;
-  if (val === 'partial') return <Minus className="w-5 h-5 text-muted-foreground mx-auto" />;
-  return <X className="w-5 h-5 text-muted-foreground/40 mx-auto" />;
-};
-
-const ComparisonRow = ({ row }: { row: typeof comparisonData[0] }) => {
-  const [hovered, setHovered] = useState(false);
   return (
-    <>
-      <tr
-        className="border-b border-border/50 cursor-default"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <td className="py-3 px-4 text-foreground">{row.feature}</td>
-        <td className="text-center py-3 px-4">
-          <div className={`transition-all duration-300 ${hovered ? 'drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]' : ''}`}>
-            <CellIcon val={row.kaamyab} isKaamyab />
-          </div>
-        </td>
-        <td className="text-center py-3 px-4"><CellIcon val={row.todo} /></td>
-        <td className="text-center py-3 px-4"><CellIcon val={row.notion} /></td>
-        <td className="text-center py-3 px-4"><CellIcon val={row.habit} /></td>
-      </tr>
-      <AnimatePresence>
-        {hovered && (
-          <motion.tr
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <td colSpan={5} className="px-4 pb-3 pt-0">
-              <p className="text-xs text-muted-foreground italic">{row.detail}</p>
-            </td>
-          </motion.tr>
-        )}
-      </AnimatePresence>
-    </>
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
   );
 };
 
-const ComparisonCard = ({ row }: { row: typeof comparisonData[0] }) => {
-  const competitors = [
-    { label: 'Todo Apps', val: row.todo },
-    { label: 'Notion', val: row.notion },
-    { label: 'Habit Trackers', val: row.habit },
-  ];
+/* ─── Floating app screenshot with perspective tilt ─── */
+const AppScreenshot = ({ src, alt, className = '' }: { src: string; alt: string; className?: string }) => {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: y * -8, y: x * 8 });
+  };
+
+  const handleMouseLeave = () => setTilt({ x: 0, y: 0 });
+
   return (
-    <article className="scroll-reveal-child glass-card rounded-xl p-5">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-sm font-semibold text-foreground leading-snug">{row.feature}</h3>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs font-bold tracking-[0.15em] uppercase text-primary">KAMYAAB</span>
-          <CellIcon val={row.kaamyab} isKaamyab />
-        </div>
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={`relative group ${className}`}
+      style={{ perspective: '1200px' }}
+    >
+      <div
+        className="rounded-2xl overflow-hidden shadow-2xl border border-border/20 transition-transform duration-300 ease-out will-change-transform"
+        style={{
+          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1)`,
+        }}
+      >
+        <img src={src} alt={alt} className="w-full h-auto" loading="lazy" />
       </div>
-      <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{row.detail}</p>
-      <div className="flex items-center gap-4 pt-2 border-t border-border/50">
-        {competitors.map((c) => (
-          <div key={c.label} className="flex items-center gap-1.5">
-            <CellIcon val={c.val} />
-            <span className="text-xs text-muted-foreground">{c.label}</span>
-          </div>
-        ))}
-      </div>
-    </article>
+      {/* Subtle glow under the card */}
+      <div className="absolute -inset-4 -z-10 bg-primary/5 rounded-3xl blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    </div>
   );
 };
 
@@ -106,28 +74,19 @@ const ComparisonCard = ({ row }: { row: typeof comparisonData[0] }) => {
 const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-
-  const problemHeadingRef = useScrollReveal();
-  const problemCardsRef = useScrollReveal();
-  const stepsHeadingRef = useScrollReveal();
-  const stepsCardsRef = useScrollReveal();
-  const metricsRef = useScrollReveal();
-  const audienceRef = useScrollReveal();
-  const whyRef = useScrollReveal();
-  const strategicRef = useScrollReveal();
-  const comparisonHeadingRef = useScrollReveal();
-  const comparisonTableRef = useScrollReveal();
-  const comparisonMobileRef = useScrollReveal();
-  const ctaRef = useScrollReveal();
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, -80]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   useEffect(() => {
     if (!loading) {
       if (!user) return;
-      if (!profile) {
-        navigate('/onboarding', { replace: true });
-      } else {
-        navigate('/today', { replace: true });
-      }
+      if (!profile) navigate('/onboarding', { replace: true });
+      else navigate('/today', { replace: true });
     }
   }, [user, profile, loading, navigate]);
 
@@ -144,342 +103,274 @@ const Index = () => {
   if (user) return null;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <SEO canonical="/" />
       <LandingHeader />
 
       <main>
-        {/* ═══ Hero ═══ */}
-        <section className="relative overflow-hidden gradient-subtle">
-          <div className="container max-w-6xl mx-auto px-4 py-20 md:py-32">
-            <div className="max-w-3xl mx-auto text-center animate-slide-up">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-                <Target className="w-4 h-4" />
-                Execution Intelligence System
-              </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight mb-6">
-                AI-Powered Execution Intelligence System
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
-                AI plans that actually get completed. Define your objective — KAMYAAB generates a locked execution plan with{' '}
-                <strong className="text-foreground">deterministic execution speed</strong> and{' '}
-                <strong className="text-foreground">adaptive behavioral memory</strong>.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button asChild size="lg" className="text-base px-8">
-                  <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="text-base px-8"
-                  onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  See the System
-                </Button>
-              </div>
-            </div>
+        {/* ═══ HERO ═══ */}
+        <section ref={heroRef} className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+          {/* Subtle gradient orbs */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-primary/[0.04] blur-[100px]" />
+            <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-accent/[0.06] blur-[100px]" />
+          </div>
 
-            {/* Hero mockup with callouts */}
-            <motion.div
-              className="hidden md:block mt-14 md:mt-20 max-w-5xl mx-auto relative"
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <motion.div className="hidden md:flex absolute -left-4 top-[38%] z-20 items-center gap-2"
-                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 1.2 }}>
-                <div className="bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
-                  <p className="text-xs font-semibold text-foreground">Milestone Tasks</p>
-                  <p className="text-[10px] text-muted-foreground">Week-by-week structured execution</p>
-                </div>
-                <div className="w-8 h-px bg-primary" />
-              </motion.div>
+          <motion.div
+            style={{ y: heroY, opacity: heroOpacity }}
+            className="container max-w-5xl mx-auto px-4 pt-8 pb-16"
+          >
+            <div className="max-w-3xl mx-auto text-center">
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="text-sm font-medium text-muted-foreground tracking-wide mb-6"
+              >
+                For people who finish what they start
+              </motion.p>
 
-              <motion.div className="hidden md:flex absolute -right-4 top-[24%] z-20 items-center gap-2"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 1.4 }}>
-                <div className="w-8 h-px bg-primary" />
-                <div className="bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
-                  <p className="text-xs font-semibold text-foreground">Progress Ring</p>
-                  <p className="text-[10px] text-muted-foreground">Visual completion tracking</p>
-                </div>
-              </motion.div>
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground leading-[1.1] mb-6"
+              >
+                Your plans deserve
+                <br />
+                <span className="text-primary">better than a to-do list.</span>
+              </motion.h1>
 
-              <motion.div className="hidden md:flex absolute -right-4 top-[68%] z-20 items-center gap-2"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 1.6 }}>
-                <div className="w-8 h-px bg-primary" />
-                <div className="bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
-                  <p className="text-xs font-semibold text-foreground">Quick Actions</p>
-                  <p className="text-[10px] text-muted-foreground">Jump to focus, plan, or review</p>
-                </div>
-              </motion.div>
-
-              <motion.div className="hidden md:flex absolute -left-4 top-[78%] z-20 items-center gap-2"
-                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 1.8 }}>
-                <div className="bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
-                  <p className="text-xs font-semibold text-foreground">Behavioral Memory Reminders</p>
-                  <p className="text-[10px] text-muted-foreground">Adaptive execution cues based on your consistency history</p>
-                </div>
-                <div className="w-8 h-px bg-primary" />
-              </motion.div>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-xl mx-auto"
+              >
+                Describe what you want to achieve. AI builds a structured execution plan.
+                You track it, week by week.
+              </motion.p>
 
               <motion.div
-                className="rounded-xl overflow-hidden shadow-2xl border border-border/30 ring-1 ring-primary/10"
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-                whileHover={{ scale: 1.015, rotateX: 2, rotateY: -1 }}
-                style={{ perspective: 1000, transformStyle: 'preserve-3d' }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="flex flex-col sm:flex-row items-center justify-center gap-3"
               >
-                <img
-                  src={heroMockup}
-                  alt="KAMYAAB app showing structured execution plan with progress tracking"
-                  className="w-full h-auto"
-                  loading="eager"
-                />
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ═══ Problem Section ═══ */}
-        <section className="py-20 bg-background">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div ref={problemHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Why Most Plans Fail Without AI-Powered Goal Tracking</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Ambition without structure produces nothing. Without a system, plans stay wishes.
-              </p>
-            </div>
-            <div ref={problemCardsRef} className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                {
-                  icon: AlertTriangle,
-                  title: 'No Structure',
-                  desc: 'Plans without milestones become overwhelming. You don\'t know what to do first, second, or next.',
-                  contrast: 'KAMYAAB replaces guesswork with deterministic task sequencing — each step is computed, not assumed.',
-                },
-                {
-                  icon: Map,
-                  title: 'No Roadmap',
-                  desc: 'Without a sequence of steps, effort scatters. You work hard but never move forward.',
-                  contrast: 'KAMYAAB\'s adaptive behavioral memory learns your pace and restructures your path automatically.',
-                },
-                {
-                  icon: TrendingUp,
-                  title: 'Inconsistent Execution',
-                  desc: 'Without an adaptive plan that adjusts to reality, progress stalls and plans get abandoned.',
-                  contrast: 'KAMYAAB tracks execution state (idle, doing, paused, done) — not feelings — to maintain forward progress.',
-                },
-              ].map((item) => (
-                <article key={item.title} className="scroll-reveal-child glass-card rounded-xl p-8 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mx-auto mb-5">
-                    <item.icon className="w-6 h-6 text-destructive" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed mb-4">{item.desc}</p>
-                  <p className="text-sm leading-relaxed text-primary font-medium">{item.contrast}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ How KAMYAAB Works — Define / Execute / Adapt ═══ */}
-        <section id="how-it-works" className="py-20 gradient-subtle">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div ref={stepsHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How Automated Weekly Task Breakdown Works</h2>
-              <p className="text-muted-foreground text-lg">Three phases from objective to completed execution — fully automated.</p>
-            </div>
-            <div ref={stepsCardsRef} className="scroll-reveal scroll-reveal-stagger relative grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="hidden md:block absolute top-[4.5rem] left-[16.6%] right-[16.6%] h-px bg-border z-0" />
-              {[
-                { icon: Target, step: '01', title: 'Define', desc: 'Describe your objective. AI generates a locked multi-week plan with milestone-driven task sequencing.' },
-                { icon: Timer, step: '02', title: 'Execute', desc: 'Track every task with a 4-state timer and deterministic completion speed. Every action is measured.' },
-                { icon: Brain, step: '03', title: 'Adapt', desc: 'Behavioral memory injection automatically refines every future plan based on your execution patterns.' },
-              ].map((item) => (
-                <article key={item.step} className="scroll-reveal-child glass-card rounded-xl p-8 text-center interactive-card relative z-10">
-                  <div className="text-xs font-bold text-primary mb-3 tracking-widest">PHASE {item.step}</div>
-                  <div className="w-14 h-14 rounded-2xl bg-[#166534] flex items-center justify-center mx-auto mb-5">
-                    <item.icon className="w-7 h-7 text-primary-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ What You Can Measure ═══ */}
-        <section className="py-20 bg-background">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div ref={metricsRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Quantifiable Execution Metrics & Analytics</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Quantifiable execution data — not subjective feelings.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                { icon: Gauge, label: 'Execution Consistency Score', desc: 'Your rolling completion reliability across plans.' },
-                { icon: Zap, label: 'Average Completion Speed', desc: 'Deterministic speed calculation per task and milestone.' },
-                { icon: Lock, label: 'Plan Lock Rate', desc: 'Percentage of plans executed without scope modification.' },
-                { icon: Database, label: 'Behavioral Memory Impact', desc: 'How prior execution patterns improve future plan accuracy.' },
-              ].map((m) => (
-                <article key={m.label} className="glass-card rounded-xl p-6 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-[#166534]/10 flex items-center justify-center mx-auto mb-4">
-                    <m.icon className="w-6 h-6 text-[#166534]" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-foreground mb-2">{m.label}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{m.desc}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Built For ═══ */}
-        <section className="py-20 gradient-subtle">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div ref={audienceRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Built for Consistent Execution, Not Just Motivation
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                { icon: GraduationCap, title: 'Students', desc: 'Structured study plans with measurable weekly targets.' },
-                { icon: Briefcase, title: 'Freelancers', desc: 'Client delivery milestones with deterministic pacing.' },
-                { icon: Code, title: 'Builders & Indie Hackers', desc: 'Ship faster with locked execution roadmaps.' },
-                { icon: Users, title: 'Professionals', desc: 'Deterministic execution for career and project goals.' },
-              ].map((a) => (
-                <article key={a.title} className="glass-card rounded-xl p-6 text-center">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <a.icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground mb-2">{a.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{a.desc}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Why Serious Executors Choose KAMYAAB ═══ */}
-        <section className="py-20 bg-background">
-          <div className="container max-w-4xl mx-auto px-4">
-            <article ref={whyRef} className="scroll-reveal glass-card rounded-2xl p-8 md:p-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
-                Why serious executors choose KAMYAAB
-              </h2>
-              <ul className="space-y-4">
-                {[
-                  'Plan locking prevents scope creep — execute what you committed to.',
-                  'Rolling 5-entry behavioral memory refines every future plan.',
-                  '4-state timer with deterministic speed calculation for every task.',
-                  'Strategic risk assessment surfaces assumptions before execution begins.',
-                  'Subscription tiers for individuals and teams — standard is free.',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-muted-foreground leading-relaxed">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </div>
-        </section>
-
-        {/* ═══ Comparison ═══ */}
-        <section className="py-20 gradient-subtle">
-          <div className="container max-w-5xl mx-auto px-4">
-            <div ref={comparisonHeadingRef} className="scroll-reveal text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">How KAMYAAB Compares to Traditional Planners</h2>
-              <p className="text-muted-foreground text-lg">Not another to-do app. A structured execution system.</p>
-            </div>
-            <div ref={comparisonTableRef} className="scroll-reveal hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-4 px-4 font-semibold text-foreground">Feature</th>
-                    <th className="text-center py-4 px-4 font-bold tracking-[0.15em] uppercase text-primary">KAMYAAB</th>
-                    <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Todo Apps</th>
-                    <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Notion Templates</th>
-                    <th className="text-center py-4 px-4 font-semibold text-muted-foreground">Habit Trackers</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparisonData.map((row) => (
-                    <ComparisonRow key={row.feature} row={row} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div ref={comparisonMobileRef} className="scroll-reveal scroll-reveal-stagger grid grid-cols-1 gap-4 md:hidden">
-              {comparisonData.map((row) => (
-                <ComparisonCard key={row.feature} row={row} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Learn Section ═══ */}
-        <section className="py-16 bg-background">
-          <div className="container max-w-4xl mx-auto px-4 text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-              Execution Insights
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Practical articles on staying consistent, avoiding burnout, and building systems that work.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {[
-                { title: 'How to Stay Consistent With Your Goals', slug: 'stay-consistent-with-goals' },
-                { title: 'Execute Plans Without Burning Out', slug: 'execute-plans-without-burnout' },
-                { title: 'Why Most People Fail at Execution', slug: 'why-people-fail-at-execution' },
-              ].map((a) => (
-                <Link
-                  key={a.slug}
-                  to={`/learn/${a.slug}`}
-                  className="glass-card rounded-xl p-5 text-left hover:border-primary/30 transition-all group"
+                <Button asChild size="lg" className="text-base px-8 h-12 rounded-xl">
+                  <Link to="/auth?mode=signup">
+                    Start for free <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="text-base px-6 h-12 text-muted-foreground hover:text-foreground"
+                  onClick={() => document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
-                    {a.title}
-                  </h3>
-                  <span className="text-xs text-primary mt-2 inline-block">Read →</span>
-                </Link>
-              ))}
+                  See how it works ↓
+                </Button>
+              </motion.div>
             </div>
-            <Link to="/learn" className="text-primary hover:underline font-medium text-sm">
-              View all articles →
-            </Link>
+
+            {/* Hero Screenshot — floating */}
+            <motion.div
+              initial={{ opacity: 0, y: 60, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.9, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-16 md:mt-20 max-w-4xl mx-auto"
+            >
+              <AppScreenshot
+                src={todayView}
+                alt="KAMYAAB daily focus view showing today's tasks, progress ring, and weekly milestone tracking"
+              />
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* ═══ APP SHOWCASE — Side-by-side screenshots with scroll reveal ═══ */}
+        <section id="showcase" className="py-24 md:py-32">
+          <div className="container max-w-6xl mx-auto px-4">
+            {/* Showcase 1: Plan View */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-24 md:mb-32">
+              <RevealSection className="order-2 lg:order-1">
+                <AppScreenshot
+                  src={planView}
+                  alt="AI-generated execution plan with progress tracking and weekly schedule"
+                />
+              </RevealSection>
+              <RevealSection className="order-1 lg:order-2" delay={0.15}>
+                <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Your Plan</p>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
+                  AI builds it.<br />You execute it.
+                </h2>
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  Describe your goal — get a structured multi-week plan with milestones,
+                  deadlines, and progress tracking. No blank pages, no guesswork.
+                </p>
+              </RevealSection>
+            </div>
+
+            {/* Showcase 2: Today View */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-24 md:mb-32">
+              <RevealSection delay={0.1}>
+                <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Daily Focus</p>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
+                  One day at a time.<br />Always clear.
+                </h2>
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  See exactly what to work on today. Track time, mark progress,
+                  and stay on pace without overthinking.
+                </p>
+              </RevealSection>
+              <RevealSection delay={0.25}>
+                <AppScreenshot
+                  src={todayView}
+                  alt="Daily task focus view with progress indicators and weekly milestone context"
+                />
+              </RevealSection>
+            </div>
+
+            {/* Showcase 3: Review View */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              <RevealSection className="order-2 lg:order-1">
+                <AppScreenshot
+                  src={reviewView}
+                  alt="Plan review dashboard with strategy insights, reality check, and execution analytics"
+                />
+              </RevealSection>
+              <RevealSection className="order-1 lg:order-2" delay={0.15}>
+                <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Review & Adapt</p>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
+                  See where you stand.<br />Always.
+                </h2>
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  AI-powered insights on your execution patterns. What's working,
+                  what's slipping, and what to adjust — no guessing.
+                </p>
+              </RevealSection>
+            </div>
           </div>
         </section>
 
-        {/* ═══ Pricing Teaser ═══ */}
-        <section className="py-12 gradient-subtle">
+        {/* ═══ HOW IT WORKS — Minimal 3-step ═══ */}
+        <section id="how-it-works" className="py-24 md:py-32 border-t border-border/30">
+          <div className="container max-w-4xl mx-auto px-4">
+            <RevealSection className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+                Three steps. That's it.
+              </h2>
+              <p className="text-muted-foreground text-lg">No learning curve. No setup complexity.</p>
+            </RevealSection>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+              {[
+                {
+                  num: '01',
+                  title: 'Define your goal',
+                  desc: 'Tell AI what you want to achieve and your deadline. It does the rest.',
+                },
+                {
+                  num: '02',
+                  title: 'Follow the plan',
+                  desc: 'Each week has clear tasks. Track them with built-in timers and progress rings.',
+                },
+                {
+                  num: '03',
+                  title: 'Review & adapt',
+                  desc: 'Get AI insights on your patterns. Plans evolve based on how you actually work.',
+                },
+              ].map((step, i) => (
+                <RevealSection key={step.num} delay={i * 0.12}>
+                  <div className="text-center">
+                    <span className="inline-block text-5xl md:text-6xl font-extrabold text-primary/15 mb-4 select-none">
+                      {step.num}
+                    </span>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{step.desc}</p>
+                  </div>
+                </RevealSection>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ SOCIAL PROOF STRIP ═══ */}
+        <section className="py-16 border-t border-border/30">
+          <div className="container max-w-4xl mx-auto px-4">
+            <RevealSection>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                {[
+                  { value: '12', label: 'Week plans' },
+                  { value: '49+', label: 'Tasks per plan' },
+                  { value: '4', label: 'Task states tracked' },
+                  { value: '∞', label: 'Plans — free tier' },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <div className="text-3xl md:text-4xl font-extrabold text-foreground mb-1">{stat.value}</div>
+                    <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </RevealSection>
+          </div>
+        </section>
+
+        {/* ═══ BUILT FOR ═══ */}
+        <section className="py-24 md:py-32 border-t border-border/30">
+          <div className="container max-w-4xl mx-auto px-4">
+            <RevealSection className="text-center mb-14">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+                Built for people who ship.
+              </h2>
+              <p className="text-muted-foreground text-lg">Students, freelancers, builders, professionals.</p>
+            </RevealSection>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {[
+                { emoji: '🎓', title: 'Students', desc: 'Structure your semester, exam prep, or thesis into achievable weekly milestones.' },
+                { emoji: '💼', title: 'Freelancers', desc: 'Turn client deliverables into tracked execution plans with real deadlines.' },
+                { emoji: '🛠', title: 'Builders', desc: 'Ship side projects and MVPs with week-by-week roadmaps instead of scattered tasks.' },
+                { emoji: '📈', title: 'Professionals', desc: 'Career goals, certifications, skill-building — all structured and measurable.' },
+              ].map((item, i) => (
+                <RevealSection key={item.title} delay={i * 0.08}>
+                  <div className="rounded-2xl border border-border/50 p-6 hover:border-primary/20 transition-colors duration-300">
+                    <span className="text-2xl mb-3 block">{item.emoji}</span>
+                    <h3 className="text-base font-semibold text-foreground mb-1.5">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                  </div>
+                </RevealSection>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ FINAL CTA ═══ */}
+        <section className="py-24 md:py-32">
+          <div className="container max-w-3xl mx-auto px-4">
+            <RevealSection className="text-center">
+              <h2 className="text-3xl md:text-5xl font-bold text-foreground leading-tight mb-5">
+                Stop planning.<br />Start finishing.
+              </h2>
+              <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
+                Free to start. No credit card. Takes 2 minutes.
+              </p>
+              <Button asChild size="lg" className="text-base px-10 h-12 rounded-xl">
+                <Link to="/auth?mode=signup">
+                  Get started <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Link>
+              </Button>
+            </RevealSection>
+          </div>
+        </section>
+
+        {/* ═══ PRICING TEASER ═══ */}
+        <section className="py-8 border-t border-border/30">
           <div className="container max-w-3xl mx-auto px-4 text-center">
             <p className="text-muted-foreground text-sm">
-              Standard is free · Pro and Business plans unlock unlimited strategic mode and team features.{' '}
-              <Link to="/pricing" className="text-primary hover:underline font-medium">View pricing →</Link>
+              Standard is free forever.{' '}
+              <Link to="/pricing" className="text-primary hover:underline font-medium">See all plans →</Link>
             </p>
-          </div>
-        </section>
-
-        {/* ═══ Final CTA ═══ */}
-        <section className="py-20 gradient-subtle">
-          <div ref={ctaRef} className="scroll-reveal container max-w-3xl mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Stop planning in your head. Start executing with structure.
-            </h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
-              Your objectives deserve more than a checklist. Build a locked plan, track deterministic progress.
-            </p>
-            <Button asChild size="lg" className="text-base px-10">
-              <Link to="/auth">Start Free <ArrowRight className="w-4 h-4 ml-1" /></Link>
-            </Button>
-            <p className="text-muted-foreground text-sm mt-4">No credit card required.</p>
           </div>
         </section>
 
