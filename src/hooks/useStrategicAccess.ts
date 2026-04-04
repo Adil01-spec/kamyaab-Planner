@@ -85,14 +85,10 @@ export function useStrategicAccess() {
  * NOTE: This is now primarily handled server-side in the edge function.
  */
 export async function incrementStrategicCallCount(userId: string): Promise<void> {
-  // Use raw SQL for atomic increment
+  // Strategic call tracking is handled server-side by edge functions using service_role.
+  // Client-side updates to strategic fields are blocked by the profile guard trigger.
   const { error } = await supabase.rpc('increment_strategic_calls' as any, { user_id: userId });
-  
-  // Fallback if RPC doesn't exist - just update the timestamp
   if (error) {
-    await supabase
-      .from('profiles')
-      .update({ strategic_last_call_at: new Date().toISOString() })
-      .eq('id', userId);
+    console.warn('Strategic call increment skipped (handled server-side):', error.message);
   }
 }
