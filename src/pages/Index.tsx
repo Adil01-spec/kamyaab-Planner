@@ -83,7 +83,7 @@ const LandingContent = () => {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-background flex flex-col" style={{ overflowX: 'clip' }}>
       <SEO canonical="/" />
       <LandingHeader />
 
