@@ -19,7 +19,7 @@ const RevealSection = ({ children, className = '', delay = 0 }: { children: Reac
 
 const testimonials = [
   {
-    quote: 'Helped me actually stick to a plan for the first time. I went from "I'll start Monday" to finishing a 6-week project on time.',
+    quote: 'Helped me actually stick to a plan for the first time. I went from saying I will start Monday to finishing a 6-week project on time.',
     name: 'Early user',
   },
   {
