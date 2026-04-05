@@ -9,6 +9,9 @@ import { FAQSection } from '@/components/FAQSection';
 import SEO from '@/components/SEO';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
+import { DifferentiationSection } from '@/components/landing/DifferentiationSection';
+import { TrustSignalsSection } from '@/components/landing/TrustSignalsSection';
+import { SEOContentSection } from '@/components/landing/SEOContentSection';
 
 // App screenshots
 import todayView from '@/assets/screenshots/today-view.png';
@@ -64,7 +67,6 @@ const AppScreenshot = ({ src, alt, className = '' }: { src: string; alt: string;
       >
         <img src={src} alt={alt} className="w-full h-auto" loading="lazy" />
       </div>
-      {/* Subtle glow under the card */}
       <div className="absolute -inset-4 -z-10 bg-primary/5 rounded-3xl blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
     </div>
   );
@@ -110,7 +112,6 @@ const Index = () => {
       <main>
         {/* ═══ HERO ═══ */}
         <section ref={heroRef} className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-          {/* Subtle gradient orbs */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-primary/[0.04] blur-[100px]" />
             <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-accent/[0.06] blur-[100px]" />
@@ -147,33 +148,37 @@ const Index = () => {
                 transition={{ duration: 0.5, delay: 0.35 }}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-xl mx-auto"
               >
-                Describe what you want to achieve. AI builds a structured execution plan.
-                You track it, week by week.
+                Kamyaab turns your goals into structured weekly plans and tracks your execution — so you actually finish what you start.
               </motion.p>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-3"
+                className="flex flex-col items-center justify-center gap-3"
               >
-                <Button asChild size="lg" className="text-base px-8 h-12 rounded-xl">
-                  <Link to="/auth?mode=signup">
-                    Start for free <ArrowRight className="w-4 h-4 ml-1.5" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="text-base px-6 h-12 text-muted-foreground hover:text-foreground"
-                  onClick={() => document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  See how it works ↓
-                </Button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Button asChild size="lg" className="text-base px-8 h-12 rounded-xl">
+                    <Link to="/auth?mode=signup">
+                      Start for free <ArrowRight className="w-4 h-4 ml-1.5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="text-base px-6 h-12 text-muted-foreground hover:text-foreground"
+                    onClick={() => document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    See how it works ↓
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Generate your first plan in under 60 seconds · No credit card required
+                </p>
               </motion.div>
             </div>
 
-            {/* Hero Screenshot — floating */}
+            {/* Hero Screenshot */}
             <motion.div
               initial={{ opacity: 0, y: 60, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -188,21 +193,24 @@ const Index = () => {
           </motion.div>
         </section>
 
-        {/* ═══ APP SHOWCASE — Side-by-side screenshots with scroll reveal ═══ */}
-        <section id="showcase" className="py-24 md:py-32">
+        {/* ═══ DIFFERENTIATION ═══ */}
+        <DifferentiationSection />
+
+        {/* ═══ APP SHOWCASE ═══ */}
+        <section id="showcase" className="py-24 md:py-32 border-t border-border/30">
           <div className="container max-w-6xl mx-auto px-4">
             {/* Showcase 1: Plan View */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mb-24 md:mb-32">
               <RevealSection className="order-2 lg:order-1">
                 <AppScreenshot
                   src={planView}
-                  alt="AI-generated execution plan with progress tracking and weekly schedule"
+                  alt="AI-generated structured weekly execution plan with progress tracking"
                 />
               </RevealSection>
               <RevealSection className="order-1 lg:order-2" delay={0.15}>
                 <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Your Plan</p>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
-                  AI builds it.<br />You execute it.
+                  AI-generated structured weekly plan.
                 </h2>
                 <p className="text-muted-foreground text-lg leading-relaxed">
                   Describe your goal — get a structured multi-week plan with milestones,
@@ -216,7 +224,7 @@ const Index = () => {
               <RevealSection delay={0.1}>
                 <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Daily Focus</p>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
-                  One day at a time.<br />Always clear.
+                  Track your execution daily.
                 </h2>
                 <p className="text-muted-foreground text-lg leading-relaxed">
                   See exactly what to work on today. Track time, mark progress,
@@ -226,7 +234,7 @@ const Index = () => {
               <RevealSection delay={0.25}>
                 <AppScreenshot
                   src={todayView}
-                  alt="Daily task focus view with progress indicators and weekly milestone context"
+                  alt="Daily task focus view with progress indicators and execution tracking"
                 />
               </RevealSection>
             </div>
@@ -236,24 +244,24 @@ const Index = () => {
               <RevealSection className="order-2 lg:order-1">
                 <AppScreenshot
                   src={reviewView}
-                  alt="Plan review dashboard with strategy insights, reality check, and execution analytics"
+                  alt="Review dashboard with strategy insights, reality check, and execution analytics"
                 />
               </RevealSection>
               <RevealSection className="order-1 lg:order-2" delay={0.15}>
                 <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">Review & Adapt</p>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
-                  See where you stand.<br />Always.
+                  Review your real progress, not guesses.
                 </h2>
                 <p className="text-muted-foreground text-lg leading-relaxed">
-                  AI-powered insights on your execution patterns. What's working,
-                  what's slipping, and what to adjust — no guessing.
+                  AI-powered insights on your execution patterns. What is working,
+                  what is slipping, and what to adjust — no guessing.
                 </p>
               </RevealSection>
             </div>
           </div>
         </section>
 
-        {/* ═══ HOW IT WORKS — Minimal 3-step ═══ */}
+        {/* ═══ HOW IT WORKS ═══ */}
         <section id="how-it-works" className="py-24 md:py-32 border-t border-border/30">
           <div className="container max-w-4xl mx-auto px-4">
             <RevealSection className="text-center mb-16">
@@ -268,17 +276,17 @@ const Index = () => {
                 {
                   num: '01',
                   title: 'Define your goal',
-                  desc: 'Tell AI what you want to achieve and your deadline. It does the rest.',
+                  desc: 'Tell AI what you want to achieve and your deadline. It builds the plan for you.',
                 },
                 {
                   num: '02',
-                  title: 'Follow the plan',
-                  desc: 'Each week has clear tasks. Track them with built-in timers and progress rings.',
+                  title: 'Get a structured execution plan',
+                  desc: 'Each week has clear tasks, milestones, and deadlines. Track them with built-in timers.',
                 },
                 {
                   num: '03',
-                  title: 'Review & adapt',
-                  desc: 'Get AI insights on your patterns. Plans evolve based on how you actually work.',
+                  title: 'Stay consistent with real tracking',
+                  desc: 'See your execution patterns. Plans adapt based on how you actually work.',
                 },
               ].map((step, i) => (
                 <RevealSection key={step.num} delay={i * 0.12}>
@@ -323,15 +331,15 @@ const Index = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
                 Built for people who ship.
               </h2>
-              <p className="text-muted-foreground text-lg">Students, freelancers, builders, professionals.</p>
+              <p className="text-muted-foreground text-lg">If any of these sound like you, Kamyaab was made for this.</p>
             </RevealSection>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {[
-                { emoji: '🎓', title: 'Students', desc: 'Structure your semester, exam prep, or thesis into achievable weekly milestones.' },
-                { emoji: '💼', title: 'Freelancers', desc: 'Turn client deliverables into tracked execution plans with real deadlines.' },
-                { emoji: '🛠', title: 'Builders', desc: 'Ship side projects and MVPs with week-by-week roadmaps instead of scattered tasks.' },
-                { emoji: '📈', title: 'Professionals', desc: 'Career goals, certifications, skill-building — all structured and measurable.' },
+                { emoji: '🔄', title: 'People who start but don\'t finish', desc: 'You have ideas and ambition, but plans fade after the first week. Kamyaab keeps you moving forward.' },
+                { emoji: '🧠', title: 'Overthinkers stuck in planning', desc: 'You spend more time organizing than doing. Kamyaab gives you a plan so you can skip to execution.' },
+                { emoji: '📉', title: 'High potential, low consistency', desc: 'You know you can do it — you just struggle to stay on track. Structured weekly plans change that.' },
+                { emoji: '🚀', title: 'Builders ready to ship', desc: 'Side projects, MVPs, career goals — stop treating them like someday tasks. Give them a real timeline.' },
               ].map((item, i) => (
                 <RevealSection key={item.title} delay={i * 0.08}>
                   <div className="rounded-2xl border border-border/50 p-6 hover:border-primary/20 transition-colors duration-300">
@@ -345,6 +353,9 @@ const Index = () => {
           </div>
         </section>
 
+        {/* ═══ TRUST SIGNALS ═══ */}
+        <TrustSignalsSection />
+
         {/* ═══ FINAL CTA ═══ */}
         <section className="py-24 md:py-32">
           <div className="container max-w-3xl mx-auto px-4">
@@ -352,8 +363,11 @@ const Index = () => {
               <h2 className="text-3xl md:text-5xl font-bold text-foreground leading-tight mb-5">
                 Stop planning.<br />Start finishing.
               </h2>
-              <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                Free to start. No credit card. Takes 2 minutes.
+              <p className="text-muted-foreground text-lg mb-2 max-w-md mx-auto">
+                Create your first plan in under a minute.
+              </p>
+              <p className="text-muted-foreground text-sm mb-8">
+                Free to start. No credit card required.
               </p>
               <Button asChild size="lg" className="text-base px-10 h-12 rounded-xl">
                 <Link to="/auth?mode=signup">
@@ -373,6 +387,9 @@ const Index = () => {
             </p>
           </div>
         </section>
+
+        {/* ═══ SEO CONTENT ═══ */}
+        <SEOContentSection />
 
         {/* ═══ FAQ ═══ */}
         <FAQSection />
