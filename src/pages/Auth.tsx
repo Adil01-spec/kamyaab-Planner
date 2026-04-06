@@ -335,9 +335,6 @@ const Auth = () => {
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back to login</span>
           </button>
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Back to login</span>
-          </button>
           <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-2">Reset Password</h1>
           <p className="text-muted-foreground mb-8">Enter your email and we'll send you a reset link</p>
           
