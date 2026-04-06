@@ -15,6 +15,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from
 import mountainTriumphImage from '@/assets/auth-mountain-triumph.png';
 import rocketLaunchImage from '@/assets/auth-rocket-launch.png';
 import { isSafari } from '@/utils/isSafari';
+import SEO from '@/components/SEO';
+import kaamyabLogo from '@/assets/kaamyab-logo-clean.png';
 
 
 type AuthView = 'login' | 'signup' | 'forgot-password';
