@@ -1003,6 +1003,9 @@ const Auth = () => {
                 </>
               )}
             </div>
+            {socialProof}
+            <div className="text-center">{backToHome}</div>
+            {legalFooter}
           </motion.div>
           
           {/* Switch View Footer */}
