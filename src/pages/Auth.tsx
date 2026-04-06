@@ -278,6 +278,43 @@ const Auth = () => {
   const isLoginView = view === 'login' || view === 'forgot-password';
 
   // Form content (kept as JSX element to avoid remounting on each keystroke)
+  const pageTitle = view === 'signup' ? 'Sign Up | KAMYAAB AI' : view === 'forgot-password' ? 'Reset Password | KAMYAAB AI' : 'Login | KAMYAAB AI';
+
+  // Shared brand header for forms
+  const brandHeader = (
+    <Link to="/" className="inline-flex items-center gap-2.5 mb-6 group">
+      <img src={kaamyabLogo} alt="KAMYAAB" className="w-9 h-9 rounded-lg object-contain transition-transform group-hover:scale-105" />
+      <span className="text-sm font-bold tracking-[0.2em] uppercase text-foreground">KAMYAAB</span>
+    </Link>
+  );
+
+  // Shared legal footer
+  const legalFooter = (
+    <div className="mt-6 pt-4 border-t border-border/30 text-center space-y-2">
+      <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+        <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+        <span>·</span>
+        <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+        <span>·</span>
+        <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+      </div>
+      <p className="text-[11px] text-muted-foreground/60">© 2026 KAMYAAB AI. All rights reserved.</p>
+    </div>
+  );
+
+  // Social proof line
+  const socialProof = view === 'signup' ? (
+    <p className="text-xs text-muted-foreground/70 text-center mt-3">Join a community of builders executing their goals.</p>
+  ) : null;
+
+  // Back to home link
+  const backToHome = (
+    <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-4">
+      <ArrowLeft className="w-3 h-3" />
+      Back to Home
+    </Link>
+  );
+
   const formContent = (
     <motion.div
       key={view}
@@ -287,6 +324,7 @@ const Auth = () => {
       transition={{ duration: 0.4, ease: "easeInOut" }}
       className="w-full max-w-md mx-auto px-8 lg:px-12"
     >
+      {brandHeader}
       {view === 'forgot-password' ? (
         <>
           <button
@@ -294,6 +332,9 @@ const Auth = () => {
             onClick={() => switchView('login')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
           >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Back to login</span>
+          </button>
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back to login</span>
           </button>
