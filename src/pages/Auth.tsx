@@ -315,6 +315,31 @@ const Auth = () => {
     </Link>
   );
 
+  // Auth switch link
+  const authSwitch = (
+    <div className="text-center mt-3">
+      <p className="text-xs text-muted-foreground mb-1">
+        {view === 'signup' ? 'Already have an account?' : view === 'login' ? 'New to app?' : ''}
+      </p>
+      {view === 'signup' && (
+        <button
+          onClick={() => setView('login')}
+          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2"
+        >
+          Go to Login
+        </button>
+      )}
+      {view === 'login' && (
+        <button
+          onClick={() => setView('signup')}
+          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2"
+        >
+          Go to Sign Up
+        </button>
+      )}
+    </div>
+  );
+
   const formContent = (
     <motion.div
       key={view}
@@ -574,6 +599,7 @@ const Auth = () => {
           </div>
           {socialProof}
           <div className="text-center">{backToHome}</div>
+          {authSwitch}
           {legalFooter}
         </>
       )}
@@ -1005,6 +1031,7 @@ const Auth = () => {
             </div>
             {socialProof}
             <div className="text-center">{backToHome}</div>
+            {authSwitch}
             {legalFooter}
           </motion.div>
           
