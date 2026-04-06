@@ -155,6 +155,11 @@ const App = () => (
             <Route path="/learn/stay-consistent-with-goals" element={<StayConsistent />} />
             <Route path="/learn/execute-plans-without-burnout" element={<ExecuteWithoutBurnout />} />
             <Route path="/learn/why-people-fail-at-execution" element={<WhyPeopleFail />} />
+            {/* Dynamic article pages from database */}
+            <Route path="/learn/:slug" element={<ArticlePage />} />
+            {/* Admin blog management */}
+            <Route path="/admin/create-article" element={<ProtectedRoute requireProfile><AdminCreateArticle /></ProtectedRoute>} />
+            <Route path="/admin/articles" element={<ProtectedRoute requireProfile><AdminArticles /></ProtectedRoute>} />
             {/* Legal & Trust Pages - public */}
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
