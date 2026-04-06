@@ -19,7 +19,8 @@ import {
   BarChart3,
   Sparkles,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  PenSquare
 } from 'lucide-react';
 import {
   DropdownMenu,
