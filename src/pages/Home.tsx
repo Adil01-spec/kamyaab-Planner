@@ -612,13 +612,29 @@ const Home = () => {
                     </Link>
                   </DropdownMenuItem>
                   {['kaamyab.app@gmail.com', 'rajaadil4445@gmail.com'].includes(user?.email || '') && (
-                    <DropdownMenuItem 
-                      onClick={() => navigate('/ctrl-9x7k')} 
-                      className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
-                    >
-                      <ShieldCheck className="w-4 h-4 mr-2" />
-                      Admin Dashboard
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem 
+                        onClick={() => navigate('/admin/create-article')} 
+                        className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                      >
+                        <PenSquare className="w-4 h-4 mr-2" />
+                        Create Article
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => navigate('/admin/articles')} 
+                        className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Manage Articles
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => navigate('/ctrl-9x7k')} 
+                        className="cursor-pointer text-muted-foreground hover:text-foreground focus:text-foreground text-sm"
+                      >
+                        <ShieldCheck className="w-4 h-4 mr-2" />
+                        Admin Dashboard
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator className="bg-border/30" />
                   <DropdownMenuItem 
