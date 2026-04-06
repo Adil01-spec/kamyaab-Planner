@@ -572,6 +572,9 @@ const Auth = () => {
               </button>
             </p>
           </div>
+          {socialProof}
+          <div className="text-center">{backToHome}</div>
+          {legalFooter}
         </>
       )}
     </motion.div>
