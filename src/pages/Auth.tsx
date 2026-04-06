@@ -767,7 +767,8 @@ const Auth = () => {
             transition={{ delay: 0.3, duration: 0.5 }}
             className="backdrop-blur-xl bg-foreground/5 border border-foreground/10 rounded-3xl p-6 shadow-2xl"
           >
-            {/* Header */}
+            {/* Brand + Header */}
+            {brandHeader}
             <div className="mb-5">
               <AnimatePresence mode="wait">
                 <motion.h1
