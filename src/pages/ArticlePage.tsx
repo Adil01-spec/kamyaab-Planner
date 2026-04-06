@@ -1,0 +1,116 @@
+import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { LandingHeader } from '@/components/LandingHeader';
+import { Footer } from '@/components/Footer';
+import { Loader2, ArrowLeft, Calendar } from 'lucide-react';
+import SEO from '@/components/SEO';
+
+interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  content: string | null;
+  cover_image: string | null;
+  tags: string[];
+  meta_title: string | null;
+  meta_description: string | null;
+  created_at: string;
+}
+
+export default function ArticlePage() {
+  const { slug } = useParams<{ slug: string }>();
+  const [article, setArticle] = useState<Article | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+    supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) setNotFound(true);
+        else setArticle(data as Article);
+        setLoading(false);
+      });
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (notFound || !article) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <LandingHeader />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">Article Not Found</h1>
+            <Link to="/learn" className="text-primary hover:underline">← Back to Learn</Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <SEO
+        title={article.meta_title || `${article.title} | Kamyaab`}
+        description={article.meta_description || article.description || ''}
+        ogImage={article.cover_image || undefined}
+      />
+      <LandingHeader />
+      <main className="flex-1">
+        <article className="max-w-3xl mx-auto px-4 py-12">
+          <Link to="/learn" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+            <ArrowLeft className="w-4 h-4" /> Back to Learn
+          </Link>
+
+          {article.cover_image && (
+            <img
+              src={article.cover_image}
+              alt={article.title}
+              className="w-full rounded-xl mb-8 max-h-96 object-cover"
+            />
+          )}
+
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{article.title}</h1>
+
+          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-8">
+            <Calendar className="w-4 h-4" />
+            {new Date(article.created_at).toLocaleDateString('en-US', {
+              year: 'numeric', month: 'long', day: 'numeric'
+            })}
+          </div>
+
+          <div
+            className="prose prose-sm sm:prose dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: article.content || '' }}
+          />
+
+          {article.tags && article.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t border-border">
+              {article.tags.map((tag, i) => (
+                <span key={i} className="text-xs bg-muted text-muted-foreground px-3 py-1 rounded-full">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </article>
+      </main>
+      <Footer />
+    </div>
+  );
+}
