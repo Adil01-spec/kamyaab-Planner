@@ -719,6 +719,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden bg-background">
+      <SEO title={pageTitle} description="Sign in or create your KAMYAAB account to start executing your goals with structured weekly plans." canonical="/auth" />
       {/* Mobile Layout - Full Page Background */}
       <div className="flex lg:hidden flex-col w-full min-h-screen relative flex-1">
         {/* Full-page Background Illustration with Crossfade */}
