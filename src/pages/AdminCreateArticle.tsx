@@ -206,11 +206,13 @@ export default function AdminCreateArticle() {
               <Label htmlFor="desc">Short Description</Label>
               <Textarea id="desc" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description for SEO and listing" rows={2} />
             </div>
-            <div>
-              <Label htmlFor="cover">Cover Image URL</Label>
-              <Input id="cover" value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..." />
-              {coverImage && <img src={coverImage} alt="Cover preview" className="mt-2 rounded-lg max-h-40 object-cover" />}
-            </div>
+            <CoverImageUploader
+              imageUrl={coverImage}
+              altText={coverImageAlt}
+              slug={slug}
+              onImageChange={setCoverImage}
+              onAltTextChange={setCoverImageAlt}
+            />
             <div>
               <Label>Content</Label>
               <ArticleEditor content={content} onChange={setContent} onPreview={() => setShowPreview(true)} />
