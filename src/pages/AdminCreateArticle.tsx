@@ -146,7 +146,7 @@ export default function AdminCreateArticle() {
           <Button variant="ghost" onClick={() => setShowPreview(false)} className="mb-4 gap-1">
             <ArrowLeft className="w-4 h-4" /> Back to Editor
           </Button>
-          {coverImage && <img src={coverImage} alt={title} className="w-full rounded-xl mb-6 max-h-80 object-cover" />}
+          {coverImage && <img src={coverImage} alt={coverImageAlt || title} className="w-full rounded-xl mb-6 max-h-80 object-cover" loading="lazy" />}
           <h1 className="text-3xl font-bold mb-4">{title}</h1>
           <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
           {tags && (
