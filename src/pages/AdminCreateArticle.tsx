@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isAdminEmail } from '@/lib/adminAuth';
 import { slugify } from '@/lib/slugify';
 import { ArticleEditor } from '@/components/admin/ArticleEditor';
+import { CoverImageUploader } from '@/components/admin/CoverImageUploader';
 import { SeoAssistant } from '@/components/admin/SeoAssistant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
