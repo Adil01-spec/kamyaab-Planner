@@ -67,6 +67,7 @@ export default function AdminCreateArticle() {
             setSlug(data.slug);
             setDescription(data.description || '');
             setCoverImage(data.cover_image || '');
+            setCoverImageAlt((data as any).cover_image_alt || '');
             setContent(data.content || '');
             setTags((data.tags as string[] || []).join(', '));
             setMetaTitle(data.meta_title || '');
