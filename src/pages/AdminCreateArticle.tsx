@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isAdminEmail } from '@/lib/adminAuth';
 import { slugify } from '@/lib/slugify';
 import { ArticleEditor } from '@/components/admin/ArticleEditor';
+import { CoverImageUploader } from '@/components/admin/CoverImageUploader';
 import { SeoAssistant } from '@/components/admin/SeoAssistant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ export default function AdminCreateArticle() {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [coverImageAlt, setCoverImageAlt] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
@@ -47,6 +49,11 @@ export default function AdminCreateArticle() {
     if (!metaTitle && title) setMetaTitle(`${title} | Kamyaab`);
   }, [title]);
 
+  // Auto-suggest alt text from title
+  useEffect(() => {
+    if (!coverImageAlt && title && coverImage) setCoverImageAlt(title);
+  }, [title, coverImage]);
+
   useEffect(() => {
     if (!metaDescription && description) setMetaDescription(description.slice(0, 160));
   }, [description]);
@@ -65,6 +72,7 @@ export default function AdminCreateArticle() {
             setSlug(data.slug);
             setDescription(data.description || '');
             setCoverImage(data.cover_image || '');
+            setCoverImageAlt((data as any).cover_image_alt || '');
             setContent(data.content || '');
             setTags((data.tags as string[] || []).join(', '));
             setMetaTitle(data.meta_title || '');
@@ -96,6 +104,7 @@ export default function AdminCreateArticle() {
       description: description.trim() || null,
       content,
       cover_image: coverImage.trim() || null,
+      cover_image_alt: coverImageAlt.trim() || null,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       status,
       author_id: user?.id,
@@ -137,7 +146,7 @@ export default function AdminCreateArticle() {
           <Button variant="ghost" onClick={() => setShowPreview(false)} className="mb-4 gap-1">
             <ArrowLeft className="w-4 h-4" /> Back to Editor
           </Button>
-          {coverImage && <img src={coverImage} alt={title} className="w-full rounded-xl mb-6 max-h-80 object-cover" />}
+          {coverImage && <img src={coverImage} alt={coverImageAlt || title} className="w-full rounded-xl mb-6 max-h-80 object-cover" loading="lazy" />}
           <h1 className="text-3xl font-bold mb-4">{title}</h1>
           <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
           {tags && (
@@ -197,11 +206,13 @@ export default function AdminCreateArticle() {
               <Label htmlFor="desc">Short Description</Label>
               <Textarea id="desc" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description for SEO and listing" rows={2} />
             </div>
-            <div>
-              <Label htmlFor="cover">Cover Image URL</Label>
-              <Input id="cover" value={coverImage} onChange={e => setCoverImage(e.target.value)} placeholder="https://..." />
-              {coverImage && <img src={coverImage} alt="Cover preview" className="mt-2 rounded-lg max-h-40 object-cover" />}
-            </div>
+            <CoverImageUploader
+              imageUrl={coverImage}
+              altText={coverImageAlt}
+              slug={slug}
+              onImageChange={setCoverImage}
+              onAltTextChange={setCoverImageAlt}
+            />
             <div>
               <Label>Content</Label>
               <ArticleEditor content={content} onChange={setContent} onPreview={() => setShowPreview(true)} />

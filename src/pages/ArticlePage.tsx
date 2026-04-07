@@ -80,8 +80,9 @@ export default function ArticlePage() {
           {article.cover_image && (
             <img
               src={article.cover_image}
-              alt={article.title}
+              alt={(article as any).cover_image_alt || article.title}
               className="w-full rounded-xl mb-8 max-h-96 object-cover"
+              loading="lazy"
             />
           )}
 
