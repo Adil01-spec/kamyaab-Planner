@@ -24,6 +24,7 @@ export default function AdminCreateArticle() {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [coverImageAlt, setCoverImageAlt] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
