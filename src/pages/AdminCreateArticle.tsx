@@ -49,6 +49,11 @@ export default function AdminCreateArticle() {
     if (!metaTitle && title) setMetaTitle(`${title} | Kamyaab`);
   }, [title]);
 
+  // Auto-suggest alt text from title
+  useEffect(() => {
+    if (!coverImageAlt && title && coverImage) setCoverImageAlt(title);
+  }, [title, coverImage]);
+
   useEffect(() => {
     if (!metaDescription && description) setMetaDescription(description.slice(0, 160));
   }, [description]);
