@@ -104,6 +104,7 @@ export default function AdminCreateArticle() {
       description: description.trim() || null,
       content,
       cover_image: coverImage.trim() || null,
+      cover_image_alt: coverImageAlt.trim() || null,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       status,
       author_id: user?.id,
