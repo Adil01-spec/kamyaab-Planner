@@ -25,6 +25,7 @@ export type Database = {
           id: string
           meta_description: string | null
           meta_title: string | null
+          secondary_keywords: string[] | null
           slug: string
           status: string
           tags: string[] | null
@@ -41,6 +42,7 @@ export type Database = {
           id?: string
           meta_description?: string | null
           meta_title?: string | null
+          secondary_keywords?: string[] | null
           slug: string
           status?: string
           tags?: string[] | null
@@ -57,6 +59,7 @@ export type Database = {
           id?: string
           meta_description?: string | null
           meta_title?: string | null
+          secondary_keywords?: string[] | null
           slug?: string
           status?: string
           tags?: string[] | null

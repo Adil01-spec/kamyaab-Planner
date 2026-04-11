@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 
 interface ArticleEditorProps {
   content: string;
@@ -23,39 +23,95 @@ interface ArticleEditorProps {
   onPreview?: () => void;
 }
 
+/** Normalize pasted/typed URLs so stored HTML has a proper href (internal paths, https, mailto). */
+function normalizeArticleHref(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+  if (/^(mailto:|tel:|#)/i.test(t)) return t;
+  if (/^https?:\/\//i.test(t)) return t;
+  if (t.startsWith('/')) return t;
+  if (/^[a-z0-9][a-z0-9_-]*\//i.test(t)) return `/${t}`;
+  return `/${t}`;
+}
+
+function isExternalHttpHref(href: string): boolean {
+  if (!/^https?:\/\//i.test(href)) return false;
+  try {
+    return new URL(href).origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+}
+
 export function ArticleEditor({ content, onChange, onPreview }: ArticleEditorProps) {
-  const editor = useEditor({
-    extensions: [
+  // Stable extension list — new array every render makes TipTap compareOptions fail and setOptions() re-apply options, resetting the document.
+  const extensions = useMemo(
+    () => [
       StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
       Underline,
-      Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
       Image.configure({ HTMLAttributes: { class: 'rounded-lg max-w-full mx-auto' } }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder: 'Start writing your article…' }),
     ],
-    content,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose prose-sm sm:prose dark:prose-invert max-w-none min-h-[400px] px-4 py-3 focus:outline-none',
+    []
+  );
+
+  // Do not pass parent `content` here — it updates every keystroke and forces setOptions/setContent, undoing marks. Sync from props in useEffect instead.
+  const editor = useEditor(
+    {
+      extensions,
+      content: '<p></p>',
+      onUpdate: ({ editor }) => {
+        onChange(editor.getHTML());
+      },
+      editorProps: {
+        attributes: {
+          class: 'prose prose-sm sm:prose dark:prose-invert max-w-none min-h-[400px] px-4 py-3 focus:outline-none',
+        },
       },
     },
-  });
+    []
+  );
 
-  // Sync external content changes
+  // Sync external content changes (load article, reset). emitUpdate: false avoids re-entrant onChange loops.
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
-    }
-  }, [content]);
+    if (!editor) return;
+    const next = content || '<p></p>';
+    if (next === editor.getHTML()) return;
+    editor.commands.setContent(next, false);
+  }, [editor, content]);
 
   const addLink = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt('Enter URL:');
-    if (url) {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    const url = window.prompt('Enter URL (e.g. /learn/my-post or https://…):');
+    if (url == null || !url.trim()) return;
+    const href = normalizeArticleHref(url);
+    if (!href) return;
+    const external = isExternalHttpHref(href);
+    const linkAttrs = external
+      ? { href, target: '_blank', rel: 'noopener noreferrer' as const }
+      : { href };
+
+    const { empty } = editor.state.selection;
+    if (empty) {
+      const defaultLabel = href.replace(/^https?:\/\//i, '').slice(0, 80) || href;
+      const label = window.prompt('Link text (shown to readers):', defaultLabel);
+      const text = (label ?? defaultLabel).trim() || defaultLabel;
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'text',
+          text,
+          marks: [{ type: 'link', attrs: linkAttrs }],
+        })
+        .run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink(linkAttrs).run();
     }
   }, [editor]);
 
@@ -74,7 +130,11 @@ export function ArticleEditor({ content, onChange, onPreview }: ArticleEditorPro
     <div className="border border-border rounded-lg overflow-hidden bg-card">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 p-2 border-b border-border bg-muted/30 overflow-x-auto">
-        <Toggle size="sm" pressed={editor.isActive('bold')} onPressedChange={() => editor.chain().focus().toggleBold().run()}>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('bold')}
+          onPressedChange={() => editor.chain().focus().toggleBold().run()}
+        >
           <Bold className="w-4 h-4" />
         </Toggle>
         <Toggle size="sm" pressed={editor.isActive('italic')} onPressedChange={() => editor.chain().focus().toggleItalic().run()}>

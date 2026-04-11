@@ -28,6 +28,7 @@ export default function AdminCreateArticle() {
   const [coverImageAlt, setCoverImageAlt] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
+  const [secondaryKeywords, setSecondaryKeywords] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
   const [primaryKeyword, setPrimaryKeyword] = useState('');
@@ -75,6 +76,7 @@ export default function AdminCreateArticle() {
             setCoverImageAlt((data as any).cover_image_alt || '');
             setContent(data.content || '');
             setTags((data.tags as string[] || []).join(', '));
+            setSecondaryKeywords((data.secondary_keywords ?? []).join(', '));
             setMetaTitle(data.meta_title || '');
             setMetaDescription(data.meta_description || '');
             setAutoSlug(false);
@@ -106,6 +108,7 @@ export default function AdminCreateArticle() {
       cover_image: coverImage.trim() || null,
       cover_image_alt: coverImageAlt.trim() || null,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      secondary_keywords: secondaryKeywords.split(',').map(t => t.trim()).filter(Boolean),
       status,
       author_id: user?.id,
       meta_title: metaTitle.trim() || `${title} | Kamyaab`,
@@ -129,7 +132,7 @@ export default function AdminCreateArticle() {
       toast.success(status === 'published' ? 'Article published!' : 'Draft saved!');
       if (status === 'published') navigate('/learn');
     }
-  }, [title, slug, description, content, coverImage, tags, metaTitle, metaDescription, user, editId, navigate]);
+  }, [title, slug, description, content, coverImage, coverImageAlt, tags, secondaryKeywords, metaTitle, metaDescription, user, editId, navigate]);
 
   if (!isAdminEmail(user?.email)) {
     return (
@@ -220,6 +223,16 @@ export default function AdminCreateArticle() {
             <div>
               <Label htmlFor="tags">Tags (comma separated)</Label>
               <Input id="tags" value={tags} onChange={e => setTags(e.target.value)} placeholder="execution, productivity, goals" />
+            </div>
+            <div>
+              <Label htmlFor="secondaryKeywords">Secondary Keywords</Label>
+              <Input
+                id="secondaryKeywords"
+                value={secondaryKeywords}
+                onChange={e => setSecondaryKeywords(e.target.value)}
+                placeholder="keyword one, keyword two, long tail phrase"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Comma-separated; stored as a list like tags.</p>
             </div>
           </div>
 

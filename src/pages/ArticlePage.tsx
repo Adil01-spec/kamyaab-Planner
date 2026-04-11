@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState, useRef, useCallback, type MouseEvent } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { LandingHeader } from '@/components/LandingHeader';
 import { Footer } from '@/components/Footer';
@@ -17,13 +17,44 @@ interface Article {
   meta_title: string | null;
   meta_description: string | null;
   created_at: string;
+  secondary_keywords?: string[] | null;
 }
 
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const handleArticleBodyClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (!anchor || !contentRef.current?.contains(anchor)) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+      if (href.startsWith('mailto:') || href.startsWith('tel:')) return;
+
+      try {
+        const url = new URL(href, window.location.origin);
+        const isSameOrigin = url.origin === window.location.origin;
+        if (isSameOrigin) {
+          e.preventDefault();
+          navigate(`${url.pathname}${url.search}${url.hash}`);
+          return;
+        }
+        e.preventDefault();
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      } catch {
+        if (href.startsWith('/')) {
+          e.preventDefault();
+          navigate(href);
+        }
+      }
+    },
+    [navigate]
+  );
 
   useEffect(() => {
     if (!slug) return;
@@ -96,8 +127,10 @@ export default function ArticlePage() {
           </div>
 
           <div
-            className="prose prose-sm sm:prose dark:prose-invert max-w-none"
+            ref={contentRef}
+            className="prose prose-sm sm:prose dark:prose-invert max-w-none prose-a:text-primary prose-a:underline"
             dangerouslySetInnerHTML={{ __html: article.content || '' }}
+            onClick={handleArticleBodyClick}
           />
 
           {article.tags && article.tags.length > 0 && (
