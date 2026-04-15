@@ -117,9 +117,38 @@ export default function AdminCreateArticle() {
 
     let error;
     if (editId) {
+      // Update existing article
       ({ error } = await supabase.from('articles').update(articleData).eq('id', editId));
     } else {
-      ({ error } = await supabase.from('articles').insert(articleData));
+      // Safety: check if slug already exists to prevent duplicate key error
+      const { data: existingArticle } = await supabase
+        .from('articles')
+        .select('id')
+        .eq('slug', articleData.slug)
+        .maybeSingle();
+
+      if (existingArticle) {
+        // If it exists, update it instead of inserting
+        ({ error } = await supabase.from('articles').update(articleData).eq('id', existingArticle.id));
+        if (!error) {
+          setAutoSlug(false);
+          navigate(`/admin/create-article?edit=${existingArticle.id}`, { replace: true });
+        }
+      } else {
+        // Insert new article and get the ID back
+        const { data: inserted, error: insertError } = await supabase
+          .from('articles')
+          .insert(articleData)
+          .select('id')
+          .single();
+        
+        error = insertError;
+        if (inserted?.id) {
+          // Update URL to edit mode so subsequent saves perform an update
+          setAutoSlug(false);
+          navigate(`/admin/create-article?edit=${inserted.id}`, { replace: true });
+        }
+      }
     }
 
     setSaving(false);
