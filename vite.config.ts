@@ -16,4 +16,9 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
+  ssgOptions: {
+    includedRoutes(paths) {
+      return paths.filter(p => p === '/' || p === '/learn' || p.startsWith('/learn/'));
+    }
+  }
 }));

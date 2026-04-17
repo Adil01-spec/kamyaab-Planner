@@ -48,6 +48,10 @@ import NotFound from "./pages/NotFound";
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
 
+import { Outlet } from "react-router-dom";
+import type { RouteRecord } from "vite-react-ssg";
+import { ThemeProvider } from "./components/ThemeProvider";
+
 const queryClient = new QueryClient();
 
 function ReminderChecker() {
@@ -55,170 +59,179 @@ function ReminderChecker() {
   return null;
 }
 
-const App = () => (
-  <HelmetProvider>
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <DevModeProvider>
-        <TooltipProvider>
-        <Toaster />
-        <Sonner position="top-center" />
-        <BrowserRouter>
-          <AdsenseLoader />
-          <ReminderChecker />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route 
-              path="/auth" 
-              element={
-                <AuthRoute>
-                  <Auth />
-                </AuthRoute>
-              } 
-            />
-            {/* Password Reset - public route for recovery links */}
-            <Route path="/reset-password" element={<ResetPassword />} />
-            {/* Email Verification - for email/password signups */}
-            <Route 
-              path="/verify-email" 
-              element={
-                <ProtectedRoute requireEmailVerification={false}>
-                  <VerifyEmail />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Onboarding - only accessible if no profile exists and email is verified */}
-            <Route 
-              path="/onboarding" 
-              element={
-                <ProtectedRoute redirectIfProfile="/home" requireEmailVerification>
-                  <Onboarding />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Home - stable entry point for users with profile */}
-            <Route 
-              path="/home" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <Home />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Today View - primary daily execution view */}
-            <Route 
-              path="/today" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <Today />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/plan/new" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <PlanNew />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/plan" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <Plan />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Plan Reset - for users with profile but no active plan */}
-            <Route 
-              path="/plan/reset" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <PlanReset />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Plan Review - dedicated insights page */}
-            <Route 
-              path="/review" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <Review />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Pricing page - public */}
-            <Route path="/pricing" element={<Pricing />} />
-            {/* Learn / Blog - public content pages */}
-            <Route path="/learn" element={<Learn />} />
-            <Route path="/learn/stay-consistent-with-goals" element={<StayConsistent />} />
-            <Route path="/learn/execute-plans-without-burnout" element={<ExecuteWithoutBurnout />} />
-            <Route path="/learn/why-people-fail-at-execution" element={<WhyPeopleFail />} />
-            {/* Dynamic article pages from database */}
-            <Route path="/learn/:slug" element={<ArticlePage />} />
-            {/* Admin blog management */}
-            <Route path="/admin/create-article" element={<ProtectedRoute requireProfile><AdminCreateArticle /></ProtectedRoute>} />
-            <Route path="/admin/articles" element={<ProtectedRoute requireProfile><AdminArticles /></ProtectedRoute>} />
-            {/* Legal & Trust Pages - public */}
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/refund-policy" element={<RefundPolicy />} />
-            <Route path="/service-policy" element={<ServicePolicy />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/ownership" element={<Ownership />} />
-            <Route path="/help" element={<Help />} />
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <Profile />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/calendar" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <CalendarPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/ctrl-9x7k/payments" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <AdminPayments />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/ctrl-9x7k" 
-              element={
-                <ProtectedRoute requireProfile>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Public shared review - no auth required */}
-            <Route path="/shared-review/:token" element={<SharedReview />} />
-            {/* Professional advisor view - no auth required, enhanced content */}
-            <Route path="/advisor/:shareId" element={<AdvisorView />} />
-            {/* Collaboration invite acceptance - public route */}
-            <Route path="/invite/:token" element={<InviteAccept />} />
-            {/* Soft collaborator review - public route, session-gated */}
-            <Route path="/plan/:planId/review" element={<SoftCollabReview />} />
-            {/* Template pages - public SEO content */}
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/templates/:slug" element={<TemplatePage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-        </TooltipProvider>
-      </DevModeProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-  </HelmetProvider>
-);
+function Layout() {
+  return (
+    <ThemeProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <DevModeProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner position="top-center" />
+                <AdsenseLoader />
+                <ReminderChecker />
+                <Outlet />
+              </TooltipProvider>
+            </DevModeProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    </ThemeProvider>
+  );
+}
 
-export default App;
+export const routes: RouteRecord[] = [
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      { index: true, element: <Index /> },
+      { 
+        path: "/auth", 
+        element: (
+          <AuthRoute>
+            <Auth />
+          </AuthRoute>
+        ) 
+      },
+      { path: "/reset-password", element: <ResetPassword /> },
+      { 
+        path: "/verify-email", 
+        element: (
+          <ProtectedRoute requireEmailVerification={false}>
+            <VerifyEmail />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/onboarding", 
+        element: (
+          <ProtectedRoute redirectIfProfile="/home" requireEmailVerification>
+            <Onboarding />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/home", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <Home />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/today", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <Today />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/plan/new", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <PlanNew />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/plan", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <Plan />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/plan/reset", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <PlanReset />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/review", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <Review />
+          </ProtectedRoute>
+        ) 
+      },
+      { path: "/pricing", element: <Pricing /> },
+      { path: "/learn", element: <Learn /> },
+      { path: "/learn/stay-consistent-with-goals", element: <StayConsistent /> },
+      { path: "/learn/execute-plans-without-burnout", element: <ExecuteWithoutBurnout /> },
+      { path: "/learn/why-people-fail-at-execution", element: <WhyPeopleFail /> },
+      { 
+        path: "/learn/:slug", 
+        element: <ArticlePage />,
+        getStaticPaths: async () => {
+          try {
+            // Import dynamically so it's not trying to execute during client load if not needed
+            // But getStaticPaths only runs in node anyway.
+            const { supabase } = await import('@/integrations/supabase/client');
+            const { data } = await supabase
+              .from('articles')
+              .select('slug')
+              .eq('status', 'published');
+            return data ? data.filter(a => a.slug).map(a => `/learn/${a.slug}`) : [];
+          } catch (error) {
+            console.error("Failed to fetch article paths for SSG:", error);
+            return [];
+          }
+        }
+      },
+      { path: "/admin/create-article", element: <ProtectedRoute requireProfile><AdminCreateArticle /></ProtectedRoute> },
+      { path: "/admin/articles", element: <ProtectedRoute requireProfile><AdminArticles /></ProtectedRoute> },
+      { path: "/terms", element: <Terms /> },
+      { path: "/privacy", element: <Privacy /> },
+      { path: "/refund-policy", element: <RefundPolicy /> },
+      { path: "/service-policy", element: <ServicePolicy /> },
+      { path: "/contact", element: <Contact /> },
+      { path: "/ownership", element: <Ownership /> },
+      { path: "/help", element: <Help /> },
+      { 
+        path: "/profile", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <Profile />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/calendar", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <CalendarPage />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/ctrl-9x7k/payments", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <AdminPayments />
+          </ProtectedRoute>
+        ) 
+      },
+      { 
+        path: "/ctrl-9x7k", 
+        element: (
+          <ProtectedRoute requireProfile>
+            <AdminDashboard />
+          </ProtectedRoute>
+        ) 
+      },
+      { path: "/shared-review/:token", element: <SharedReview /> },
+      { path: "/advisor/:shareId", element: <AdvisorView /> },
+      { path: "/invite/:token", element: <InviteAccept /> },
+      { path: "/plan/:planId/review", element: <SoftCollabReview /> },
+      { path: "/templates", element: <Templates /> },
+      { path: "/templates/:slug", element: <TemplatePage /> },
+      { path: "*", element: <NotFound /> }
+    ]
+  }
+];
