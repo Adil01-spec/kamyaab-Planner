@@ -115,10 +115,12 @@ function ArticleCard({ href, title, description, date, coverImage }: {
 }
 
 export default function Learn() {
-  // Seed state from the SSG cache if available (populated by route loader).
-  const [dbArticles, setDbArticles] = useState<LearnArticle[]>(_ssrArticles ?? []);
-  // Only show loading skeleton when we have no data at all.
-  const [loading, setLoading] = useState(_ssrArticles === null);
+  // 1. Synchronous State Initialization as requested
+  const [articles, setArticles] = useState<LearnArticle[]>(_ssrArticles || []);
+  
+  // 2. SSR-Aware Rendering Guard
+  // During SSR (build phase), we MUST render the article list, never the skeleton.
+  const isSSR = import.meta.env.SSR;
 
   useEffect(() => {
     // Re-fetch to keep client data fresh regardless of SSR cache.
@@ -128,10 +130,13 @@ export default function Learn() {
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
-        setDbArticles((data as LearnArticle[]) ?? []);
-        setLoading(false);
+        setArticles((data as LearnArticle[]) ?? []);
       });
   }, []);
+
+  // On client (!isSSR), show loading only if we have NO articles at all (fresh hit).
+  // In SSR, we always render the container to ensure links are captured.
+  const showLoading = !isSSR && articles.length === 0 && _ssrArticles === null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -160,8 +165,8 @@ export default function Learn() {
               </p>
             </div>
 
-            {loading ? (
-              // Skeleton cards — only shown when there is genuinely no data
+            {showLoading ? (
+              // Skeleton cards — only shown on client when no data is available
               <div className="grid gap-6">
                 {[1, 2, 3].map((n) => (
                   <div
@@ -173,7 +178,7 @@ export default function Learn() {
             ) : (
               <div className="grid gap-6">
                 {/* Dynamic articles from DB — native <a> for Googlebot */}
-                {dbArticles.map((article) => (
+                {articles.map((article) => (
                   <ArticleCard
                     key={article.id}
                     href={`/learn/${article.slug}`}
