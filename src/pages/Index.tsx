@@ -84,7 +84,11 @@ const LandingContent = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col" style={{ overflowX: 'clip' }}>
-      <SEO canonical="/" />
+      <SEO 
+        title="KAMYAAB AI | The Execution Intelligence System for Builders"
+        description="Stop over-planning and start executing. KAMYAAB AI generates structured multi-week plans, tracks execution with deep-work timers, and syncs with your Google & Apple calendars."
+        canonical="/"
+      />
       <LandingHeader />
 
       <main>
@@ -126,7 +130,7 @@ const LandingContent = () => {
                 transition={{ duration: 0.5, delay: 0.35 }}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-xl mx-auto"
               >
-                Kamyaab turns your goals into structured weekly plans and tracks your execution — so you actually finish what you start.
+                KAMYAAB AI turns your goals into structured weekly plans and tracks your execution — so you actually finish what you start.
               </motion.p>
 
               <motion.div

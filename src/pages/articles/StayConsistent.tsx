@@ -3,25 +3,30 @@
  * SEO content page — 1000+ words, real advice, soft CTA
  */
 
-import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LandingHeader } from '@/components/LandingHeader';
 import { Footer } from '@/components/Footer';
+import SEO from '@/components/SEO';
 
 export default function StayConsistent() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO 
+        title="How to Stay Consistent With Your Goals | KAMYAAB AI"
+        description="Why most goal systems fail — and what actually works when motivation disappears. Learn the 3 pillars of consistency in execution."
+        canonical="/learn/stay-consistent-with-goals"
+      />
       <LandingHeader />
 
       <main className="flex-1">
         <article className="py-12 md:py-20">
           <div className="container max-w-3xl mx-auto px-4">
             {/* Breadcrumb */}
-            <Link to="/learn" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
+            <a href="/learn" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
               <ArrowLeft className="w-4 h-4" />
               Back to Learn
-            </Link>
+            </a>
 
             <header className="mb-10">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
@@ -143,22 +148,22 @@ export default function StayConsistent() {
               </p>
 
               <p className="text-foreground/80 leading-relaxed text-base">
-                Tools like <Link to="/" className="text-primary hover:underline font-medium">KAMYAAB</Link> automate this entire process — AI generates structured weekly plans, tracks completion with a deterministic timer, and uses behavioral memory to refine future plans based on your actual patterns. But the principle works with or without technology. The key is structure, tracking, and adaptation.
+                Tools like <a href="/" className="text-primary hover:underline font-medium">KAMYAAB AI</a> automate this entire process — AI generates structured weekly plans, tracks completion with a deterministic timer, and uses behavioral memory to refine future plans based on your actual patterns. But the principle works with or without technology. The key is structure, tracking, and adaptation.
               </p>
             </div>
 
             {/* CTA */}
-            <div className="mt-14 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
-              <p className="text-foreground font-medium mb-2">Ready to build real consistency?</p>
-              <p className="text-muted-foreground text-sm mb-4">
-                KAMYAAB turns your goals into structured, trackable weekly plans — free.
-              </p>
-              <Button asChild>
-                <Link to="/auth?mode=signup">
-                  Start Free <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
+              <div className="mt-14 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                <p className="text-foreground font-medium mb-2">Ready to build real consistency?</p>
+                <p className="text-muted-foreground text-sm mb-4">
+                  KAMYAAB AI turns your goals into structured, trackable weekly plans — free.
+                </p>
+                <Button asChild>
+                  <a href="/auth?mode=signup">
+                    Start Free <ArrowRight className="w-4 h-4 ml-1" />
+                  </a>
+                </Button>
+              </div>
           </div>
         </article>
       </main>

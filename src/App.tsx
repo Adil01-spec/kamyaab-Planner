@@ -36,7 +36,7 @@ import CalendarPage from "./pages/Calendar";
 import AdminPayments from "./pages/AdminPayments";
 import AdminDashboard from "./pages/AdminDashboard";
 import Learn, { prefetchLearnArticles } from "./pages/Learn";
-import ArticlePage from "./pages/ArticlePage";
+import ArticlePage, { prefetchArticle } from "./pages/ArticlePage";
 import AdminCreateArticle from "./pages/AdminCreateArticle";
 import AdminArticles from "./pages/AdminArticles";
 import StayConsistent from "./pages/articles/StayConsistent";
@@ -62,19 +62,21 @@ function ReminderChecker() {
 function Layout() {
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <DevModeProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner position="top-center" />
-              <AdsenseLoader />
-              <ReminderChecker />
-              <Outlet />
-            </TooltipProvider>
-          </DevModeProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <DevModeProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner position="top-center" />
+                <AdsenseLoader />
+                <ReminderChecker />
+                <Outlet />
+              </TooltipProvider>
+            </DevModeProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
     </ThemeProvider>
   );
 }
@@ -174,6 +176,12 @@ export const routes: RouteRecord[] = [
       { 
         path: "/learn/:slug", 
         element: <ArticlePage />,
+        loader: async ({ params }) => {
+          if (params.slug) {
+            await prefetchArticle(params.slug);
+          }
+          return null;
+        },
         getStaticPaths: async () => {
           // Always include the /learn hub itself
           const basePaths = ['/learn'];
