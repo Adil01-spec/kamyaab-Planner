@@ -6,14 +6,16 @@ interface SEOProps {
   canonical?: string;
   ogImage?: string;
   noIndex?: boolean;
+  keywords?: string;
 }
 
 const SEO = ({
-  title = 'Kamyaab — Execution Intelligence System',
-  description = 'AI-powered execution intelligence system. Define objectives, execute with deterministic speed, and adapt through behavioral memory. Plans that actually get completed.',
+  title = 'KAMYAAB AI | The Execution Intelligence System for Builders',
+  description = 'Stop over-planning and start executing. KAMYAAB AI generates structured multi-week plans, tracks execution with deep-work timers, and syncs with your Google & Apple calendars.',
   canonical,
   ogImage = 'https://kamyaab-ai.com/apple-touch-icon.png',
   noIndex = false,
+  keywords = 'KAMYAAB AI, Execution Intelligence, structured planning, deep-work timer, productivity system, AI planner, Google Calendar sync, Apple Calendar sync',
 }: SEOProps) => {
   const siteUrl = 'https://kamyaab-ai.com';
   const fullCanonical = canonical ? `${siteUrl}${canonical}` : undefined;
@@ -22,25 +24,33 @@ const SEO = ({
     <Helmet>
       <title>{title}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={keywords} />
+      <meta name="author" content="KAMYAAB AI" />
+      <meta name="application-name" content="KAMYAAB AI" />
       {noIndex && <meta name="robots" content="noindex,nofollow" />}
       {fullCanonical && <link rel="canonical" href={fullCanonical} />}
 
+      {/* Open Graph */}
+      <meta property="og:site_name" content="KAMYAAB AI" />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImage} />
       <meta property="og:type" content="website" />
       {fullCanonical && <meta property="og:url" content={fullCanonical} />}
 
+      {/* Twitter Cards */}
       <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content="@KamyaabAI" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
 
+      {/* JSON-LD: SoftwareApplication */}
       <script type="application/ld+json">
         {JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'SoftwareApplication',
-          name: 'Kamyaab AI',
+          name: 'KAMYAAB AI',
           operatingSystem: 'Web',
           applicationCategory: 'ProductivityApplication',
           description,
@@ -54,11 +64,12 @@ const SEO = ({
         })}
       </script>
 
+      {/* JSON-LD: Organization */}
       <script type="application/ld+json">
         {JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: 'Kamyaab',
+          name: 'KAMYAAB AI',
           url: siteUrl,
           logo: `${siteUrl}/apple-touch-icon.png`,
           sameAs: [],

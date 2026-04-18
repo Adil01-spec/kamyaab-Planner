@@ -17,8 +17,16 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
   ssgOptions: {
+    /**
+     * nested: each route gets its own index.html
+     *   /        → dist/index.html
+     *   /learn   → dist/learn/index.html   ← required by the task
+     *   /learn/x → dist/learn/x/index.html
+     */
+    dirStyle: 'nested',
     includedRoutes(paths) {
+      // Always include the landing page, the /learn hub, and every article
       return paths.filter(p => p === '/' || p === '/learn' || p.startsWith('/learn/'));
-    }
+    },
   }
 }));

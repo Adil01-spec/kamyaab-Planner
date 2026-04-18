@@ -35,7 +35,7 @@ import Profile from "./pages/Profile";
 import CalendarPage from "./pages/Calendar";
 import AdminPayments from "./pages/AdminPayments";
 import AdminDashboard from "./pages/AdminDashboard";
-import Learn from "./pages/Learn";
+import Learn, { prefetchLearnArticles } from "./pages/Learn";
 import ArticlePage from "./pages/ArticlePage";
 import AdminCreateArticle from "./pages/AdminCreateArticle";
 import AdminArticles from "./pages/AdminArticles";
@@ -62,21 +62,19 @@ function ReminderChecker() {
 function Layout() {
   return (
     <ThemeProvider>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <DevModeProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner position="top-center" />
-                <AdsenseLoader />
-                <ReminderChecker />
-                <Outlet />
-              </TooltipProvider>
-            </DevModeProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <DevModeProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner position="top-center" />
+              <AdsenseLoader />
+              <ReminderChecker />
+              <Outlet />
+            </TooltipProvider>
+          </DevModeProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }
@@ -161,7 +159,15 @@ export const routes: RouteRecord[] = [
         ) 
       },
       { path: "/pricing", element: <Pricing /> },
-      { path: "/learn", element: <Learn /> },
+      { 
+        path: "/learn", 
+        element: <Learn />,
+        loader: async () => {
+          // Populate module-level SSR cache so Learn renders with data during SSG
+          await prefetchLearnArticles();
+          return null;
+        },
+      },
       { path: "/learn/stay-consistent-with-goals", element: <StayConsistent /> },
       { path: "/learn/execute-plans-without-burnout", element: <ExecuteWithoutBurnout /> },
       { path: "/learn/why-people-fail-at-execution", element: <WhyPeopleFail /> },
@@ -169,18 +175,21 @@ export const routes: RouteRecord[] = [
         path: "/learn/:slug", 
         element: <ArticlePage />,
         getStaticPaths: async () => {
+          // Always include the /learn hub itself
+          const basePaths = ['/learn'];
           try {
-            // Import dynamically so it's not trying to execute during client load if not needed
-            // But getStaticPaths only runs in node anyway.
             const { supabase } = await import('@/integrations/supabase/client');
             const { data } = await supabase
               .from('articles')
               .select('slug')
               .eq('status', 'published');
-            return data ? data.filter(a => a.slug).map(a => `/learn/${a.slug}`) : [];
+            const slugPaths = data
+              ? data.filter(a => a.slug).map(a => `/learn/${a.slug}`)
+              : [];
+            return [...basePaths, ...slugPaths];
           } catch (error) {
-            console.error("Failed to fetch article paths for SSG:", error);
-            return [];
+            console.error('Failed to fetch article paths for SSG:', error);
+            return basePaths;
           }
         }
       },
