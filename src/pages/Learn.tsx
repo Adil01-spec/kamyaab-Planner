@@ -1,18 +1,24 @@
 /**
  * Learn / Blog Index
  * Lists all published articles from database + static articles for SEO.
+ *
+ * SSG strategy:
+ *  - A module-level cache (`_ssrArticles`) is populated during the SSG build
+ *    by the sibling `prefetchLearnArticles()` export, which App.tsx calls from
+ *    the /learn route's `loader` before vite-react-ssg renders the page.
+ *  - On the client the same cache is seeded from the first paint so there is
+ *    no loading flicker, then a background re-fetch keeps data fresh.
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Loader2 } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 import { LandingHeader } from '@/components/LandingHeader';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import SEO from '@/components/SEO';
 
-interface Article {
+export interface LearnArticle {
   id: string;
   title: string;
   slug: string;
@@ -26,32 +32,103 @@ const staticArticles = [
   {
     slug: 'stay-consistent-with-goals',
     title: 'How to Stay Consistent With Your Goals',
-    description: 'Why consistency beats motivation, and how structured systems keep you on track when willpower runs out.',
+    description:
+      'Why consistency beats motivation, and how structured systems keep you on track when willpower runs out.',
   },
   {
     slug: 'execute-plans-without-burnout',
     title: 'Best Way to Execute Plans Without Burning Out',
-    description: 'Overplanning kills momentum. Learn how daily execution systems outperform motivation-based approaches.',
+    description:
+      'Overplanning kills momentum. Learn how daily execution systems outperform motivation-based approaches.',
   },
   {
     slug: 'why-people-fail-at-execution',
     title: 'Why Most People Fail at Execution (And How to Fix It)',
-    description: 'The three structural mistakes that doom plans before they start — and what high performers do instead.',
+    description:
+      'The three structural mistakes that doom plans before they start — and what high performers do instead.',
   },
 ];
 
+// ---------- module-level SSG cache ----------
+// Populated by App.tsx loader before the component renders during SSG.
+// On the browser it is initialised empty and filled by useEffect.
+export let _ssrArticles: LearnArticle[] | null = null;
+
+export function setSSRArticles(articles: LearnArticle[]) {
+  _ssrArticles = articles;
+}
+
+/** Called by App.tsx route loader so SSG has data before render. */
+export async function prefetchLearnArticles(): Promise<LearnArticle[]> {
+  if (_ssrArticles !== null) return _ssrArticles;
+  const { data } = await supabase
+    .from('articles')
+    .select('id, title, slug, description, cover_image, created_at')
+    .eq('status', 'published')
+    .order('created_at', { ascending: false });
+  _ssrArticles = (data as LearnArticle[]) ?? [];
+  return _ssrArticles;
+}
+// -------------------------------------------
+
+function ArticleCard({ href, title, description, date, coverImage }: {
+  href: string;
+  title: string;
+  description: string | null;
+  date?: string;
+  coverImage?: string | null;
+}) {
+  return (
+    <a
+      href={href}
+      className="group block rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-6 md:p-8 hover:border-primary/30 hover:bg-primary/5 transition-all"
+    >
+      <div className="flex items-start justify-between gap-4">
+        {coverImage && (
+          <img
+            src={coverImage}
+            alt={title}
+            className="w-20 h-20 rounded-lg object-cover shrink-0 hidden sm:block"
+          />
+        )}
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors mb-2">
+            {title}
+          </h2>
+          {description && (
+            <p className="text-muted-foreground text-sm leading-relaxed mb-3">{description}</p>
+          )}
+          {date && (
+            <span className="text-xs text-muted-foreground/60">
+              {new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          )}
+        </div>
+        <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
+      </div>
+    </a>
+  );
+}
+
 export default function Learn() {
-  const [dbArticles, setDbArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Seed state from the SSG cache if available (populated by route loader).
+  const [dbArticles, setDbArticles] = useState<LearnArticle[]>(_ssrArticles ?? []);
+  // Only show loading skeleton when we have no data at all.
+  const [loading, setLoading] = useState(_ssrArticles === null);
 
   useEffect(() => {
+    // Re-fetch to keep client data fresh regardless of SSR cache.
     supabase
       .from('articles')
       .select('id, title, slug, description, cover_image, created_at')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
-        setDbArticles((data as Article[]) || []);
+        setDbArticles((data as LearnArticle[]) ?? []);
         setLoading(false);
       });
   }, []);
@@ -59,8 +136,10 @@ export default function Learn() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
-        title="Learn to Execute Better | Kamyaab"
-        description="Learn how to execute better, stay consistent, and actually finish what you start. Practical guides on structured execution."
+        title="Productivity & Execution Intelligence Library | KAMYAAB AI"
+        description="Master the science of finishing what you start. Explore our deep-dive guides on ADHD productivity, solopreneur systems, and execution intelligence."
+        canonical="/learn"
+        keywords="KAMYAAB AI, Execution Intelligence, ADHD productivity, solopreneur systems, structured execution, deep work, productivity guides"
       />
       <LandingHeader />
 
@@ -76,60 +155,43 @@ export default function Learn() {
                 Learn to Execute Better
               </h1>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Learn how to execute better, stay consistent, and actually finish what you start. Practical guides on structured execution.
+                Learn how to execute better, stay consistent, and actually finish what you start.
+                Practical guides on structured execution.
               </p>
             </div>
 
             {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              // Skeleton cards — only shown when there is genuinely no data
+              <div className="grid gap-6">
+                {[1, 2, 3].map((n) => (
+                  <div
+                    key={n}
+                    className="rounded-xl border border-border/50 bg-card/60 p-6 md:p-8 animate-pulse h-28"
+                  />
+                ))}
+              </div>
             ) : (
               <div className="grid gap-6">
-                {/* Dynamic articles from DB */}
+                {/* Dynamic articles from DB — native <a> for Googlebot */}
                 {dbArticles.map((article) => (
-                  <Link
+                  <ArticleCard
                     key={article.id}
-                    to={`/learn/${article.slug}`}
-                    className="group block rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-6 md:p-8 hover:border-primary/30 hover:bg-primary/5 transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      {article.cover_image && (
-                        <img src={article.cover_image} alt={article.title} className="w-20 h-20 rounded-lg object-cover shrink-0 hidden sm:block" />
-                      )}
-                      <div className="flex-1">
-                        <h2 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors mb-2">
-                          {article.title}
-                        </h2>
-                        <p className="text-muted-foreground text-sm leading-relaxed mb-3">
-                          {article.description}
-                        </p>
-                        <span className="text-xs text-muted-foreground/60">
-                          {new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
-                    </div>
-                  </Link>
+                    href={`/learn/${article.slug}`}
+                    title={article.title}
+                    description={article.description}
+                    date={article.created_at}
+                    coverImage={article.cover_image}
+                  />
                 ))}
 
-                {/* Static articles */}
+                {/* Static articles — native <a> for Googlebot */}
                 {staticArticles.map((article) => (
-                  <Link
+                  <ArticleCard
                     key={article.slug}
-                    to={`/learn/${article.slug}`}
-                    className="group block rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-6 md:p-8 hover:border-primary/30 hover:bg-primary/5 transition-all"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h2 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors mb-2">
-                          {article.title}
-                        </h2>
-                        <p className="text-muted-foreground text-sm leading-relaxed">
-                          {article.description}
-                        </p>
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
-                    </div>
-                  </Link>
+                    href={`/learn/${article.slug}`}
+                    title={article.title}
+                    description={article.description}
+                  />
                 ))}
               </div>
             )}
@@ -139,9 +201,9 @@ export default function Learn() {
                 Ready to put these principles into practice?
               </p>
               <Button asChild size="lg">
-                <Link to="/auth?mode=signup">
-                  Start Free with KAMYAAB <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
+                <a href="/auth?mode=signup">
+                  Start Free with KAMYAAB AI <ArrowRight className="w-4 h-4 ml-1" />
+                </a>
               </Button>
             </div>
           </div>
