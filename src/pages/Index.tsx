@@ -84,7 +84,11 @@ const LandingContent = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col" style={{ overflowX: 'clip' }}>
-      <SEO canonical="/" />
+      <SEO 
+        title="KAMYAAB AI | The Execution Intelligence System for Builders"
+        description="Stop over-planning and start executing. KAMYAAB AI generates structured multi-week plans, tracks execution with deep-work timers, and syncs with your Google & Apple calendars."
+        canonical="/"
+      />
       <LandingHeader />
 
       <main>
@@ -126,7 +130,7 @@ const LandingContent = () => {
                 transition={{ duration: 0.5, delay: 0.35 }}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-xl mx-auto"
               >
-                Kamyaab turns your goals into structured weekly plans and tracks your execution — so you actually finish what you start.
+                KAMYAAB AI turns your goals into structured weekly plans and tracks your execution — so you actually finish what you start.
               </motion.p>
 
               <motion.div
@@ -321,16 +325,20 @@ const LandingContent = () => {
 const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+  const isSSR = import.meta.env.SSR;
 
   useEffect(() => {
-    if (!loading) {
+    // Only redirect if we ARE NOT in SSR
+    if (!loading && !isSSR) {
       if (!user) return;
       if (!profile) navigate('/onboarding', { replace: true });
       else navigate('/today', { replace: true });
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading, navigate, isSSR]);
 
-  if (loading) {
+  // CRITICAL FIX: During SSG build (SSR), we MUST skip the loading state
+  // to ensure the static index.html captures the landing page content.
+  if (loading && !isSSR) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gradient-subtle">
         <img src={kaamyabLogo} alt="KAMYAAB" className="w-16 h-16 rounded-2xl object-contain mb-4 animate-pulse" />
@@ -340,7 +348,10 @@ const Index = () => {
     );
   }
 
-  if (user) return null;
+  // If we have a user and we're on the client, the useEffect will handle redirection.
+  // During SSR, we render null if there's a user (unlikely to have user in SSR context usually)
+  // but for safety during build we want to render the Landing page for bots.
+  if (user && !isSSR) return null;
 
   return <LandingContent />;
 };

@@ -48,7 +48,7 @@ export function Footer({ className }: FooterProps) {
                   className="w-10 h-10 rounded-lg object-contain transition-transform group-hover:scale-105"
                 />
                 <span className="text-sm font-bold tracking-[0.2em] uppercase text-white">
-                  KAMYAAB
+                  KAMYAAB AI
                 </span>
               </Link>
               <p className="text-xs tracking-wide text-[#6B6B6B] leading-relaxed">
@@ -127,7 +127,7 @@ export function Footer({ className }: FooterProps) {
         <div className="border-t border-[#1A1A1A]">
           <div className="container max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-xs text-[#4A4A4A]">
-              © 2026 KAMYAAB. All rights reserved.
+              © 2026 KAMYAAB AI. All rights reserved.
             </p>
             <p className="text-xs text-[#3A3A3A] italic">
               Built for consistency, not inspiration.

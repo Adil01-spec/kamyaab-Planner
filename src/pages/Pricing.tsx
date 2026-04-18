@@ -18,6 +18,8 @@ import { ManualPaymentModal } from '@/components/payments/ManualPaymentModal';
 import { PendingPaymentBanner } from '@/components/payments/PendingPaymentBanner';
 import { type ProductTier } from '@/lib/subscriptionTiers';
 
+import SEO from '@/components/SEO';
+
 export default function Pricing() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -39,6 +41,11 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen relative flex flex-col">
+      <SEO 
+        title="Pricing & Plans | KAMYAAB AI" 
+        description="Choose the right execution system for your goals. Free and Pro plans available for solopreneurs and high performers."
+        canonical="/pricing"
+      />
       <DynamicBackground enabled />
       
       <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8 flex-1">

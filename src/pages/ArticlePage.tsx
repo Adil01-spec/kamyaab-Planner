@@ -20,12 +20,36 @@ interface Article {
   secondary_keywords?: string[] | null;
 }
 
+// ---------- module-level SSG cache ----------
+// Maps slug -> Article object.
+export let _ssrArticleCache: Record<string, Article> = {};
+
+export async function prefetchArticle(slug: string): Promise<Article | null> {
+  if (_ssrArticleCache[slug]) return _ssrArticleCache[slug];
+  
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .eq('slug', slug)
+    .eq('status', 'published')
+    .single();
+
+  if (data && !error) {
+    _ssrArticleCache[slug] = data as Article;
+    return _ssrArticleCache[slug];
+  }
+  return null;
+}
+// -------------------------------------------
+
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Seed state from SSG cache if available (populated by route loader).
+  const [article, setArticle] = useState<Article | null>(slug ? (_ssrArticleCache[slug] || null) : null);
+  const [loading, setLoading] = useState(article === null);
   const [notFound, setNotFound] = useState(false);
 
   const handleArticleBodyClick = useCallback(
@@ -58,6 +82,8 @@ export default function ArticlePage() {
 
   useEffect(() => {
     if (!slug) return;
+    
+    // Background re-fetch to keep data fresh and handle transitions
     supabase
       .from('articles')
       .select('*')
@@ -65,8 +91,12 @@ export default function ArticlePage() {
       .eq('status', 'published')
       .single()
       .then(({ data, error }) => {
-        if (error || !data) setNotFound(true);
-        else setArticle(data as Article);
+        if (error || !data) {
+          if (!article) setNotFound(true);
+        } else {
+          setArticle(data as Article);
+          setNotFound(false);
+        }
         setLoading(false);
       });
   }, [slug]);
@@ -97,16 +127,17 @@ export default function ArticlePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEO
-        title={article.meta_title || `${article.title} | Kamyaab`}
+        title={article.meta_title || `${article.title} | KAMYAAB AI`}
         description={article.meta_description || article.description || ''}
         ogImage={article.cover_image || undefined}
+        keywords={article.secondary_keywords?.join(', ') || ''}
       />
       <LandingHeader />
       <main className="flex-1">
         <article className="max-w-3xl mx-auto px-4 py-12">
-          <Link to="/learn" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+          <a href="/learn" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
             <ArrowLeft className="w-4 h-4" /> Back to Learn
-          </Link>
+          </a>
 
           {article.cover_image && (
             <img

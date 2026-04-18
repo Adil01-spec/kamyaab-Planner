@@ -1,4 +1,9 @@
-import { Helmet } from 'react-helmet-async';
+/**
+ * SEO component — uses <Head> from vite-react-ssg which is wired into the
+ * SSG build's helmetContext so tags are flushed into the static <head>.
+ * Falls back to the same react-helmet-async API on the client.
+ */
+import { Head } from 'vite-react-ssg';
 
 interface SEOProps {
   title?: string;
@@ -21,7 +26,7 @@ const SEO = ({
   const fullCanonical = canonical ? `${siteUrl}${canonical}` : undefined;
 
   return (
-    <Helmet>
+    <Head>
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
@@ -75,7 +80,7 @@ const SEO = ({
           sameAs: [],
         })}
       </script>
-    </Helmet>
+    </Head>
   );
 };
 

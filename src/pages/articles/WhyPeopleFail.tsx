@@ -3,24 +3,29 @@
  * SEO content page — 1000+ words
  */
 
-import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LandingHeader } from '@/components/LandingHeader';
 import { Footer } from '@/components/Footer';
+import SEO from '@/components/SEO';
 
 export default function WhyPeopleFail() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO 
+        title="Why Most People Fail at Execution | KAMYAAB AI"
+        description="The three structural mistakes that doom plans before they start. Discover the framework for consistent completion and execution intelligence."
+        canonical="/learn/why-people-fail-at-execution"
+      />
       <LandingHeader />
 
       <main className="flex-1">
         <article className="py-12 md:py-20">
           <div className="container max-w-3xl mx-auto px-4">
-            <Link to="/learn" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
+            <a href="/learn" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
               <ArrowLeft className="w-4 h-4" />
               Back to Learn
-            </Link>
+            </a>
 
             <header className="mb-10">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
@@ -150,7 +155,7 @@ export default function WhyPeopleFail() {
               </p>
 
               <p className="text-foreground/80 leading-relaxed text-base">
-                <Link to="/" className="text-primary hover:underline font-medium">KAMYAAB</Link> was built around this exact architecture. You describe your objective, AI generates a structured multi-week plan with properly decomposed tasks, a 4-state timer tracks execution speed, and behavioral memory adjusts future plans based on your actual patterns. It's the execution architecture described above, automated.
+                <a href="/" className="text-primary hover:underline font-medium">KAMYAAB AI</a> was built around this exact architecture. You describe your objective, AI generates a structured multi-week plan with properly decomposed tasks, a 4-state timer tracks execution speed, and behavioral memory adjusts future plans based on your actual patterns. It's the execution architecture described above, automated.
               </p>
 
               <p className="text-foreground/80 leading-relaxed text-base">
@@ -159,17 +164,17 @@ export default function WhyPeopleFail() {
             </div>
 
             {/* CTA */}
-            <div className="mt-14 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
-              <p className="text-foreground font-medium mb-2">Fix your execution system today.</p>
-              <p className="text-muted-foreground text-sm mb-4">
-                KAMYAAB builds structured plans with built-in feedback loops — free.
-              </p>
-              <Button asChild>
-                <Link to="/auth?mode=signup">
-                  Start Free <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
+              <div className="mt-14 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                <p className="text-foreground font-medium mb-2">Fix your execution system today.</p>
+                <p className="text-muted-foreground text-sm mb-4">
+                  KAMYAAB AI builds structured plans with built-in feedback loops — free.
+                </p>
+                <Button asChild>
+                  <a href="/auth?mode=signup">
+                    Start Free <ArrowRight className="w-4 h-4 ml-1" />
+                  </a>
+                </Button>
+              </div>
           </div>
         </article>
       </main>
