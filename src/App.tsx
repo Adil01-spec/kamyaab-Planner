@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,43 +9,45 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { DevModeProvider } from "@/contexts/DevModeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AuthRoute from "@/components/AuthRoute";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import VerifyEmail from "./pages/VerifyEmail";
-import ResetPassword from "./pages/ResetPassword";
-import Onboarding from "./pages/Onboarding";
-import Home from "./pages/Home";
-import Today from "./pages/Today";
-import PlanNew from "./pages/PlanNew";
-import Plan from "./pages/Plan";
-import PlanReset from "./pages/PlanReset";
-import SharedReview from "./pages/SharedReview";
-import AdvisorView from "./pages/AdvisorView";
-import Review from "./pages/Review";
-import InviteAccept from "./pages/InviteAccept";
-import SoftCollabReview from "./pages/SoftCollabReview";
-import Pricing from "./pages/Pricing";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import RefundPolicy from "./pages/RefundPolicy";
-import ServicePolicy from "./pages/ServicePolicy";
-import Contact from "./pages/Contact";
-import Ownership from "./pages/Ownership";
-import Help from "./pages/Help";
-import Profile from "./pages/Profile";
-import CalendarPage from "./pages/Calendar";
-import AdminPayments from "./pages/AdminPayments";
-import AdminDashboard from "./pages/AdminDashboard";
-import Learn, { prefetchLearnArticles } from "./pages/Learn";
-import ArticlePage, { prefetchArticle } from "./pages/ArticlePage";
-import AdminCreateArticle from "./pages/AdminCreateArticle";
-import AdminArticles from "./pages/AdminArticles";
-import StayConsistent from "./pages/articles/StayConsistent";
-import ExecuteWithoutBurnout from "./pages/articles/ExecuteWithoutBurnout";
-import WhyPeopleFail from "./pages/articles/WhyPeopleFail";
-import Templates from "./pages/Templates";
-import TemplatePage from "./pages/TemplatePage";
-import NotFound from "./pages/NotFound";
+const Index = lazy(() => import('./pages/Index'));
+const Auth = lazy(() => import('./pages/Auth'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Home = lazy(() => import('./pages/Home'));
+const Today = lazy(() => import('./pages/Today'));
+const PlanNew = lazy(() => import('./pages/PlanNew'));
+const Plan = lazy(() => import('./pages/Plan'));
+const PlanReset = lazy(() => import('./pages/PlanReset'));
+const SharedReview = lazy(() => import('./pages/SharedReview'));
+const AdvisorView = lazy(() => import('./pages/AdvisorView'));
+const Review = lazy(() => import('./pages/Review'));
+const InviteAccept = lazy(() => import('./pages/InviteAccept'));
+const SoftCollabReview = lazy(() => import('./pages/SoftCollabReview'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
+const ServicePolicy = lazy(() => import('./pages/ServicePolicy'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Ownership = lazy(() => import('./pages/Ownership'));
+const Help = lazy(() => import('./pages/Help'));
+const Profile = lazy(() => import('./pages/Profile'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
+const AdminPayments = lazy(() => import('./pages/AdminPayments'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const Learn = lazy(() => import('./pages/Learn'));
+import { prefetchLearnArticles } from './pages/Learn';
+const ArticlePage = lazy(() => import('./pages/ArticlePage'));
+import { prefetchArticle } from './pages/ArticlePage';
+const AdminCreateArticle = lazy(() => import('./pages/AdminCreateArticle'));
+const AdminArticles = lazy(() => import('./pages/AdminArticles'));
+const StayConsistent = lazy(() => import('./pages/articles/StayConsistent'));
+const ExecuteWithoutBurnout = lazy(() => import('./pages/articles/ExecuteWithoutBurnout'));
+const WhyPeopleFail = lazy(() => import('./pages/articles/WhyPeopleFail'));
+const Templates = lazy(() => import('./pages/Templates'));
+const TemplatePage = lazy(() => import('./pages/TemplatePage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 import { useReminderCheck } from "@/hooks/useReminderCheck";
 import { AdsenseLoader } from "@/components/AdsenseLoader";
 
@@ -71,7 +74,7 @@ function Layout() {
                 <Sonner position="top-center" />
                 <AdsenseLoader />
                 <ReminderChecker />
-                <Outlet />
+                <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}><Outlet /></Suspense>
               </TooltipProvider>
             </DevModeProvider>
           </AuthProvider>
@@ -252,3 +255,5 @@ export const routes: RouteRecord[] = [
     ]
   }
 ];
+
+

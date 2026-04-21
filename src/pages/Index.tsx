@@ -37,7 +37,19 @@ const RevealSection = ({ children, className = '', delay = 0 }: { children: Reac
 };
 
 /* ─── Floating app screenshot with perspective tilt ─── */
-const AppScreenshot = ({ src, alt, className = '' }: { src: string; alt: string; className?: string }) => {
+const AppScreenshot = ({ 
+  src, 
+  alt, 
+  className = '',
+  fetchPriority,
+  loading = 'lazy'
+}: { 
+  src: string; 
+  alt: string; 
+  className?: string;
+  fetchPriority?: 'high' | 'low' | 'auto';
+  loading?: 'lazy' | 'eager';
+}) => {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -65,7 +77,15 @@ const AppScreenshot = ({ src, alt, className = '' }: { src: string; alt: string;
           transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1)`,
         }}
       >
-        <img src={src} alt={alt} className="w-full h-auto" loading="lazy" />
+        <img 
+          src={src} 
+          alt={alt} 
+          className="w-full h-auto" 
+          width="800" 
+          height="450" 
+          loading={loading}
+          {...(fetchPriority ? { fetchPriority } : {})}
+        />
       </div>
       <div className="absolute -inset-4 -z-10 bg-primary/5 rounded-3xl blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
     </div>
@@ -170,6 +190,8 @@ const LandingContent = () => {
               <AppScreenshot
                 src={todayView}
                 alt="KAMYAAB daily focus view showing today's tasks, progress ring, and weekly milestone tracking"
+                fetchPriority="high"
+                loading="eager"
               />
             </motion.div>
           </motion.div>
