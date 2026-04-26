@@ -131,6 +131,7 @@ export default function ArticlePage() {
         description={article.meta_description || article.description || ''}
         ogImage={article.cover_image || undefined}
         keywords={article.secondary_keywords?.join(', ') || ''}
+        canonical={`/learn/${article.slug}`}
       />
       <LandingHeader />
       <main className="flex-1">
