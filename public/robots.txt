@@ -13,4 +13,6 @@ Allow: /
 User-agent: *
 Allow: /
 
+Disallow: /learn/*-draft
+
 Sitemap: https://kamyaab-ai.com/sitemap.xml
