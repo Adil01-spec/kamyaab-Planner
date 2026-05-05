@@ -24,9 +24,9 @@ export default defineConfig(({ mode }) => ({
      *   /learn/x → dist/learn/x/index.html
      */
     dirStyle: 'nested',
-    includedRoutes(paths) {
+    includedRoutes(paths: string[]) {
       // Always include the landing page, the /learn hub, and every article
-      return paths.filter(p => p === '/' || p === '/learn' || p.startsWith('/learn/'));
+      return paths.filter((p: string) => p === '/' || p === '/learn' || p.startsWith('/learn/'));
     },
   }
 }));
