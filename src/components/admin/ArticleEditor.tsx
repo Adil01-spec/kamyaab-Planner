@@ -82,7 +82,7 @@ export function ArticleEditor({ content, onChange, onPreview }: ArticleEditorPro
     if (!editor) return;
     const next = content || '<p></p>';
     if (next === editor.getHTML()) return;
-    editor.commands.setContent(next, false);
+    editor.commands.setContent(next, { emitUpdate: false });
   }, [editor, content]);
 
   const addLink = useCallback(() => {
